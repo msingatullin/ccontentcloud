@@ -67,18 +67,12 @@ export default {
 				},
 				'chat-bg': 'hsl(var(--chat-background))',
 				'preview-bg': 'hsl(var(--preview-background))',
+				'hero-input': 'hsl(var(--hero-input))',
+				'hero-input-border': 'hsl(var(--hero-input-border))',
 			},
 			backgroundImage: {
-				'gradient-primary': 'var(--gradient-primary)',
-				'gradient-secondary': 'var(--gradient-secondary)',
-				'gradient-accent': 'var(--gradient-accent)',
-			},
-			boxShadow: {
-				'glow': 'var(--shadow-glow)',
-				'card': 'var(--shadow-card)',
-			},
-			transitionTimingFunction: {
-				'smooth': 'cubic-bezier(0.4, 0, 0.2, 1)',
+				'gradient-hero': 'var(--gradient-hero)',
+				'gradient-overlay': 'var(--gradient-overlay)',
 			},
 			borderRadius: {
 				lg: 'var(--radius)',

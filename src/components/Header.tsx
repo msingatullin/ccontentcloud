@@ -6,48 +6,59 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { Settings, User, LogOut, Zap } from "lucide-react";
+import { Settings, User, LogOut, Heart } from "lucide-react";
 
 export const Header = () => {
   return (
-    <header className="h-14 border-b border-border bg-background/80 backdrop-blur-sm sticky top-0 z-50">
-      <div className="h-full px-6 flex items-center justify-between">
+    <header className="h-16 bg-background/95 backdrop-blur-sm sticky top-0 z-50 border-b border-border">
+      <div className="h-full px-6 flex items-center justify-between max-w-7xl mx-auto">
         {/* Logo */}
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center shadow-glow">
-            <Zap className="w-5 h-5 text-primary-foreground" />
+          <div className="flex items-center gap-2">
+            <Heart className="w-6 h-6 text-primary fill-current" />
+            <span className="font-semibold text-xl text-foreground">Lovable</span>
           </div>
-          <h1 className="font-semibold text-lg bg-gradient-primary bg-clip-text text-transparent">
-            Lovable Clone
-          </h1>
         </div>
 
         {/* Center Navigation */}
-        <nav className="hidden md:flex items-center gap-1">
-          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-            Projects
+        <nav className="hidden md:flex items-center gap-8">
+          <Button variant="ghost" className="text-muted-foreground hover:text-foreground font-medium">
+            Community
           </Button>
-          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-            Templates
+          <Button variant="ghost" className="text-muted-foreground hover:text-foreground font-medium">
+            Pricing
           </Button>
-          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-            Docs
+          <Button variant="ghost" className="text-muted-foreground hover:text-foreground font-medium">
+            Enterprise
+          </Button>
+          <Button variant="ghost" className="text-muted-foreground hover:text-foreground font-medium">
+            Learn
+          </Button>
+          <Button variant="ghost" className="text-muted-foreground hover:text-foreground font-medium">
+            Launched
           </Button>
         </nav>
 
         {/* User Menu */}
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" className="hidden sm:flex">
-            Share
-          </Button>
+          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+            <div className="w-4 h-4 bg-gray-300 rounded border"></div>
+            <span>Public</span>
+          </div>
+          
+          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+            <div className="w-4 h-4 bg-green-500 rounded flex items-center justify-center">
+              <span className="text-xs text-white">S</span>
+            </div>
+            <span>Supabase</span>
+          </div>
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src="/placeholder.svg" alt="User" />
-                  <AvatarFallback className="bg-gradient-primary text-primary-foreground text-sm">
-                    U
+                  <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                    M
                   </AvatarFallback>
                 </Avatar>
               </Button>
