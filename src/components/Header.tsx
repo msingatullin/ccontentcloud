@@ -39,45 +39,14 @@ export const Header = () => {
           </Button>
         </nav>
 
-        {/* User Menu */}
+        {/* Auth Buttons */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-            <div className="w-4 h-4 bg-gray-300 rounded border"></div>
-            <span>Public</span>
-          </div>
-          
-          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-            <div className="w-4 h-4 bg-green-500 rounded flex items-center justify-center">
-              <span className="text-xs text-white">S</span>
-            </div>
-            <span>Supabase</span>
-          </div>
-          
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                    M
-                  </AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end" forceMount>
-              <DropdownMenuItem className="flex cursor-pointer">
-                <User className="mr-2 h-4 w-4" />
-                Profile
-              </DropdownMenuItem>
-              <DropdownMenuItem className="flex cursor-pointer">
-                <Settings className="mr-2 h-4 w-4" />
-                Settings
-              </DropdownMenuItem>
-              <DropdownMenuItem className="flex cursor-pointer text-destructive">
-                <LogOut className="mr-2 h-4 w-4" />
-                Log out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button variant="ghost" className="text-foreground hover:text-foreground/80 font-medium">
+            Log in
+          </Button>
+          <Button className="bg-foreground text-background hover:bg-foreground/90 font-medium px-4">
+            Get started
+          </Button>
         </div>
       </div>
     </header>

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Heart, Plus, Database, ArrowUp } from "lucide-react";
+import { Heart, Plus, ArrowUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export const HeroSection = () => {
@@ -45,12 +45,12 @@ export const HeroSection = () => {
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Ask Lovable to create a landing page for my..."
-              className="bg-transparent border-0 text-lg placeholder:text-muted-foreground focus-visible:ring-0 pr-16"
+              placeholder="Ask Lovable to create an internal"
+              className="bg-transparent border-0 text-lg placeholder:text-muted-foreground focus-visible:ring-0 pr-80"
             />
             
             {/* Input Actions */}
-            <div className="absolute right-4 top-4 flex items-center gap-2">
+            <div className="absolute right-4 top-4 flex items-center gap-3">
               <Button
                 size="sm"
                 variant="ghost"
@@ -59,17 +59,32 @@ export const HeroSection = () => {
                 <Plus className="w-4 h-4" />
               </Button>
               
-              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                <div className="w-4 h-4 bg-gray-300 rounded border"></div>
-                <span className="text-xs">Public</span>
-              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 px-3 text-muted-foreground hover:text-foreground flex items-center gap-1"
+              >
+                <span className="text-sm">📎</span>
+                <span className="text-sm">Attach</span>
+              </Button>
               
-              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                <div className="w-4 h-4 bg-green-500 rounded flex items-center justify-center">
-                  <Database className="w-2 h-2 text-white" />
-                </div>
-                <span className="text-xs">Supabase</span>
-              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 px-3 text-muted-foreground hover:text-foreground flex items-center gap-1"
+              >
+                <span className="text-sm">🌐</span>
+                <span className="text-sm">Public</span>
+              </Button>
+              
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 px-3 text-muted-foreground hover:text-foreground flex items-center gap-1"
+              >
+                <span className="text-sm">💚</span>
+                <span className="text-sm">Supabase</span>
+              </Button>
               
               <Button
                 onClick={handleSubmit}
