@@ -127,6 +127,10 @@ class ContentOrchestrator:
                         logger.warning(f"Не удалось назначить задачу {task.id}")
                         task.status = TaskStatus.FAILED
                         task.error_message = "No available agent"
+                elif task.status == TaskStatus.ASSIGNED:
+                    # Задача уже назначена, выполняем её
+                    result = await self.agent_manager.execute_task(task.id)
+                    results[task.id] = result
             
             # Проверяем статус workflow
             completed_tasks = sum(1 for t in workflow.tasks if t.status == TaskStatus.COMPLETED)
