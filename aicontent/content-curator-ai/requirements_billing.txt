@@ -1,0 +1,43 @@
+# Billing System Dependencies
+# Основные зависимости для системы платежей
+
+# ЮКасса SDK
+yookassa>=3.0.0
+
+# База данных
+SQLAlchemy>=2.0.0
+alembic>=1.11.0
+
+# Дополнительные утилиты
+python-dateutil>=2.8.0
+pytz>=2023.3
+
+# Для работы с JSON и валидацией
+pydantic>=2.0.0
+marshmallow>=3.20.0
+
+# Для логирования и мониторинга
+structlog>=23.2.0
+
+# Для работы с криптографией (HMAC для webhooks)
+cryptography>=41.0.0
+
+# Для работы с HTTP запросами
+requests>=2.31.0
+aiohttp>=3.8.0
+
+# Для работы с датами
+date-fns>=2.29.3
+
+# Для работы с конфигурацией
+python-dotenv>=1.0.0
+
+# Для тестирования
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-mock>=3.11.0
+
+# Для разработки
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.5.0

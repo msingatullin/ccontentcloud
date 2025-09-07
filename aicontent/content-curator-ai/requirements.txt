@@ -54,3 +54,31 @@ numpy>=1.24.0
 # diffusers>=0.21.0
 # transformers>=4.30.0
 # torch>=2.0.0
+
+# Billing System Dependencies
+# ЮКасса SDK
+yookassa>=3.0.0
+
+# Additional billing utilities
+cryptography>=41.0.0
+marshmallow>=3.20.0
+
+# Authentication System Dependencies
+# JWT токены
+PyJWT>=2.8.0
+
+# Password hashing
+Werkzeug>=2.3.0
+
+# Email sending
+secure-smtplib>=0.1.1
+
+# Additional auth utilities
+python-dotenv>=1.0.0
+
+# Database Dependencies
+# PostgreSQL support
+psycopg2-binary>=2.9.0
+
+# Database migrations
+alembic>=1.12.0

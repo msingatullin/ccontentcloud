@@ -27,6 +27,12 @@ from app.agents.legal_guard_agent import LegalGuardAgent
 from app.agents.repurpose_agent import RepurposeAgent
 from app.agents.community_concierge_agent import CommunityConciergeAgent
 from app.agents.paid_creative_agent import PaidCreativeAgent
+from app.billing.api.billing_routes import billing_bp
+from app.billing.webhooks.yookassa_webhook import webhook_bp
+from app.billing.middleware.usage_middleware import UsageMiddleware
+from app.auth.routes.auth import init_auth_routes
+from app.auth.models.user import User, UserSession
+from app.database.connection import init_database, get_db_session
 from app.api.schemas import (
     ContentRequestSchema, 
     ContentResponseSchema,
@@ -58,8 +64,26 @@ def create_app():
     # CORS для фронтенда
     CORS(app, origins=['http://localhost:3000', 'http://127.0.0.1:3000'])
     
+    # Инициализируем базу данных
+    logger.info("Initializing database...")
+    if not init_database():
+        logger.error("Failed to initialize database")
+        raise RuntimeError("Database initialization failed")
+    
+    # Получаем сессию базы данных
+    db_session = get_db_session()
+    
+    # Инициализируем auth систему
+    auth_bp, jwt_middleware = init_auth_routes(db_session, app.config['SECRET_KEY'])
+
     # Регистрируем API blueprint
     app.register_blueprint(api_bp, url_prefix='/api/v1')
+    app.register_blueprint(billing_bp)
+    app.register_blueprint(webhook_bp)
+    app.register_blueprint(auth_bp)
+
+    # Инициализируем billing middleware
+    billing_middleware = UsageMiddleware(app)
     
     # Глобальные обработчики ошибок
     @app.errorhandler(400)
