@@ -127,7 +127,7 @@ class ContentOrchestrator:
                         logger.warning(f"Не удалось назначить задачу {task.id}")
                         task.status = TaskStatus.FAILED
                         task.error_message = "No available agent"
-                elif task.status == TaskStatus.ASSIGNED:
+                elif task.status == TaskStatus.IN_PROGRESS:
                     # Задача уже назначена, выполняем её
                     result = await self.agent_manager.execute_task(task.id)
                     results[task.id] = result
@@ -234,6 +234,8 @@ class ContentOrchestrator:
                     if factcheck_agent.assign_task(factcheck_task.id):
                         self.agent_manager.task_assignments[factcheck_task.id] = "research_factcheck_agent"
                         self.workflow_engine.assign_task(factcheck_task.id, "research_factcheck_agent")
+                        # Устанавливаем статус IN_PROGRESS для выполнения
+                        factcheck_task.status = TaskStatus.IN_PROGRESS
                         # Добавляем задачу в workflow для выполнения
                         workflow = self.workflow_engine.workflows[workflow_id]
                         workflow.tasks.append(factcheck_task)
