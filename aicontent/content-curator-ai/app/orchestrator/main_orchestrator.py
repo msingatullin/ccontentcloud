@@ -208,7 +208,7 @@ class ContentOrchestrator:
             constraints = request.get("constraints", {})
             if constraints.get("fact_checking", False):
                 # Добавляем задачу фактчекинга
-                self.workflow_engine.add_task(
+                factcheck_task = self.workflow_engine.add_task(
                     workflow_id=workflow_id,
                     task_name="Fact Check Content",
                     task_type=TaskType.PLANNED,
@@ -223,6 +223,18 @@ class ContentOrchestrator:
                     }
                 )
                 logger.info(f"Добавлена задача фактчекинга в workflow {workflow_id}")
+                
+                # Принудительно назначаем задачу ResearchFactCheckAgent
+                if "research_factcheck_agent" in self.agent_manager.agents:
+                    factcheck_agent = self.agent_manager.agents["research_factcheck_agent"]
+                    if factcheck_agent.assign_task(factcheck_task.id):
+                        self.agent_manager.task_assignments[factcheck_task.id] = "research_factcheck_agent"
+                        self.workflow_engine.assign_task(factcheck_task.id, "research_factcheck_agent")
+                        logger.info(f"Задача фактчекинга {factcheck_task.id} назначена ResearchFactCheckAgent")
+                    else:
+                        logger.warning("ResearchFactCheckAgent недоступен для фактчекинга")
+                else:
+                    logger.warning("ResearchFactCheckAgent не найден в системе")
             
             # Выполняем workflow
             result = await self.execute_workflow(workflow_id)
