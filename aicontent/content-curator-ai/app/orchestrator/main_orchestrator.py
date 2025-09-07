@@ -230,7 +230,10 @@ class ContentOrchestrator:
                     if factcheck_agent.assign_task(factcheck_task.id):
                         self.agent_manager.task_assignments[factcheck_task.id] = "research_factcheck_agent"
                         self.workflow_engine.assign_task(factcheck_task.id, "research_factcheck_agent")
-                        logger.info(f"Задача фактчекинга {factcheck_task.id} назначена ResearchFactCheckAgent")
+                        # Добавляем задачу в workflow для выполнения
+                        workflow = self.workflow_engine.workflows[workflow_id]
+                        workflow.tasks.append(factcheck_task)
+                        logger.info(f"Задача фактчекинга {factcheck_task.id} назначена ResearchFactCheckAgent и добавлена в workflow")
                     else:
                         logger.warning("ResearchFactCheckAgent недоступен для фактчекинга")
                 else:
