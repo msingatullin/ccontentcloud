@@ -9,6 +9,15 @@ RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     curl \
+    libjpeg-dev \
+    libpng-dev \
+    libtiff-dev \
+    libfreetype6-dev \
+    liblcms2-dev \
+    libwebp-dev \
+    libharfbuzz-dev \
+    libfribidi-dev \
+    libxcb1-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Копируем requirements.txt и устанавливаем зависимости
@@ -20,21 +29,22 @@ COPY . .
 
 # Создаем пользователя для безопасности
 RUN useradd --create-home --shell /bin/bash app \
+    && mkdir -p /app/cache/multimedia \
     && chown -R app:app /app
 USER app
 
-# Открываем порт
-EXPOSE 8080
+# Открываем порт (Cloud Run использует PORT env var)
+EXPOSE 5000
 
 # Переменные окружения для продакшена
 ENV FLASK_ENV=production
 ENV FLASK_DEBUG=False
 ENV API_HOST=0.0.0.0
-ENV API_PORT=8080
+ENV API_PORT=5000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
+    CMD curl -f http://localhost:5000/health || exit 1
 
 # Запускаем приложение
 CMD ["python", "app.py"]

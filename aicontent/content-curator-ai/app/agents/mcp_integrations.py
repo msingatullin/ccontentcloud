@@ -13,7 +13,9 @@ from datetime import datetime
 import aiohttp
 import aiofiles
 
-from app.core.logging import logger
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass

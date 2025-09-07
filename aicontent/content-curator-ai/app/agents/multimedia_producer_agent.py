@@ -17,15 +17,19 @@ from PIL import Image, ImageDraw, ImageFont
 import aiohttp
 import aiofiles
 
+import logging
+
 from app.orchestrator.agent_manager import BaseAgent, AgentCapability, AgentStatus
-from app.models.workflow import TaskType, Task
-from app.core.logging import logger
+from app.orchestrator.workflow_engine import TaskType, Task
 from .mcp_integrations import (
     MCPIntegrationManager, 
     ImageGenerationConfig, 
     GenerationResult
 )
 from .multimedia_config import MultimediaAgentConfig, load_config_from_env
+
+# Настройка логирования
+logger = logging.getLogger(__name__)
 
 
 class ImageFormat(Enum):
@@ -247,7 +251,7 @@ class MultimediaProducerAgent(BaseAgent):
             self.status = AgentStatus.BUSY
             self.last_activity = datetime.now()
             
-            task_data = task.data
+            task_data = task.context
             content_type = ContentType(task_data.get("content_type", "image"))
             
             if content_type == ContentType.IMAGE:

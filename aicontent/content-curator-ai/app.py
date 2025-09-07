@@ -24,6 +24,9 @@ from app.agents.research_factcheck_agent import ResearchFactCheckAgent
 from app.agents.trends_scout_agent import TrendsScoutAgent
 from app.agents.multimedia_producer_agent import MultimediaProducerAgent
 from app.agents.legal_guard_agent import LegalGuardAgent
+from app.agents.repurpose_agent import RepurposeAgent
+from app.agents.community_concierge_agent import CommunityConciergeAgent
+from app.agents.paid_creative_agent import PaidCreativeAgent
 from app.api.schemas import (
     ContentRequestSchema, 
     ContentResponseSchema,
@@ -142,6 +145,9 @@ async def initialize_orchestrator():
         trends_scout_agent = TrendsScoutAgent("trends_scout_001")
         multimedia_agent = MultimediaProducerAgent("multimedia_producer_001")
         legal_agent = LegalGuardAgent("legal_guard_001")
+        repurpose_agent = RepurposeAgent("repurpose_001")
+        community_agent = CommunityConciergeAgent("community_concierge_001")
+        paid_creative_agent = PaidCreativeAgent("paid_creative_001")
         
         # Регистрируем агентов
         orchestrator.register_agent(chief_agent)
@@ -151,6 +157,9 @@ async def initialize_orchestrator():
         orchestrator.register_agent(trends_scout_agent)
         orchestrator.register_agent(multimedia_agent)
         orchestrator.register_agent(legal_agent)
+        orchestrator.register_agent(repurpose_agent)
+        orchestrator.register_agent(community_agent)
+        orchestrator.register_agent(paid_creative_agent)
         
         # Запускаем оркестратор
         await orchestrator.start()
