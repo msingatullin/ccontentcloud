@@ -22,6 +22,8 @@ from app.agents.drafting_agent import DraftingAgent
 from app.agents.publisher_agent import PublisherAgent
 from app.agents.research_factcheck_agent import ResearchFactCheckAgent
 from app.agents.trends_scout_agent import TrendsScoutAgent
+from app.agents.multimedia_producer_agent import MultimediaProducerAgent
+from app.agents.legal_guard_agent import LegalGuardAgent
 from app.api.schemas import (
     ContentRequestSchema, 
     ContentResponseSchema,
@@ -138,6 +140,8 @@ async def initialize_orchestrator():
         publisher_agent = PublisherAgent("publisher_001")
         factcheck_agent = ResearchFactCheckAgent("research_factcheck_agent")
         trends_scout_agent = TrendsScoutAgent("trends_scout_001")
+        multimedia_agent = MultimediaProducerAgent("multimedia_producer_001")
+        legal_agent = LegalGuardAgent("legal_guard_001")
         
         # Регистрируем агентов
         orchestrator.register_agent(chief_agent)
@@ -145,6 +149,8 @@ async def initialize_orchestrator():
         orchestrator.register_agent(publisher_agent)
         orchestrator.register_agent(factcheck_agent)
         orchestrator.register_agent(trends_scout_agent)
+        orchestrator.register_agent(multimedia_agent)
+        orchestrator.register_agent(legal_agent)
         
         # Запускаем оркестратор
         await orchestrator.start()

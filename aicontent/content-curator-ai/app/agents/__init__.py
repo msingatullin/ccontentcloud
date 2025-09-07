@@ -8,6 +8,7 @@ from .publisher_agent import PublisherAgent
 from .research_factcheck_agent import ResearchFactCheckAgent
 from .trends_scout_agent import TrendsScoutAgent
 from .multimedia_producer_agent import MultimediaProducerAgent
+from .legal_guard_agent import LegalGuardAgent
 
 __all__ = [
     "ChiefContentAgent",
@@ -15,5 +16,6 @@ __all__ = [
     "PublisherAgent",
     "ResearchFactCheckAgent",
     "TrendsScoutAgent",
-    "MultimediaProducerAgent"
+    "MultimediaProducerAgent",
+    "LegalGuardAgent"
 ]
