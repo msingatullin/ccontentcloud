@@ -6,10 +6,6 @@ yarn-error.log*
 .npm
 .yarn-integrity
 
-# Build output
-build
-dist
-
 # Environment files
 .env
 .env.local
@@ -55,3 +51,9 @@ LANDING_PAGE.md
 # Logs
 logs
 *.log
+
+# Archive files
+*.tar.gz
+
+# Keep build directory for deployment
+!build/

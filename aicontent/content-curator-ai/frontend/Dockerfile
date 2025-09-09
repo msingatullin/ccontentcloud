@@ -1,55 +1,44 @@
-# Frontend Dockerfile for Google Cloud Run
-# AI Content Orchestrator React Application
+# Simple Dockerfile that builds from source
+FROM node:18-alpine
 
-# Build stage
-FROM node:18-alpine AS build
-
-# Set working directory
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production
+RUN npm ci
 
-# Copy source code
-COPY . .
+# Copy source files
+COPY src/ ./src/
+COPY public/ ./public/
 
 # Build the application
 RUN npm run build
 
-# Production stage
-FROM nginx:alpine
+# Install nginx
+RUN apk add --no-cache nginx
 
-# Install curl for health checks
-RUN apk add --no-cache curl
+# Copy built files to nginx directory
+RUN cp -r build/* /var/www/localhost/htdocs/
 
-# Copy built application
-COPY --from=build /app/build /usr/share/nginx/html
-
-# Copy nginx configuration and entrypoint script
+# Copy nginx config
 COPY nginx.conf /etc/nginx/nginx.conf
-COPY entrypoint.sh /entrypoint.sh
 
-# Make entrypoint executable
-RUN chmod +x /entrypoint.sh
-
-# Set permissions for nginx user (already exists in nginx:alpine)
-RUN chown -R nginx:nginx /usr/share/nginx/html && \
-    chown -R nginx:nginx /var/cache/nginx && \
-    chown -R nginx:nginx /var/log/nginx && \
-    chown -R nginx:nginx /etc/nginx/conf.d
+# Set permissions
+RUN adduser -D -S -G www-data www-data && \
+    chown -R www-data:www-data /var/www/localhost/htdocs && \
+    chown -R www-data:www-data /var/cache/nginx && \
+    chown -R www-data:www-data /var/log/nginx && \
+    chown -R www-data:www-data /etc/nginx/conf.d && \
+    touch /var/run/nginx.pid && \
+    chown -R www-data:www-data /var/run/nginx.pid
 
 # Switch to non-root user
-USER nginx
+USER www-data
 
 # Expose port
 EXPOSE 8080
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:${PORT:-8080}/health || exit 1
-
-# Start with entrypoint script
-ENTRYPOINT ["/entrypoint.sh"]
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]
