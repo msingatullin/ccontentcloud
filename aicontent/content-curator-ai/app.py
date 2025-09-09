@@ -62,7 +62,7 @@ def create_app():
     })
     
     # CORS для фронтенда
-    CORS(app, origins=['http://localhost:3000', 'http://127.0.0.1:3000'])
+    CORS(app, origins=['http://localhost:3000', 'http://127.0.0.1:3000', 'https://goinvesting.ai', 'https://content-curator-frontend-dt3n7kzpwq-uc.a.run.app'])
     
     # Инициализируем базу данных
     logger.info("Initializing database...")
@@ -159,6 +159,12 @@ def create_app():
 async def initialize_orchestrator():
     """Инициализирует оркестратор и регистрирует агентов"""
     try:
+        logger.info("Инициализация базы данных...")
+        
+        # Инициализируем базу данных
+        init_database()
+        logger.info("База данных инициализирована")
+        
         logger.info("Инициализация оркестратора...")
         
         # Создаем агентов
@@ -214,7 +220,7 @@ if __name__ == '__main__':
     run_initialization()
     
     # Запускаем Flask приложение
-    port = int(os.getenv('PORT', 5000))
+    port = int(os.environ.get('PORT', 8080))
     debug = os.getenv('DEBUG_MODE', 'False').lower() == 'true'
     
     logger.info(f"Запуск Flask приложения на порту {port}")

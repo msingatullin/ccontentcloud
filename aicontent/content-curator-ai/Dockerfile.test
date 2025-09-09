@@ -1,0 +1,16 @@
+# Простой тестовый Dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Устанавливаем Flask
+RUN pip install flask
+
+# Копируем тестовое приложение
+COPY test_app.py .
+
+# Открываем порт
+EXPOSE 8080
+
+# Запускаем тестовое приложение
+CMD ["python", "test_app.py"]

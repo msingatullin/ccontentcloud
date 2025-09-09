@@ -266,19 +266,19 @@ const navigationItems = [
     description: 'Обзор системы и статистика'
   },
   {
-    path: '/agents',
+    path: '/dashboard/agents',
     label: 'Агенты',
     icon: Bot,
     description: 'Управление AI агентами'
   },
   {
-    path: '/content',
+    path: '/dashboard/content',
     label: 'Контент',
     icon: FileText,
     description: 'Создание и управление контентом'
   },
   {
-    path: '/settings',
+    path: '/dashboard/settings',
     label: 'Настройки',
     icon: Settings,
     description: 'Конфигурация системы'
@@ -358,7 +358,7 @@ export const Navigation = () => {
           </UserInfo>
           
           <UserActions>
-            <UserActionButton onClick={() => navigate('/profile')}>
+            <UserActionButton onClick={() => navigate('/dashboard/profile')}>
               <User size={16} />
               Профиль
             </UserActionButton>

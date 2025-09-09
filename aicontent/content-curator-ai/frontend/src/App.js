@@ -121,7 +121,7 @@ function App() {
         <AuthProvider>
           <Routes>
             {/* Публичные маршруты */}
-            <Route path="/landing" element={<LandingPage />} />
+            <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={
               <PublicRoute>
                 <Login />
@@ -136,7 +136,7 @@ function App() {
             <Route path="/forgot-password" element={<ForgotPassword />} />
             
             {/* Защищенные маршруты */}
-            <Route path="/*" element={
+            <Route path="/dashboard/*" element={
               <ProtectedRoute>
                 <AppContainer>
                   <Navigation />
@@ -144,7 +144,6 @@ function App() {
                     <ContentArea>
                       <Routes>
                         <Route path="/" element={<Dashboard />} />
-                        <Route path="/dashboard" element={<Dashboard />} />
                         <Route path="/agents" element={<Agents />} />
                         <Route path="/content" element={<Content />} />
                         <Route path="/settings" element={<Settings />} />

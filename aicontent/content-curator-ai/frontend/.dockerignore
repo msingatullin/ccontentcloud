@@ -1,0 +1,57 @@
+# Docker ignore file for frontend
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn-integrity
+
+# Build output
+build
+dist
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE files
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+*.md
+
+# Test files
+src/**/*.test.js
+src/**/*.test.jsx
+src/**/*.spec.js
+src/**/*.spec.jsx
+__tests__
+coverage
+
+# Deployment files
+deploy-script.sh
+frontend-deploy-*.tar.gz
+DEPLOY_INSTRUCTIONS.md
+FRONTEND_DEPLOYMENT_READY.md
+MANUAL_DEPLOYMENT.md
+DEPLOYMENT.md
+LANDING_PAGE.md
+
+# Logs
+logs
+*.log
