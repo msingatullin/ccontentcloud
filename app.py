@@ -139,25 +139,8 @@ def create_app():
             'service': 'AI Content Orchestrator'
         })
     
-    # Root endpoint
-    @app.route('/')
-    def root():
-        """Корневой endpoint с информацией о API"""
-        return jsonify({
-            'service': 'AI Content Orchestrator',
-            'version': '1.0.0',
-            'description': 'API для управления AI агентами создания контента',
-            'endpoints': {
-                'health': '/health',
-                'swagger_ui': '/api/docs/',
-                'api_docs': '/api/v1/docs',
-                'create_content': '/api/v1/content/create',
-                'workflow_status': '/api/v1/workflow/<workflow_id>/status',
-                'agents_status': '/api/v1/agents/status',
-                'system_status': '/api/v1/system/status'
-            },
-            'timestamp': datetime.now().isoformat()
-        })
+    # Root endpoint теперь обрабатывается Flask-RESTX
+    # Удален во избежание конфликта с Flask-RESTX
     
     return app
 
