@@ -40,7 +40,8 @@ from app.api.schemas import (
     AgentStatusSchema,
     ErrorResponseSchema
 )
-from app.api.routes import api_bp
+from app.api.routes import api
+from app.api.swagger_config import create_swagger_api
 
 # Настройка логирования
 logging.basicConfig(
@@ -76,8 +77,11 @@ def create_app():
     # Инициализируем auth систему
     auth_bp, jwt_middleware = init_auth_routes(db_session, app.config['SECRET_KEY'])
 
-    # Регистрируем API blueprint
-    app.register_blueprint(api_bp, url_prefix='/api/v1')
+    # Создаем и регистрируем Flask-RESTX API с Swagger
+    swagger_api = create_swagger_api(app)
+    swagger_api.add_namespace(api)
+    
+    # Регистрируем остальные blueprints
     app.register_blueprint(billing_bp)
     app.register_blueprint(webhook_bp)
     app.register_blueprint(auth_bp)
@@ -145,6 +149,7 @@ def create_app():
             'description': 'API для управления AI агентами создания контента',
             'endpoints': {
                 'health': '/health',
+                'swagger_ui': '/api/docs/',
                 'api_docs': '/api/v1/docs',
                 'create_content': '/api/v1/content/create',
                 'workflow_status': '/api/v1/workflow/<workflow_id>/status',
