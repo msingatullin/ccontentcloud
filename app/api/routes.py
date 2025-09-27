@@ -28,8 +28,12 @@ from .swagger_config import create_common_models, get_example_data
 # Настройка логирования
 logger = logging.getLogger(__name__)
 
-# Создаем namespace для API
+# Создаем namespaces для API
 api = Namespace('api', description='AI Content Orchestrator API')
+auth_ns = Namespace('auth', description='Authentication API')
+billing_ns = Namespace('billing', description='Billing API')
+webhook_ns = Namespace('webhook', description='Webhook API')
+health_ns = Namespace('health', description='Health Check API')
 
 # Создаем общие модели
 common_models = create_common_models(api)
@@ -134,6 +138,185 @@ viral_trends_response_model = api.model('ViralTrendsResponse', {
     'status': fields.String(description='Статус'),
     'viral_trends': fields.Raw(description='Вирусные тренды'),
     'timestamp': fields.String(description='Время получения')
+})
+
+# ==================== AUTH MODELS ====================
+
+register_model = auth_ns.model('RegisterRequest', {
+    'email': fields.String(required=True, description='Email пользователя'),
+    'password': fields.String(required=True, min_length=8, max_length=128, description='Пароль'),
+    'username': fields.String(required=True, min_length=3, max_length=100, description='Имя пользователя'),
+    'first_name': fields.String(description='Имя'),
+    'last_name': fields.String(description='Фамилия'),
+    'company': fields.String(description='Компания'),
+    'phone': fields.String(description='Телефон')
+})
+
+login_model = auth_ns.model('LoginRequest', {
+    'email': fields.String(required=True, description='Email пользователя'),
+    'password': fields.String(required=True, description='Пароль')
+})
+
+user_model = auth_ns.model('User', {
+    'id': fields.Integer(description='ID пользователя'),
+    'email': fields.String(description='Email'),
+    'username': fields.String(description='Имя пользователя'),
+    'first_name': fields.String(description='Имя'),
+    'last_name': fields.String(description='Фамилия'),
+    'company': fields.String(description='Компания'),
+    'phone': fields.String(description='Телефон'),
+    'role': fields.String(description='Роль'),
+    'is_verified': fields.Boolean(description='Email подтвержден'),
+    'created_at': fields.String(description='Дата создания'),
+    'updated_at': fields.String(description='Дата обновления')
+})
+
+auth_response_model = auth_ns.model('AuthResponse', {
+    'message': fields.String(description='Сообщение'),
+    'access_token': fields.String(description='Access токен'),
+    'refresh_token': fields.String(description='Refresh токен'),
+    'expires_in': fields.Integer(description='Время жизни токена'),
+    'user': fields.Nested(user_model, description='Данные пользователя')
+})
+
+session_model = auth_ns.model('Session', {
+    'id': fields.Integer(description='ID сессии'),
+    'device_info': fields.String(description='Информация об устройстве'),
+    'ip_address': fields.String(description='IP адрес'),
+    'created_at': fields.String(description='Дата создания'),
+    'last_activity': fields.String(description='Последняя активность'),
+    'is_active': fields.Boolean(description='Активна ли сессия')
+})
+
+change_password_model = auth_ns.model('ChangePasswordRequest', {
+    'current_password': fields.String(required=True, description='Текущий пароль'),
+    'new_password': fields.String(required=True, min_length=8, max_length=128, description='Новый пароль')
+})
+
+update_profile_model = auth_ns.model('UpdateProfileRequest', {
+    'first_name': fields.String(description='Имя'),
+    'last_name': fields.String(description='Фамилия'),
+    'phone': fields.String(description='Телефон'),
+    'company': fields.String(description='Компания'),
+    'position': fields.String(description='Должность'),
+    'timezone': fields.String(description='Часовой пояс'),
+    'language': fields.String(description='Язык'),
+    'notifications_enabled': fields.Boolean(description='Уведомления включены'),
+    'marketing_emails': fields.Boolean(description='Маркетинговые письма')
+})
+
+verify_email_model = auth_ns.model('VerifyEmailRequest', {
+    'token': fields.String(required=True, description='Токен верификации')
+})
+
+password_reset_request_model = auth_ns.model('PasswordResetRequest', {
+    'email': fields.String(required=True, description='Email для сброса пароля')
+})
+
+password_reset_model = auth_ns.model('PasswordReset', {
+    'token': fields.String(required=True, description='Токен сброса'),
+    'new_password': fields.String(required=True, min_length=8, max_length=128, description='Новый пароль')
+})
+
+refresh_token_model = auth_ns.model('RefreshTokenRequest', {
+    'refresh_token': fields.String(required=True, description='Refresh токен')
+})
+
+# ==================== BILLING MODELS ====================
+
+plan_limits_model = billing_ns.model('PlanLimits', {
+    'posts_per_month': fields.Integer(description='Постов в месяц'),
+    'max_agents': fields.Integer(description='Максимум агентов'),
+    'platforms': fields.List(fields.String, description='Доступные платформы'),
+    'api_calls_per_day': fields.Integer(description='API вызовов в день'),
+    'storage_gb': fields.Float(description='Хранилище в ГБ'),
+    'support_level': fields.String(description='Уровень поддержки')
+})
+
+plan_model = billing_ns.model('Plan', {
+    'id': fields.String(description='ID плана'),
+    'name': fields.String(description='Название плана'),
+    'description': fields.String(description='Описание плана'),
+    'price_monthly': fields.Float(description='Цена в месяц'),
+    'price_yearly': fields.Float(description='Цена в год'),
+    'plan_type': fields.String(description='Тип плана'),
+    'limits': fields.Nested(plan_limits_model, description='Лимиты плана'),
+    'features': fields.List(fields.String, description='Возможности'),
+    'is_popular': fields.Boolean(description='Популярный план'),
+    'trial_days': fields.Integer(description='Дни пробного периода')
+})
+
+subscription_model = billing_ns.model('Subscription', {
+    'id': fields.Integer(description='ID подписки'),
+    'plan_id': fields.String(description='ID плана'),
+    'status': fields.String(description='Статус подписки'),
+    'starts_at': fields.String(description='Дата начала'),
+    'expires_at': fields.String(description='Дата окончания'),
+    'trial_ends_at': fields.String(description='Дата окончания пробного периода'),
+    'auto_renew': fields.Boolean(description='Автопродление'),
+    'last_payment_at': fields.String(description='Последний платеж'),
+    'next_payment_at': fields.String(description='Следующий платеж')
+})
+
+create_subscription_model = billing_ns.model('CreateSubscriptionRequest', {
+    'plan_id': fields.String(required=True, description='ID плана'),
+    'billing_period': fields.String(description='Период оплаты', enum=['monthly', 'yearly'], default='monthly')
+})
+
+payment_model = billing_ns.model('Payment', {
+    'id': fields.String(description='ID платежа'),
+    'url': fields.String(description='URL для оплаты'),
+    'amount': fields.Float(description='Сумма'),
+    'currency': fields.String(description='Валюта'),
+    'expires_at': fields.String(description='Дата истечения'),
+    'status': fields.String(description='Статус платежа')
+})
+
+usage_stats_model = billing_ns.model('UsageStats', {
+    'posts_used': fields.Integer(description='Использовано постов'),
+    'posts_limit': fields.Integer(description='Лимит постов'),
+    'api_calls_used': fields.Integer(description='Использовано API вызовов'),
+    'api_calls_limit': fields.Integer(description='Лимит API вызовов'),
+    'storage_used_gb': fields.Float(description='Использовано хранилища'),
+    'storage_limit_gb': fields.Float(description='Лимит хранилища'),
+    'agents_used': fields.Integer(description='Использовано агентов'),
+    'agents_limit': fields.Integer(description='Лимит агентов'),
+    'period_start': fields.String(description='Начало периода'),
+    'period_end': fields.String(description='Конец периода')
+})
+
+billing_event_model = billing_ns.model('BillingEvent', {
+    'id': fields.Integer(description='ID события'),
+    'event_type': fields.String(description='Тип события'),
+    'event_data': fields.Raw(description='Данные события'),
+    'created_at': fields.String(description='Дата создания')
+})
+
+cancel_subscription_model = billing_ns.model('CancelSubscriptionRequest', {
+    'reason': fields.String(description='Причина отмены', default='user_request')
+})
+
+# ==================== WEBHOOK MODELS ====================
+
+webhook_model = webhook_ns.model('WebhookRequest', {
+    'event_type': fields.String(description='Тип события'),
+    'payment_id': fields.String(description='ID платежа'),
+    'metadata': fields.Raw(description='Метаданные')
+})
+
+webhook_response_model = webhook_ns.model('WebhookResponse', {
+    'status': fields.String(description='Статус обработки'),
+    'message': fields.String(description='Сообщение')
+})
+
+# ==================== HEALTH MODELS ====================
+
+health_model = health_ns.model('HealthResponse', {
+    'status': fields.String(description='Статус системы'),
+    'timestamp': fields.String(description='Время проверки'),
+    'version': fields.String(description='Версия'),
+    'service': fields.String(description='Название сервиса'),
+    'details': fields.Raw(description='Детали состояния')
 })
 
 # ==================== UTILITY FUNCTIONS ====================
@@ -850,3 +1033,1583 @@ class ApiSchemas(Resource):
             
         except Exception as e:
             return handle_exception(e)
+
+
+# ==================== AUTH ENDPOINTS ====================
+
+@auth_ns.route('/register')
+class AuthRegister(Resource):
+    @auth_ns.doc('register_user', description='Регистрация нового пользователя')
+    @auth_ns.expect(register_model, validate=True)
+    @auth_ns.marshal_with(auth_response_model, code=201, description='Пользователь успешно зарегистрирован')
+    @auth_ns.marshal_with(common_models['error'], code=400, description='Ошибка валидации')
+    @auth_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    def post(self):
+        """Регистрация нового пользователя"""
+        try:
+            # Импортируем auth service
+            from ...auth.services.auth_service import AuthService
+            from ...auth.utils.email import EmailService
+            from ...database.connection import get_db_session
+            
+            db_session = get_db_session()
+            email_service = EmailService()
+            auth_service = AuthService(db_session, current_app.config['SECRET_KEY'], email_service)
+            
+            data = request.get_json()
+            if not data:
+                return {
+                    "error": "Validation Error",
+                    "message": "Данные не предоставлены",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            # Регистрация пользователя
+            success, message, user = auth_service.register_user(**data)
+            
+            if success:
+                return {
+                    "message": message,
+                    "user": user.to_dict() if user else None
+                }, 201
+            else:
+                return {
+                    "error": "Registration Failed",
+                    "message": message,
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+                
+        except Exception as e:
+            return handle_exception(e)
+
+
+@auth_ns.route('/login')
+class AuthLogin(Resource):
+    @auth_ns.doc('login_user', description='Авторизация пользователя')
+    @auth_ns.expect(login_model, validate=True)
+    @auth_ns.marshal_with(auth_response_model, code=200, description='Успешная авторизация')
+    @auth_ns.marshal_with(common_models['error'], code=400, description='Ошибка валидации')
+    @auth_ns.marshal_with(common_models['error'], code=401, description='Неверные учетные данные')
+    @auth_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    def post(self):
+        """Авторизация пользователя"""
+        try:
+            from ...auth.services.auth_service import AuthService
+            from ...auth.utils.email import EmailService
+            from ...database.connection import get_db_session
+            
+            db_session = get_db_session()
+            email_service = EmailService()
+            auth_service = AuthService(db_session, current_app.config['SECRET_KEY'], email_service)
+            
+            data = request.get_json()
+            if not data:
+                return {
+                    "error": "Validation Error",
+                    "message": "Данные не предоставлены",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            # Получение информации об устройстве
+            device_info = {
+                'user_agent': request.headers.get('User-Agent'),
+                'ip': request.remote_addr
+            }
+            
+            # Авторизация
+            success, message, tokens = auth_service.login_user(
+                data['email'],
+                data['password'],
+                device_info=device_info,
+                ip_address=request.remote_addr,
+                user_agent=request.headers.get('User-Agent')
+            )
+            
+            if success:
+                return {
+                    "message": message,
+                    **tokens
+                }, 200
+            else:
+                return {
+                    "error": "Authentication Failed",
+                    "message": message,
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
+                
+        except Exception as e:
+            return handle_exception(e)
+
+
+@auth_ns.route('/verify-email')
+class AuthVerifyEmail(Resource):
+    @auth_ns.doc('verify_email', description='Верификация email')
+    @auth_ns.expect(verify_email_model, validate=True)
+    @auth_ns.marshal_with(common_models['success'], code=200, description='Email успешно подтвержден')
+    @auth_ns.marshal_with(common_models['error'], code=400, description='Ошибка валидации')
+    @auth_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    def post(self):
+        """Верификация email"""
+        try:
+            from ...auth.services.auth_service import AuthService
+            from ...auth.utils.email import EmailService
+            from ...database.connection import get_db_session
+            
+            db_session = get_db_session()
+            email_service = EmailService()
+            auth_service = AuthService(db_session, current_app.config['SECRET_KEY'], email_service)
+            
+            data = request.get_json()
+            if not data:
+                return {
+                    "error": "Validation Error",
+                    "message": "Данные не предоставлены",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            success, message = auth_service.verify_email(data['token'])
+            
+            if success:
+                return {
+                    "success": True,
+                    "message": message,
+                    "timestamp": datetime.now().isoformat()
+                }, 200
+            else:
+                return {
+                    "error": "Verification Failed",
+                    "message": message,
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+                
+        except Exception as e:
+            return handle_exception(e)
+
+
+@auth_ns.route('/resend-verification')
+class AuthResendVerification(Resource):
+    @auth_ns.doc('resend_verification', description='Повторная отправка email верификации')
+    @auth_ns.marshal_with(common_models['success'], code=200, description='Письмо отправлено')
+    @auth_ns.marshal_with(common_models['error'], code=400, description='Ошибка валидации')
+    @auth_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    def post(self):
+        """Повторная отправка email верификации"""
+        try:
+            from ...auth.services.auth_service import AuthService
+            from ...auth.utils.email import EmailService
+            from ...database.connection import get_db_session
+            
+            db_session = get_db_session()
+            email_service = EmailService()
+            auth_service = AuthService(db_session, current_app.config['SECRET_KEY'], email_service)
+            
+            data = request.get_json()
+            if not data or 'email' not in data:
+                return {
+                    "error": "Validation Error",
+                    "message": "Email не предоставлен",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            success, message = auth_service.resend_verification_email(data['email'])
+            
+            if success:
+                return {
+                    "success": True,
+                    "message": message,
+                    "timestamp": datetime.now().isoformat()
+                }, 200
+            else:
+                return {
+                    "error": "Resend Failed",
+                    "message": message,
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+                
+        except Exception as e:
+            return handle_exception(e)
+
+
+@auth_ns.route('/forgot-password')
+class AuthForgotPassword(Resource):
+    @auth_ns.doc('forgot_password', description='Запрос сброса пароля')
+    @auth_ns.expect(password_reset_request_model, validate=True)
+    @auth_ns.marshal_with(common_models['success'], code=200, description='Письмо для сброса пароля отправлено')
+    @auth_ns.marshal_with(common_models['error'], code=400, description='Ошибка валидации')
+    @auth_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    def post(self):
+        """Запрос сброса пароля"""
+        try:
+            from ...auth.services.auth_service import AuthService
+            from ...auth.utils.email import EmailService
+            from ...database.connection import get_db_session
+            
+            db_session = get_db_session()
+            email_service = EmailService()
+            auth_service = AuthService(db_session, current_app.config['SECRET_KEY'], email_service)
+            
+            data = request.get_json()
+            if not data:
+                return {
+                    "error": "Validation Error",
+                    "message": "Данные не предоставлены",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            success, message = auth_service.request_password_reset(data['email'])
+            
+            return {
+                "success": True,
+                "message": message,
+                "timestamp": datetime.now().isoformat()
+            }, 200
+                
+        except Exception as e:
+            return handle_exception(e)
+
+
+@auth_ns.route('/reset-password')
+class AuthResetPassword(Resource):
+    @auth_ns.doc('reset_password', description='Сброс пароля')
+    @auth_ns.expect(password_reset_model, validate=True)
+    @auth_ns.marshal_with(common_models['success'], code=200, description='Пароль успешно сброшен')
+    @auth_ns.marshal_with(common_models['error'], code=400, description='Ошибка валидации')
+    @auth_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    def post(self):
+        """Сброс пароля"""
+        try:
+            from ...auth.services.auth_service import AuthService
+            from ...auth.utils.email import EmailService
+            from ...database.connection import get_db_session
+            
+            db_session = get_db_session()
+            email_service = EmailService()
+            auth_service = AuthService(db_session, current_app.config['SECRET_KEY'], email_service)
+            
+            data = request.get_json()
+            if not data:
+                return {
+                    "error": "Validation Error",
+                    "message": "Данные не предоставлены",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            success, message = auth_service.reset_password(
+                data['token'],
+                data['new_password']
+            )
+            
+            if success:
+                return {
+                    "success": True,
+                    "message": message,
+                    "timestamp": datetime.now().isoformat()
+                }, 200
+            else:
+                return {
+                    "error": "Reset Failed",
+                    "message": message,
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+                
+        except Exception as e:
+            return handle_exception(e)
+
+
+@auth_ns.route('/refresh')
+class AuthRefresh(Resource):
+    @auth_ns.doc('refresh_token', description='Обновление токена')
+    @auth_ns.expect(refresh_token_model, validate=True)
+    @auth_ns.marshal_with(auth_response_model, code=200, description='Токен успешно обновлен')
+    @auth_ns.marshal_with(common_models['error'], code=400, description='Ошибка валидации')
+    @auth_ns.marshal_with(common_models['error'], code=401, description='Неверный токен')
+    @auth_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    def post(self):
+        """Обновление токена"""
+        try:
+            from ...auth.services.auth_service import AuthService
+            from ...auth.utils.email import EmailService
+            from ...database.connection import get_db_session
+            
+            db_session = get_db_session()
+            email_service = EmailService()
+            auth_service = AuthService(db_session, current_app.config['SECRET_KEY'], email_service)
+            
+            data = request.get_json()
+            if not data:
+                return {
+                    "error": "Validation Error",
+                    "message": "Данные не предоставлены",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            success, message, tokens = auth_service.refresh_token(data['refresh_token'])
+            
+            if success:
+                return {
+                    "message": message,
+                    **tokens
+                }, 200
+            else:
+                return {
+                    "error": "Refresh Failed",
+                    "message": message,
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
+                
+        except Exception as e:
+            return handle_exception(e)
+
+
+@auth_ns.route('/logout')
+class AuthLogout(Resource):
+    @auth_ns.doc('logout_user', description='Выход пользователя')
+    @auth_ns.marshal_with(common_models['success'], code=200, description='Успешный выход')
+    @auth_ns.marshal_with(common_models['error'], code=401, description='Не авторизован')
+    @auth_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    def post(self):
+        """Выход пользователя"""
+        try:
+            from ...auth.services.auth_service import AuthService
+            from ...auth.utils.email import EmailService
+            from ...database.connection import get_db_session
+            from ...auth.middleware.jwt import JWTMiddleware
+            
+            db_session = get_db_session()
+            email_service = EmailService()
+            auth_service = AuthService(db_session, current_app.config['SECRET_KEY'], email_service)
+            jwt_middleware = JWTMiddleware(auth_service)
+            
+            # Проверяем токен
+            auth_header = request.headers.get('Authorization')
+            if not auth_header or not auth_header.startswith('Bearer '):
+                return {
+                    "error": "Unauthorized",
+                    "message": "Токен не предоставлен",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
+            
+            token = auth_header.split(' ')[1]
+            payload = jwt_middleware.verify_token(token)
+            
+            if not payload:
+                return {
+                    "error": "Unauthorized",
+                    "message": "Неверный токен",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
+            
+            token_jti = payload.get('jti')
+            success, message = auth_service.logout_user(token_jti)
+            
+            if success:
+                return {
+                    "success": True,
+                    "message": message,
+                    "timestamp": datetime.now().isoformat()
+                }, 200
+            else:
+                return {
+                    "error": "Logout Failed",
+                    "message": message,
+                    "status_code": 500,
+                    "timestamp": datetime.now().isoformat()
+                }, 500
+                
+        except Exception as e:
+            return handle_exception(e)
+
+
+@auth_ns.route('/logout-all')
+class AuthLogoutAll(Resource):
+    @auth_ns.doc('logout_all_sessions', description='Выход из всех сессий')
+    @auth_ns.marshal_with(common_models['success'], code=200, description='Успешный выход из всех сессий')
+    @auth_ns.marshal_with(common_models['error'], code=401, description='Не авторизован')
+    @auth_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    def post(self):
+        """Выход из всех сессий"""
+        try:
+            from ...auth.services.auth_service import AuthService
+            from ...auth.utils.email import EmailService
+            from ...database.connection import get_db_session
+            from ...auth.middleware.jwt import JWTMiddleware
+            
+            db_session = get_db_session()
+            email_service = EmailService()
+            auth_service = AuthService(db_session, current_app.config['SECRET_KEY'], email_service)
+            jwt_middleware = JWTMiddleware(auth_service)
+            
+            # Проверяем токен
+            auth_header = request.headers.get('Authorization')
+            if not auth_header or not auth_header.startswith('Bearer '):
+                return {
+                    "error": "Unauthorized",
+                    "message": "Токен не предоставлен",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
+            
+            token = auth_header.split(' ')[1]
+            payload = jwt_middleware.verify_token(token)
+            
+            if not payload:
+                return {
+                    "error": "Unauthorized",
+                    "message": "Неверный токен",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
+            
+            user_id = payload.get('user_id')
+            success, message = auth_service.logout_all_sessions(user_id)
+            
+            if success:
+                return {
+                    "success": True,
+                    "message": message,
+                    "timestamp": datetime.now().isoformat()
+                }, 200
+            else:
+                return {
+                    "error": "Logout Failed",
+                    "message": message,
+                    "status_code": 500,
+                    "timestamp": datetime.now().isoformat()
+                }, 500
+                
+        except Exception as e:
+            return handle_exception(e)
+
+
+@auth_ns.route('/me')
+class AuthMe(Resource):
+    @auth_ns.doc('get_current_user', description='Получить информацию о текущем пользователе')
+    @auth_ns.marshal_with(user_model, code=200, description='Информация о пользователе')
+    @auth_ns.marshal_with(common_models['error'], code=401, description='Не авторизован')
+    @auth_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    def get(self):
+        """Получить информацию о текущем пользователе"""
+        try:
+            from ...auth.services.auth_service import AuthService
+            from ...auth.utils.email import EmailService
+            from ...database.connection import get_db_session
+            from ...auth.middleware.jwt import JWTMiddleware
+            
+            db_session = get_db_session()
+            email_service = EmailService()
+            auth_service = AuthService(db_session, current_app.config['SECRET_KEY'], email_service)
+            jwt_middleware = JWTMiddleware(auth_service)
+            
+            # Проверяем токен
+            auth_header = request.headers.get('Authorization')
+            if not auth_header or not auth_header.startswith('Bearer '):
+                return {
+                    "error": "Unauthorized",
+                    "message": "Токен не предоставлен",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
+            
+            token = auth_header.split(' ')[1]
+            payload = jwt_middleware.verify_token(token)
+            
+            if not payload:
+                return {
+                    "error": "Unauthorized",
+                    "message": "Неверный токен",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
+            
+            user_id = payload.get('user_id')
+            user = auth_service.get_user_by_id(user_id)
+            
+            if not user:
+                return {
+                    "error": "User Not Found",
+                    "message": "Пользователь не найден",
+                    "status_code": 404,
+                    "timestamp": datetime.now().isoformat()
+                }, 404
+            
+            usage_stats = user.get_usage_stats()
+            
+            return {
+                "user": user.to_dict(),
+                "usage_stats": usage_stats
+            }, 200
+                
+        except Exception as e:
+            return handle_exception(e)
+
+
+@auth_ns.route('/profile')
+class AuthProfile(Resource):
+    @auth_ns.doc('update_profile', description='Обновление профиля пользователя')
+    @auth_ns.expect(update_profile_model, validate=True)
+    @auth_ns.marshal_with(user_model, code=200, description='Профиль успешно обновлен')
+    @auth_ns.marshal_with(common_models['error'], code=400, description='Ошибка валидации')
+    @auth_ns.marshal_with(common_models['error'], code=401, description='Не авторизован')
+    @auth_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    def put(self):
+        """Обновление профиля пользователя"""
+        try:
+            from ...auth.services.auth_service import AuthService
+            from ...auth.utils.email import EmailService
+            from ...database.connection import get_db_session
+            from ...auth.middleware.jwt import JWTMiddleware
+            
+            db_session = get_db_session()
+            email_service = EmailService()
+            auth_service = AuthService(db_session, current_app.config['SECRET_KEY'], email_service)
+            jwt_middleware = JWTMiddleware(auth_service)
+            
+            # Проверяем токен
+            auth_header = request.headers.get('Authorization')
+            if not auth_header or not auth_header.startswith('Bearer '):
+                return {
+                    "error": "Unauthorized",
+                    "message": "Токен не предоставлен",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
+            
+            token = auth_header.split(' ')[1]
+            payload = jwt_middleware.verify_token(token)
+            
+            if not payload:
+                return {
+                    "error": "Unauthorized",
+                    "message": "Неверный токен",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
+            
+            data = request.get_json()
+            if not data:
+                return {
+                    "error": "Validation Error",
+                    "message": "Данные не предоставлены",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            user_id = payload.get('user_id')
+            success, message, user = auth_service.update_user_profile(user_id, **data)
+            
+            if success:
+                return {
+                    "message": message,
+                    "user": user.to_dict() if user else None
+                }, 200
+            else:
+                return {
+                    "error": "Update Failed",
+                    "message": message,
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+                
+        except Exception as e:
+            return handle_exception(e)
+
+
+@auth_ns.route('/change-password')
+class AuthChangePassword(Resource):
+    @auth_ns.doc('change_password', description='Смена пароля')
+    @auth_ns.expect(change_password_model, validate=True)
+    @auth_ns.marshal_with(common_models['success'], code=200, description='Пароль успешно изменен')
+    @auth_ns.marshal_with(common_models['error'], code=400, description='Ошибка валидации')
+    @auth_ns.marshal_with(common_models['error'], code=401, description='Не авторизован')
+    @auth_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    def post(self):
+        """Смена пароля"""
+        try:
+            from ...auth.services.auth_service import AuthService
+            from ...auth.utils.email import EmailService
+            from ...database.connection import get_db_session
+            from ...auth.middleware.jwt import JWTMiddleware
+            
+            db_session = get_db_session()
+            email_service = EmailService()
+            auth_service = AuthService(db_session, current_app.config['SECRET_KEY'], email_service)
+            jwt_middleware = JWTMiddleware(auth_service)
+            
+            # Проверяем токен
+            auth_header = request.headers.get('Authorization')
+            if not auth_header or not auth_header.startswith('Bearer '):
+                return {
+                    "error": "Unauthorized",
+                    "message": "Токен не предоставлен",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
+            
+            token = auth_header.split(' ')[1]
+            payload = jwt_middleware.verify_token(token)
+            
+            if not payload:
+                return {
+                    "error": "Unauthorized",
+                    "message": "Неверный токен",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
+            
+            data = request.get_json()
+            if not data:
+                return {
+                    "error": "Validation Error",
+                    "message": "Данные не предоставлены",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            user_id = payload.get('user_id')
+            success, message = auth_service.change_password(
+                user_id,
+                data['current_password'],
+                data['new_password']
+            )
+            
+            if success:
+                return {
+                    "success": True,
+                    "message": message,
+                    "timestamp": datetime.now().isoformat()
+                }, 200
+            else:
+                return {
+                    "error": "Change Password Failed",
+                    "message": message,
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+                
+        except Exception as e:
+            return handle_exception(e)
+
+
+@auth_ns.route('/sessions')
+class AuthSessions(Resource):
+    @auth_ns.doc('get_user_sessions', description='Получить активные сессии пользователя')
+    @auth_ns.marshal_with(session_model, code=200, description='Список активных сессий')
+    @auth_ns.marshal_with(common_models['error'], code=401, description='Не авторизован')
+    @auth_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    def get(self):
+        """Получить активные сессии пользователя"""
+        try:
+            from ...auth.services.auth_service import AuthService
+            from ...auth.utils.email import EmailService
+            from ...database.connection import get_db_session
+            from ...auth.middleware.jwt import JWTMiddleware
+            
+            db_session = get_db_session()
+            email_service = EmailService()
+            auth_service = AuthService(db_session, current_app.config['SECRET_KEY'], email_service)
+            jwt_middleware = JWTMiddleware(auth_service)
+            
+            # Проверяем токен
+            auth_header = request.headers.get('Authorization')
+            if not auth_header or not auth_header.startswith('Bearer '):
+                return {
+                    "error": "Unauthorized",
+                    "message": "Токен не предоставлен",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
+            
+            token = auth_header.split(' ')[1]
+            payload = jwt_middleware.verify_token(token)
+            
+            if not payload:
+                return {
+                    "error": "Unauthorized",
+                    "message": "Неверный токен",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
+            
+            user_id = payload.get('user_id')
+            user = auth_service.get_user_by_id(user_id)
+            
+            if not user:
+                return {
+                    "error": "User Not Found",
+                    "message": "Пользователь не найден",
+                    "status_code": 404,
+                    "timestamp": datetime.now().isoformat()
+                }, 404
+            
+            sessions = [
+                session.to_dict() for session in user.sessions 
+                if session.is_active and not session.is_expired()
+            ]
+            
+            return {"sessions": sessions}, 200
+                
+        except Exception as e:
+            return handle_exception(e)
+
+
+@auth_ns.route('/sessions/<int:session_id>')
+class AuthSession(Resource):
+    @auth_ns.doc('revoke_session', description='Отозвать конкретную сессию')
+    @auth_ns.marshal_with(common_models['success'], code=200, description='Сессия успешно отозвана')
+    @auth_ns.marshal_with(common_models['error'], code=401, description='Не авторизован')
+    @auth_ns.marshal_with(common_models['error'], code=404, description='Сессия не найдена')
+    @auth_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    def delete(self, session_id):
+        """Отозвать конкретную сессию"""
+        try:
+            from ...auth.services.auth_service import AuthService
+            from ...auth.utils.email import EmailService
+            from ...database.connection import get_db_session
+            from ...auth.middleware.jwt import JWTMiddleware
+            
+            db_session = get_db_session()
+            email_service = EmailService()
+            auth_service = AuthService(db_session, current_app.config['SECRET_KEY'], email_service)
+            jwt_middleware = JWTMiddleware(auth_service)
+            
+            # Проверяем токен
+            auth_header = request.headers.get('Authorization')
+            if not auth_header or not auth_header.startswith('Bearer '):
+                return {
+                    "error": "Unauthorized",
+                    "message": "Токен не предоставлен",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
+            
+            token = auth_header.split(' ')[1]
+            payload = jwt_middleware.verify_token(token)
+            
+            if not payload:
+                return {
+                    "error": "Unauthorized",
+                    "message": "Неверный токен",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
+            
+            user_id = payload.get('user_id')
+            user = auth_service.get_user_by_id(user_id)
+            
+            if not user:
+                return {
+                    "error": "User Not Found",
+                    "message": "Пользователь не найден",
+                    "status_code": 404,
+                    "timestamp": datetime.now().isoformat()
+                }, 404
+            
+            session = next(
+                (s for s in user.sessions if s.id == session_id), 
+                None
+            )
+            
+            if not session:
+                return {
+                    "error": "Session Not Found",
+                    "message": "Сессия не найдена",
+                    "status_code": 404,
+                    "timestamp": datetime.now().isoformat()
+                }, 404
+            
+            session.is_active = False
+            db_session.commit()
+            
+            return {
+                "success": True,
+                "message": "Сессия отозвана",
+                "timestamp": datetime.now().isoformat()
+            }, 200
+                
+        except Exception as e:
+            return handle_exception(e)
+
+
+# ==================== BILLING ENDPOINTS ====================
+
+@billing_ns.route('/plans')
+class BillingPlans(Resource):
+    @billing_ns.doc('get_plans', description='Получить все доступные тарифные планы')
+    @billing_ns.marshal_with(plan_model, code=200, description='Список тарифных планов')
+    @billing_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    def get(self):
+        """Получить все доступные тарифные планы"""
+        try:
+            from ...billing.models.subscription import get_all_plans
+            
+            plans = get_all_plans()
+            
+            # Форматируем планы для API
+            formatted_plans = []
+            for plan_id, plan in plans.items():
+                formatted_plans.append({
+                    "id": plan.id,
+                    "name": plan.name,
+                    "description": plan.description,
+                    "price_monthly": plan.price_monthly,
+                    "price_yearly": plan.price_yearly,
+                    "plan_type": plan.plan_type.value,
+                    "limits": {
+                        "posts_per_month": plan.limits.posts_per_month,
+                        "max_agents": plan.limits.max_agents,
+                        "platforms": plan.limits.platforms,
+                        "api_calls_per_day": plan.limits.api_calls_per_day,
+                        "storage_gb": plan.limits.storage_gb,
+                        "support_level": plan.limits.support_level
+                    },
+                    "features": plan.features,
+                    "is_popular": plan.is_popular,
+                    "trial_days": plan.trial_days
+                })
+            
+            return {
+                "success": True,
+                "plans": formatted_plans
+            }, 200
+            
+        except Exception as e:
+            return handle_exception(e)
+
+
+@billing_ns.route('/plans/<string:plan_id>')
+class BillingPlan(Resource):
+    @billing_ns.doc('get_plan', description='Получить конкретный тарифный план')
+    @billing_ns.marshal_with(plan_model, code=200, description='Тарифный план')
+    @billing_ns.marshal_with(common_models['error'], code=404, description='План не найден')
+    @billing_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    def get(self, plan_id):
+        """Получить конкретный тарифный план"""
+        try:
+            from ...billing.models.subscription import get_plan_by_id
+            
+            plan = get_plan_by_id(plan_id)
+            if not plan:
+                return {
+                    "error": "Plan Not Found",
+                    "message": "План не найден",
+                    "status_code": 404,
+                    "timestamp": datetime.now().isoformat()
+                }, 404
+            
+            return {
+                "success": True,
+                "plan": {
+                    "id": plan.id,
+                    "name": plan.name,
+                    "description": plan.description,
+                    "price_monthly": plan.price_monthly,
+                    "price_yearly": plan.price_yearly,
+                    "plan_type": plan.plan_type.value,
+                    "limits": {
+                        "posts_per_month": plan.limits.posts_per_month,
+                        "max_agents": plan.limits.max_agents,
+                        "platforms": plan.limits.platforms,
+                        "api_calls_per_day": plan.limits.api_calls_per_day,
+                        "storage_gb": plan.limits.storage_gb,
+                        "support_level": plan.limits.support_level
+                    },
+                    "features": plan.features,
+                    "is_popular": plan.is_popular,
+                    "trial_days": plan.trial_days
+                }
+            }, 200
+            
+        except Exception as e:
+            return handle_exception(e)
+
+
+@billing_ns.route('/subscription')
+class BillingSubscription(Resource):
+    @billing_ns.doc('get_subscription', description='Получить подписку пользователя')
+    @billing_ns.marshal_with(subscription_model, code=200, description='Подписка пользователя')
+    @billing_ns.marshal_with(common_models['error'], code=400, description='Не указан ID пользователя')
+    @billing_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    def get(self):
+        """Получить подписку пользователя"""
+        try:
+            user_id = request.headers.get('X-User-ID')
+            if not user_id:
+                return {
+                    "error": "Validation Error",
+                    "message": "Не указан ID пользователя",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            # TODO: Получить сессию БД из контекста приложения
+            # subscription_service = SubscriptionService(db_session)
+            # subscription = subscription_service.get_user_subscription(user_id)
+            
+            # Временная заглушка
+            subscription = None
+            
+            if not subscription:
+                return {
+                    "success": True,
+                    "subscription": None,
+                    "message": "У пользователя нет активной подписки"
+                }, 200
+            
+            return {
+                "success": True,
+                "subscription": {
+                    "id": subscription.id,
+                    "plan_id": subscription.plan_id,
+                    "status": subscription.status,
+                    "starts_at": subscription.starts_at.isoformat(),
+                    "expires_at": subscription.expires_at.isoformat(),
+                    "trial_ends_at": subscription.trial_ends_at.isoformat() if subscription.trial_ends_at else None,
+                    "auto_renew": subscription.auto_renew,
+                    "last_payment_at": subscription.last_payment_at.isoformat() if subscription.last_payment_at else None,
+                    "next_payment_at": subscription.next_payment_at.isoformat() if subscription.next_payment_at else None
+                }
+            }, 200
+            
+        except Exception as e:
+            return handle_exception(e)
+
+    @billing_ns.doc('create_subscription', description='Создать подписку')
+    @billing_ns.expect(create_subscription_model, validate=True)
+    @billing_ns.marshal_with(subscription_model, code=201, description='Подписка создана')
+    @billing_ns.marshal_with(common_models['error'], code=400, description='Ошибка валидации')
+    @billing_ns.marshal_with(common_models['error'], code=404, description='План не найден')
+    @billing_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    def post(self):
+        """Создать подписку"""
+        try:
+            from ...billing.models.subscription import get_plan_by_id
+            from ...billing.services.yookassa_service import YooKassaService, PaymentRequest
+            
+            data = request.get_json()
+            user_id = request.headers.get('X-User-ID')
+            
+            if not user_id:
+                return {
+                    "error": "Validation Error",
+                    "message": "Не указан ID пользователя",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            plan_id = data.get('plan_id')
+            if not plan_id:
+                return {
+                    "error": "Validation Error",
+                    "message": "Не указан ID плана",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            plan = get_plan_by_id(plan_id)
+            if not plan:
+                return {
+                    "error": "Plan Not Found",
+                    "message": "План не найден",
+                    "status_code": 404,
+                    "timestamp": datetime.now().isoformat()
+                }, 404
+            
+            # Если план бесплатный, создаем подписку сразу
+            if plan.price_monthly == 0:
+                # TODO: Создать бесплатную подписку
+                return {
+                    "success": True,
+                    "subscription": {
+                        "id": "temp_free_subscription",
+                        "plan_id": plan_id,
+                        "status": "active",
+                        "message": "Бесплатная подписка активирована"
+                    }
+                }, 201
+            
+            # Для платных планов создаем платеж
+            yookassa_service = YooKassaService()
+            
+            # Определяем сумму и период
+            billing_period = data.get('billing_period', 'monthly')
+            if billing_period == 'yearly':
+                amount = plan.price_yearly
+                description = f"Подписка {plan.name} на год"
+            else:
+                amount = plan.price_monthly
+                description = f"Подписка {plan.name} на месяц"
+            
+            # Создаем запрос на платеж
+            payment_request = PaymentRequest(
+                amount=amount,
+                currency="RUB",
+                description=description,
+                metadata={
+                    "plan_id": plan_id,
+                    "billing_period": billing_period,
+                    "user_id": user_id
+                }
+            )
+            
+            # Создаем платеж
+            payment_response = yookassa_service.create_payment(
+                payment_request=payment_request,
+                user_id=user_id
+            )
+            
+            return {
+                "success": True,
+                "payment": {
+                    "id": payment_response.payment_id,
+                    "url": payment_response.payment_url,
+                    "amount": payment_response.amount,
+                    "currency": payment_response.currency,
+                    "expires_at": payment_response.expires_at.isoformat()
+                },
+                "plan": {
+                    "id": plan.id,
+                    "name": plan.name,
+                    "billing_period": billing_period
+                }
+            }, 201
+            
+        except Exception as e:
+            return handle_exception(e)
+
+
+@billing_ns.route('/subscription/<int:subscription_id>/cancel')
+class BillingCancelSubscription(Resource):
+    @billing_ns.doc('cancel_subscription', description='Отменить подписку')
+    @billing_ns.expect(cancel_subscription_model, validate=True)
+    @billing_ns.marshal_with(common_models['success'], code=200, description='Подписка отменена')
+    @billing_ns.marshal_with(common_models['error'], code=400, description='Ошибка валидации')
+    @billing_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    def post(self, subscription_id):
+        """Отменить подписку"""
+        try:
+            user_id = request.headers.get('X-User-ID')
+            if not user_id:
+                return {
+                    "error": "Validation Error",
+                    "message": "Не указан ID пользователя",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            data = request.get_json() or {}
+            reason = data.get('reason', 'user_request')
+            
+            # TODO: Отменить подписку через SubscriptionService
+            # subscription_service = SubscriptionService(db_session)
+            # success = subscription_service.cancel_subscription(subscription_id, reason)
+            
+            # Временная заглушка
+            success = True
+            
+            if not success:
+                return {
+                    "error": "Cancel Failed",
+                    "message": "Ошибка отмены подписки",
+                    "status_code": 500,
+                    "timestamp": datetime.now().isoformat()
+                }, 500
+            
+            return {
+                "success": True,
+                "message": "Подписка успешно отменена",
+                "timestamp": datetime.now().isoformat()
+            }, 200
+            
+        except Exception as e:
+            return handle_exception(e)
+
+
+@billing_ns.route('/usage')
+class BillingUsage(Resource):
+    @billing_ns.doc('get_usage', description='Получить статистику использования')
+    @billing_ns.marshal_with(usage_stats_model, code=200, description='Статистика использования')
+    @billing_ns.marshal_with(common_models['error'], code=400, description='Не указан ID пользователя')
+    @billing_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    def get(self):
+        """Получить статистику использования"""
+        try:
+            user_id = request.headers.get('X-User-ID')
+            if not user_id:
+                return {
+                    "error": "Validation Error",
+                    "message": "Не указан ID пользователя",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            # TODO: Получить статистику через SubscriptionService
+            # subscription_service = SubscriptionService(db_session)
+            # usage_stats = subscription_service.get_usage_stats(user_id)
+            
+            # Временная заглушка
+            usage_stats = {
+                "posts_used": 15,
+                "posts_limit": 50,
+                "api_calls_used": 250,
+                "api_calls_limit": 100,
+                "storage_used_gb": 0.5,
+                "storage_limit_gb": 1,
+                "agents_used": 2,
+                "agents_limit": 3,
+                "period_start": "2024-01-01T00:00:00Z",
+                "period_end": "2024-01-31T23:59:59Z"
+            }
+            
+            return {
+                "success": True,
+                "usage": usage_stats
+            }, 200
+            
+        except Exception as e:
+            return handle_exception(e)
+
+
+@billing_ns.route('/payment-methods')
+class BillingPaymentMethods(Resource):
+    @billing_ns.doc('get_payment_methods', description='Получить доступные способы оплаты')
+    @billing_ns.marshal_with(common_models['success'], code=200, description='Способы оплаты')
+    @billing_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    def get(self):
+        """Получить доступные способы оплаты"""
+        try:
+            from ...billing.services.yookassa_service import YooKassaService
+            
+            yookassa_service = YooKassaService()
+            payment_methods = yookassa_service.get_payment_methods()
+            
+            return {
+                "success": True,
+                "payment_methods": payment_methods
+            }, 200
+            
+        except Exception as e:
+            return handle_exception(e)
+
+
+@billing_ns.route('/payment/<string:payment_id>')
+class BillingPayment(Resource):
+    @billing_ns.doc('get_payment_status', description='Получить статус платежа')
+    @billing_ns.marshal_with(payment_model, code=200, description='Статус платежа')
+    @billing_ns.marshal_with(common_models['error'], code=404, description='Платеж не найден')
+    @billing_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    def get(self, payment_id):
+        """Получить статус платежа"""
+        try:
+            from ...billing.services.yookassa_service import YooKassaService
+            
+            yookassa_service = YooKassaService()
+            payment_info = yookassa_service.get_payment(payment_id)
+            
+            if not payment_info:
+                return {
+                    "error": "Payment Not Found",
+                    "message": "Платеж не найден",
+                    "status_code": 404,
+                    "timestamp": datetime.now().isoformat()
+                }, 404
+            
+            return {
+                "success": True,
+                "payment": payment_info
+            }, 200
+            
+        except Exception as e:
+            return handle_exception(e)
+
+
+@billing_ns.route('/events')
+class BillingEvents(Resource):
+    @billing_ns.doc('get_billing_events', description='Получить события billing системы')
+    @billing_ns.marshal_with(billing_event_model, code=200, description='События billing')
+    @billing_ns.marshal_with(common_models['error'], code=400, description='Не указан ID пользователя')
+    @billing_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    def get(self):
+        """Получить события billing системы"""
+        try:
+            user_id = request.headers.get('X-User-ID')
+            if not user_id:
+                return {
+                    "error": "Validation Error",
+                    "message": "Не указан ID пользователя",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            limit = request.args.get('limit', 50, type=int)
+            offset = request.args.get('offset', 0, type=int)
+            
+            # TODO: Получить события через SubscriptionService
+            # subscription_service = SubscriptionService(db_session)
+            # events = subscription_service.get_billing_events(user_id, limit, offset)
+            
+            # Временная заглушка
+            events = [
+                {
+                    "id": 1,
+                    "event_type": "subscription_created",
+                    "event_data": {
+                        "plan_id": "free",
+                        "trial_days": 7
+                    },
+                    "created_at": "2024-01-15T10:00:00Z"
+                }
+            ]
+            
+            return {
+                "success": True,
+                "events": events
+            }, 200
+            
+        except Exception as e:
+            return handle_exception(e)
+
+
+# ==================== WEBHOOK ENDPOINTS ====================
+
+@webhook_ns.route('/yookassa')
+class WebhookYooKassa(Resource):
+    @webhook_ns.doc('yookassa_webhook', description='Обработчик webhook от ЮКассы')
+    @webhook_ns.expect(webhook_model, validate=False)
+    @webhook_ns.marshal_with(webhook_response_model, code=200, description='Webhook обработан')
+    @webhook_ns.marshal_with(common_models['error'], code=400, description='Неверная подпись')
+    @webhook_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    def post(self):
+        """Обработчик webhook от ЮКассы"""
+        try:
+            from ...billing.services.yookassa_service import YooKassaService
+            
+            # Получаем данные запроса
+            request_body = request.get_data(as_text=True)
+            signature = request.headers.get('X-YooMoney-Signature', '')
+            
+            logger.info(f"Получен webhook от ЮКассы: {request_body[:200]}...")
+            
+            # Инициализируем сервисы
+            yookassa_service = YooKassaService()
+            
+            # Проверяем подпись
+            if not yookassa_service.verify_webhook(request_body, signature):
+                logger.warning("Неверная подпись webhook от ЮКассы")
+                return {
+                    "error": "Invalid signature",
+                    "message": "Неверная подпись webhook",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            # Парсим webhook
+            webhook_data = yookassa_service.parse_webhook(request_body)
+            if not webhook_data:
+                logger.warning("Не удалось распарсить webhook от ЮКассы")
+                return {
+                    "error": "Invalid webhook data",
+                    "message": "Неверные данные webhook",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            # Обрабатываем событие
+            success = _process_webhook_event(webhook_data)
+            
+            if success:
+                logger.info(f"Webhook успешно обработан: {webhook_data['event_type']}")
+                return {
+                    "status": "ok",
+                    "message": "Webhook обработан успешно"
+                }, 200
+            else:
+                logger.error(f"Ошибка обработки webhook: {webhook_data['event_type']}")
+                return {
+                    "error": "Processing failed",
+                    "message": "Ошибка обработки webhook",
+                    "status_code": 500,
+                    "timestamp": datetime.now().isoformat()
+                }, 500
+                
+        except Exception as e:
+            logger.error(f"Ошибка обработки webhook от ЮКассы: {e}")
+            return {
+                "error": "Internal server error",
+                "message": "Внутренняя ошибка сервера",
+                "status_code": 500,
+                "timestamp": datetime.now().isoformat()
+            }, 500
+
+
+@webhook_ns.route('/yookassa/test')
+class WebhookYooKassaTest(Resource):
+    @webhook_ns.doc('yookassa_test_webhook', description='Тестовый webhook для отладки')
+    @webhook_ns.marshal_with(webhook_response_model, code=200, description='Тестовый webhook получен')
+    @webhook_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    def post(self):
+        """Тестовый webhook для отладки"""
+        try:
+            request_body = request.get_data(as_text=True)
+            headers = dict(request.headers)
+            
+            logger.info("Получен тестовый webhook от ЮКассы:")
+            logger.info(f"Headers: {headers}")
+            logger.info(f"Body: {request_body}")
+            
+            return {
+                "status": "ok",
+                "message": "Test webhook received",
+                "headers": headers,
+                "body_length": len(request_body)
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Ошибка обработки тестового webhook: {e}")
+            return {
+                "error": "Internal server error",
+                "message": "Внутренняя ошибка сервера",
+                "status_code": 500,
+                "timestamp": datetime.now().isoformat()
+            }, 500
+
+
+def _process_webhook_event(webhook_data):
+    """Обработать событие webhook"""
+    try:
+        event_type = webhook_data.get('event_type')
+        payment_id = webhook_data.get('payment_id')
+        
+        logger.info(f"Обработка события {event_type} для платежа {payment_id}")
+        
+        if event_type == 'payment.succeeded':
+            return _handle_payment_succeeded(webhook_data)
+        elif event_type == 'payment.canceled':
+            return _handle_payment_canceled(webhook_data)
+        elif event_type == 'refund.succeeded':
+            return _handle_refund_succeeded(webhook_data)
+        else:
+            logger.warning(f"Неизвестный тип события: {event_type}")
+            return True  # Не критичная ошибка
+            
+    except Exception as e:
+        logger.error(f"Ошибка обработки события webhook: {e}")
+        return False
+
+
+def _handle_payment_succeeded(webhook_data):
+    """Обработать успешный платеж"""
+    try:
+        payment_id = webhook_data.get('payment_id')
+        metadata = webhook_data.get('metadata', {})
+        user_id = metadata.get('user_id')
+        subscription_id = metadata.get('subscription_id')
+        
+        if not user_id:
+            logger.error(f"Не указан user_id в метаданных платежа {payment_id}")
+            return False
+        
+        logger.info(f"Обработка успешного платежа {payment_id} для пользователя {user_id}")
+        
+        # TODO: Получить сессию БД из контекста приложения
+        # db_session = current_app.db_session
+        # subscription_service = SubscriptionService(db_session)
+        # yookassa_service = YooKassaService()
+        
+        # Получаем информацию о платеже
+        # payment_info = yookassa_service.get_payment(payment_id)
+        # if not payment_info:
+        #     logger.error(f"Не удалось получить информацию о платеже {payment_id}")
+        #     return False
+        
+        # Создаем или обновляем запись платежа
+        # payment = Payment(
+        #     yookassa_payment_id=payment_id,
+        #     user_id=user_id,
+        #     subscription_id=int(subscription_id) if subscription_id else None,
+        #     amount=payment_info['amount'],
+        #     currency=payment_info['currency'],
+        #     status=PaymentStatus.SUCCEEDED.value,
+        #     description=payment_info.get('description', ''),
+        #     paid_at=webhook_data.get('paid_at'),
+        #     metadata=metadata
+        # )
+        # 
+        # db_session.add(payment)
+        # db_session.commit()
+        
+        # Если это платеж за подписку, создаем или продлеваем подписку
+        if subscription_id:
+            # subscription = subscription_service.get_user_subscription(user_id)
+            # if subscription:
+            #     # Продлеваем существующую подписку
+            #     success = subscription_service.renew_subscription(
+            #         subscription_id=int(subscription_id),
+            #         payment_id=payment_id
+            #     )
+            # else:
+            #     # Создаем новую подписку
+            #     plan_id = metadata.get('plan_id', 'free')
+            #     success = subscription_service.create_subscription(
+            #         user_id=user_id,
+            #         plan_id=plan_id,
+            #         payment_method='yookassa'
+            #     )
+            pass
+        
+        # TODO: Отправить уведомление пользователю
+        # _send_payment_notification(user_id, payment_id, 'success')
+        
+        logger.info(f"Платеж {payment_id} успешно обработан")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Ошибка обработки успешного платежа: {e}")
+        return False
+
+
+def _handle_payment_canceled(webhook_data):
+    """Обработать отмененный платеж"""
+    try:
+        payment_id = webhook_data.get('payment_id')
+        metadata = webhook_data.get('metadata', {})
+        user_id = metadata.get('user_id')
+        
+        if not user_id:
+            logger.error(f"Не указан user_id в метаданных отмененного платежа {payment_id}")
+            return False
+        
+        logger.info(f"Обработка отмененного платежа {payment_id} для пользователя {user_id}")
+        
+        # TODO: Обновить статус платежа в БД
+        # db_session = current_app.db_session
+        # payment = db_session.query(Payment).filter(
+        #     Payment.yookassa_payment_id == payment_id
+        # ).first()
+        # 
+        # if payment:
+        #     payment.status = PaymentStatus.CANCELLED.value
+        #     payment.updated_at = datetime.utcnow()
+        #     db_session.commit()
+        
+        # TODO: Отправить уведомление пользователю
+        # _send_payment_notification(user_id, payment_id, 'canceled')
+        
+        logger.info(f"Отмененный платеж {payment_id} успешно обработан")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Ошибка обработки отмененного платежа: {e}")
+        return False
+
+
+def _handle_refund_succeeded(webhook_data):
+    """Обработать успешный возврат"""
+    try:
+        refund_id = webhook_data.get('refund_id')
+        payment_id = webhook_data.get('payment_id')
+        amount = webhook_data.get('amount')
+        
+        logger.info(f"Обработка возврата {refund_id} для платежа {payment_id}")
+        
+        # TODO: Обновить информацию о возврате в БД
+        # db_session = current_app.db_session
+        # payment = db_session.query(Payment).filter(
+        #     Payment.yookassa_payment_id == payment_id
+        # ).first()
+        # 
+        # if payment:
+        #     # Обновляем статус платежа
+        #     payment.status = PaymentStatus.REFUNDED.value
+        #     payment.updated_at = datetime.utcnow()
+        #     
+        #     # Создаем запись о возврате
+        #     refund = Refund(
+        #         payment_id=payment.id,
+        #         yookassa_refund_id=refund_id,
+        #         amount=amount,
+        #         status=RefundStatus.SUCCEEDED.value,
+        #         created_at=webhook_data.get('created_at')
+        #     )
+        #     
+        #     db_session.add(refund)
+        #     db_session.commit()
+        
+        # TODO: Отправить уведомление пользователю
+        # _send_payment_notification(payment.user_id, payment_id, 'refunded')
+        
+        logger.info(f"Возврат {refund_id} успешно обработан")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Ошибка обработки возврата: {e}")
+        return False
+
+
+# ==================== HEALTH ENDPOINTS ====================
+
+@health_ns.route('/')
+class HealthCheck(Resource):
+    @health_ns.doc('health_check', description='Проверка состояния приложения')
+    @health_ns.marshal_with(health_model, code=200, description='Система здорова')
+    @health_ns.marshal_with(health_model, code=503, description='Система нездорова')
+    def get(self):
+        """Проверка состояния приложения"""
+        try:
+            # Получаем базовый статус системы
+            system_status = orchestrator.get_system_status()
+            
+            # Определяем общее состояние
+            total_agents = system_status["agents"]["total_agents"]
+            error_agents = system_status["agents"]["error_agents"]
+            
+            if error_agents == 0 and total_agents > 0:
+                health_status = "healthy"
+                status_code = 200
+            elif error_agents < total_agents:
+                health_status = "degraded"
+                status_code = 503
+            else:
+                health_status = "unhealthy"
+                status_code = 503
+            
+            response = {
+                "status": health_status,
+                "timestamp": datetime.now().isoformat(),
+                "version": "1.0.0",
+                "service": "AI Content Orchestrator",
+                "details": {
+                    "total_agents": total_agents,
+                    "error_agents": error_agents,
+                    "active_tasks": system_status["agents"]["active_tasks"],
+                    "completed_tasks": system_status["agents"]["completed_tasks"]
+                }
+            }
+            
+            return response, status_code
+            
+        except Exception as e:
+            logger.error(f"Ошибка health check: {e}")
+            return {
+                "status": "unhealthy",
+                "timestamp": datetime.now().isoformat(),
+                "version": "1.0.0",
+                "service": "AI Content Orchestrator",
+                "details": {
+                    "error": str(e)
+                }
+            }, 503

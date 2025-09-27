@@ -40,7 +40,7 @@ from app.api.schemas import (
     AgentStatusSchema,
     ErrorResponseSchema
 )
-from app.api.routes import api
+from app.api.routes import api, auth_ns, billing_ns, webhook_ns, health_ns
 from app.api.swagger_config import create_swagger_api
 
 # Настройка логирования
@@ -80,6 +80,10 @@ def create_app():
     # Создаем и регистрируем Flask-RESTX API с Swagger
     swagger_api = create_swagger_api(app)
     swagger_api.add_namespace(api)
+    swagger_api.add_namespace(auth_ns)
+    swagger_api.add_namespace(billing_ns)
+    swagger_api.add_namespace(webhook_ns)
+    swagger_api.add_namespace(health_ns)
     
     # Регистрируем остальные blueprints
     app.register_blueprint(billing_bp)
