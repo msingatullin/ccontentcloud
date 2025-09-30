@@ -34,15 +34,24 @@ def create_app():
     })
     
     # CORS для фронтенда - разрешаем все необходимые домены
-    CORS(app, origins=[
-        'http://localhost:3000', 
-        'http://127.0.0.1:3000', 
-        'https://goinvesting.ai', 
-        'https://www.goinvesting.ai',
-        'https://content-curator-frontend-dt3n7kzpwq-uc.a.run.app',
-        'https://content-curator-frontend-1046574462613.us-central1.run.app',
-        'https://content-curator-dt3n7kzpwq-uc.a.run.app'
-    ], supports_credentials=True)
+    CORS(app, resources={
+        r"/api/*": {
+            "origins": [
+                'http://localhost:3000',
+                'http://127.0.0.1:3000',
+                'http://localhost:5173',  # для локальной разработки
+                'https://goinvesting.ai',
+                'https://www.goinvesting.ai',
+                'https://content-curator-frontend-dt3n7kzpwq-uc.a.run.app',
+                'https://content-curator-frontend-1046574462613.us-central1.run.app',
+                'https://content-curator-dt3n7kzpwq-uc.a.run.app',
+                'https://content-curator-web-1046574462613.europe-west1.run.app'  # новый production frontend
+            ],
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"],
+            "supports_credentials": True
+        }
+    })
     
     # Базовые endpoints
     @app.route('/')

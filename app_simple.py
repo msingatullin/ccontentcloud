@@ -40,12 +40,21 @@ def create_app():
     })
     
     # CORS для фронтенда
-    CORS(app, origins=[
-        'http://localhost:3000', 
-        'http://127.0.0.1:3000', 
-        'https://goinvesting.ai', 
-        'https://content-curator-frontend-dt3n7kzpwq-uc.a.run.app'
-    ])
+    CORS(app, resources={
+        r"/api/*": {
+            "origins": [
+                'http://localhost:3000',
+                'http://127.0.0.1:3000',
+                'http://localhost:5173',  # для локальной разработки
+                'https://goinvesting.ai',
+                'https://content-curator-frontend-dt3n7kzpwq-uc.a.run.app',
+                'https://content-curator-web-1046574462613.europe-west1.run.app'  # новый production frontend
+            ],
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"],
+            "supports_credentials": True
+        }
+    })
     
     # Health check endpoint - отвечает сразу
     @app.route('/health')
