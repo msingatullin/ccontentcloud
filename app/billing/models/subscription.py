@@ -7,10 +7,8 @@ from enum import Enum
 from typing import Optional, Dict, Any
 from dataclasses import dataclass, field
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, JSON, ForeignKey
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-
-Base = declarative_base()
+from app.database.connection import Base
 
 
 class SubscriptionStatus(Enum):
@@ -92,6 +90,7 @@ class Subscription(Base):
     meta_data = Column(JSON, default=dict)
     
     # Связи
+    user = relationship("User", back_populates="subscriptions")
     payments = relationship("Payment", back_populates="subscription")
     usage_records = relationship("UsageRecord", back_populates="subscription")
 

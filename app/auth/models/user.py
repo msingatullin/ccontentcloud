@@ -7,12 +7,10 @@ from enum import Enum
 from typing import Optional
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, Enum as SQLEnum
 from sqlalchemy.orm import relationship
-from sqlalchemy.ext.declarative import declarative_base
+from app.database.connection import Base
 from werkzeug.security import generate_password_hash, check_password_hash
 import secrets
 import string
-
-Base = declarative_base()
 
 
 class UserRole(str, Enum):
