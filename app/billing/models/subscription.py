@@ -126,9 +126,6 @@ class Payment(Base):
     # Связи
     user = relationship("User", back_populates="payments")
     subscription = relationship("Subscription", back_populates="payments")
-    
-    # Связи
-    subscription = relationship("Subscription", back_populates="payments")
 
 
 class UsageRecord(Base):
