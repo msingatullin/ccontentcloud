@@ -28,7 +28,14 @@ def get_database_url():
         db_user = os.getenv('DB_USER', 'postgres')
         db_password = os.getenv('DB_PASSWORD', '')
         
-        return f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+        # Check if using Cloud SQL Unix Socket
+        if db_host.startswith('/cloudsql/'):
+            # Cloud SQL Unix Socket format
+            # postgresql://user:pass@/dbname?host=/cloudsql/project:region:instance
+            return f"postgresql://{db_user}:{db_password}@/{db_name}?host={db_host}"
+        else:
+            # Standard TCP connection
+            return f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
     
     # For development, use SQLite
     db_path = os.getenv('DATABASE_URL', 'sqlite:///./content_curator.db')
