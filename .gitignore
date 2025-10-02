@@ -45,3 +45,25 @@ Thumbs.db
 *.backup.*
 content-curator-ai.backup.*
 content-curator-ai.trends-backup.*
+
+# Credentials (НИКОГДА НЕ КОММИТИТЬ!)
+.env.backup
+.secret_key.txt
+.db_password.txt
+.env.local
+
+# Temporary files
+check_users.py
+recreate_tables.py
+*.cors_backup
+
+# SQLite databases
+*.db
+*.db-journal
+
+# Backups
+backups/
+
+# Duplicate directories
+ccontentcloud/
+ccontentcloud-1/
