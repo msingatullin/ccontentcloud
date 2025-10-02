@@ -152,6 +152,7 @@ class UsageRecord(Base):
     
     # Связи
     subscription = relationship("Subscription", back_populates="usage_records")
+    user = relationship("User", back_populates="usage_records")
 
 
 class BillingEvent(Base):
