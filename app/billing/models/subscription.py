@@ -124,6 +124,10 @@ class Payment(Base):
     meta_data = Column(JSON, default=dict)
     
     # Связи
+    user = relationship("User", back_populates="payments")
+    subscription = relationship("Subscription", back_populates="payments")
+    
+    # Связи
     subscription = relationship("Subscription", back_populates="payments")
 
 
