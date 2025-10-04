@@ -1198,6 +1198,8 @@ class AuthRegister(Resource):
             # Создание нового пользователя
             user_id = str(len(USERS_STORAGE) + 1)
             password_hash = generate_password_hash(password)
+            
+            logger.info(f"DEBUG: Creating user with ID: {user_id}, email: {email}")
 
             USERS_STORAGE[email] = {
                 'id': user_id,
@@ -1206,9 +1208,14 @@ class AuthRegister(Resource):
                 'password_hash': password_hash,
                 'created_at': datetime.now().isoformat()
             }
+            
+            logger.info(f"DEBUG: User stored in USERS_STORAGE: {USERS_STORAGE[email]}")
+            logger.info(f"DEBUG: USERS_STORAGE now contains {len(USERS_STORAGE)} users")
 
             # Генерация JWT токена
+            logger.info(f"DEBUG: Generating JWT for new user: {user_id}, email: {email}")
             access_token = generate_jwt(user_id, email)
+            logger.info(f"DEBUG: Generated token: {access_token[:50]}..." if access_token else "DEBUG: Token is None!")
 
             # Успешная регистрация
             return {
@@ -1271,18 +1278,37 @@ class AuthLogin(Resource):
                     "timestamp": datetime.now().isoformat()
                 }, 400
             
+            # DEBUG: Показываем содержимое USERS_STORAGE
+            logger.info(f"DEBUG: USERS_STORAGE contains {len(USERS_STORAGE)} users")
+            logger.info(f"DEBUG: Looking for email: {email}")
+            logger.info(f"DEBUG: Available emails: {list(USERS_STORAGE.keys())}")
+            
             # Проверка учетных данных в USERS_STORAGE
             user = USERS_STORAGE.get(email)
-            if not user or not check_password_hash(user['password_hash'], password):
+            logger.info(f"DEBUG: Found user: {user}")
+            
+            if not user:
+                logger.error(f"DEBUG: User not found in USERS_STORAGE for email: {email}")
                 return {
                     "error": "Authentication Failed",
-                    "message": "Invalid email or password",
+                    "message": "User not found. Please register first.",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
+            
+            if not check_password_hash(user['password_hash'], password):
+                logger.error(f"DEBUG: Password check failed for user: {email}")
+                return {
+                    "error": "Authentication Failed",
+                    "message": "Invalid password",
                     "status_code": 401,
                     "timestamp": datetime.now().isoformat()
                 }, 401
 
             # Генерация JWT токена
+            logger.info(f"DEBUG: Generating JWT for user: {user['id']}, email: {email}")
             access_token = generate_jwt(user['id'], email)
+            logger.info(f"DEBUG: Generated token: {access_token[:50]}..." if access_token else "DEBUG: Token is None!")
 
             # Успешная авторизация
             return {
