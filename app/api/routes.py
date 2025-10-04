@@ -1226,13 +1226,20 @@ class AuthRegister(Resource):
             return {
                 "message": "Registration successful",
                 "user": {
-                    "id": user_id,
+                    "id": int(user_id),
                     "email": email,
                     "username": username,
-                    "is_verified": False
+                    "first_name": data.get('first_name'),
+                    "last_name": data.get('last_name'),
+                    "company": data.get('company'),
+                    "phone": data.get('phone'),
+                    "role": "user",
+                    "is_verified": False,
+                    "created_at": datetime.now().isoformat(),
+                    "updated_at": datetime.now().isoformat()
                 },
                 "access_token": access_token,
-                "token_type": "bearer",
+                "refresh_token": None,  # TODO: implement refresh tokens
                 "expires_in": 86400
             }, 201
                 
@@ -1323,13 +1330,20 @@ class AuthLogin(Resource):
             return {
                 "message": "Login successful",
                 "access_token": access_token,
-                "token_type": "bearer",
+                "refresh_token": None,  # TODO: implement refresh tokens
                 "expires_in": 86400,
                 "user": {
-                    "id": user['id'],
+                    "id": int(user['id']),
                     "email": user['email'],
                     "username": user['username'],
-                    "is_verified": False
+                    "first_name": user.get('first_name'),
+                    "last_name": user.get('last_name'),
+                    "company": user.get('company'),
+                    "phone": user.get('phone'),
+                    "role": "user",
+                    "is_verified": False,
+                    "created_at": user.get('created_at'),
+                    "updated_at": datetime.now().isoformat()
                 }
             }, 200
                 
