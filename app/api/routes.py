@@ -1199,6 +1199,7 @@ class AuthRegister(Resource):
             user_id = str(len(USERS_STORAGE) + 1)
             password_hash = generate_password_hash(password)
             
+            print(f"DEBUG: Creating user with ID: {user_id}, email: {email}")
             logger.info(f"DEBUG: Creating user with ID: {user_id}, email: {email}")
 
             USERS_STORAGE[email] = {
@@ -1209,12 +1210,16 @@ class AuthRegister(Resource):
                 'created_at': datetime.now().isoformat()
             }
             
+            print(f"DEBUG: User stored in USERS_STORAGE: {USERS_STORAGE[email]}")
+            print(f"DEBUG: USERS_STORAGE now contains {len(USERS_STORAGE)} users")
             logger.info(f"DEBUG: User stored in USERS_STORAGE: {USERS_STORAGE[email]}")
             logger.info(f"DEBUG: USERS_STORAGE now contains {len(USERS_STORAGE)} users")
 
             # Генерация JWT токена
+            print(f"DEBUG: Generating JWT for new user: {user_id}, email: {email}")
             logger.info(f"DEBUG: Generating JWT for new user: {user_id}, email: {email}")
             access_token = generate_jwt(user_id, email)
+            print(f"DEBUG: Generated token: {access_token[:50]}..." if access_token else "DEBUG: Token is None!")
             logger.info(f"DEBUG: Generated token: {access_token[:50]}..." if access_token else "DEBUG: Token is None!")
 
             # Успешная регистрация
@@ -1279,12 +1284,14 @@ class AuthLogin(Resource):
                 }, 400
             
             # DEBUG: Показываем содержимое USERS_STORAGE
+            print(f"USERS_STORAGE: {USERS_STORAGE}")
+            print(f"Looking for: {email}")
+            user = USERS_STORAGE.get(email)
+            print(f"Found user: {user}")
+            
             logger.info(f"DEBUG: USERS_STORAGE contains {len(USERS_STORAGE)} users")
             logger.info(f"DEBUG: Looking for email: {email}")
             logger.info(f"DEBUG: Available emails: {list(USERS_STORAGE.keys())}")
-            
-            # Проверка учетных данных в USERS_STORAGE
-            user = USERS_STORAGE.get(email)
             logger.info(f"DEBUG: Found user: {user}")
             
             if not user:
@@ -1306,8 +1313,10 @@ class AuthLogin(Resource):
                 }, 401
 
             # Генерация JWT токена
+            print(f"DEBUG: Generating JWT for user: {user['id']}, email: {email}")
             logger.info(f"DEBUG: Generating JWT for user: {user['id']}, email: {email}")
             access_token = generate_jwt(user['id'], email)
+            print(f"DEBUG: Generated token: {access_token[:50]}..." if access_token else "DEBUG: Token is None!")
             logger.info(f"DEBUG: Generated token: {access_token[:50]}..." if access_token else "DEBUG: Token is None!")
 
             # Успешная авторизация
