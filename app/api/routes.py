@@ -6,10 +6,12 @@ RESTful endpoints для работы с контентом и агентами
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
+import jwt
 from flask import request, current_app
 from flask_restx import Namespace, Resource, fields
 from pydantic import ValidationError
+from werkzeug.security import generate_password_hash, check_password_hash
 
 from ..orchestrator.main_orchestrator import orchestrator
 from .schemas import (
@@ -27,6 +29,29 @@ from .swagger_config import create_common_models, get_example_data
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
+
+# ==================== IN-MEMORY AUTH SYSTEM ====================
+
+# In-memory хранилище пользователей
+USERS_STORAGE = {}
+SECRET_KEY = "content-curator-secret-key-2025"  # TODO: вынести в env
+
+def generate_jwt(user_id, email):
+    """Генерация JWT токена"""
+    payload = {
+        'user_id': user_id,
+        'email': email,
+        'exp': datetime.utcnow() + timedelta(hours=24)
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm='HS256')
+
+def verify_jwt_token(token):
+    """Проверка JWT токена"""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+        return payload
+    except:
+        return None
 
 # Создаем namespaces для API
 api = Namespace('api', description='AI Content Orchestrator API')
@@ -1106,24 +1131,42 @@ class AuthRegister(Resource):
                     "timestamp": datetime.now().isoformat()
                 }, 400
             
-            # Проверка на существующего пользователя (заглушка)
-            if email == 'existing@example.com':
+            # Проверка существующего пользователя
+            if email in USERS_STORAGE:
                 return {
                     "error": "Registration Failed",
-                    "message": "Пользователь с таким email уже существует",
+                    "message": "Email already registered",
                     "status_code": 400,
                     "timestamp": datetime.now().isoformat()
                 }, 400
-            
+
+            # Создание нового пользователя
+            user_id = str(len(USERS_STORAGE) + 1)
+            password_hash = generate_password_hash(password)
+
+            USERS_STORAGE[email] = {
+                'id': user_id,
+                'email': email,
+                'username': username,
+                'password_hash': password_hash,
+                'created_at': datetime.now().isoformat()
+            }
+
+            # Генерация JWT токена
+            access_token = generate_jwt(user_id, email)
+
             # Успешная регистрация
             return {
-                "message": "Пользователь успешно зарегистрирован",
+                "message": "Registration successful",
                 "user": {
-                    "id": 1,
+                    "id": user_id,
                     "email": email,
                     "username": username,
                     "is_verified": False
-                }
+                },
+                "access_token": access_token,
+                "token_type": "bearer",
+                "expires_in": 86400
             }, 201
                 
         except Exception as e:
@@ -1173,32 +1216,30 @@ class AuthLogin(Resource):
                     "timestamp": datetime.now().isoformat()
                 }, 400
             
-            # Проверка учетных данных (заглушка)
-            valid_credentials = {
-                'admin@example.com': 'admin123',
-                'user@example.com': 'user123',
-                'test@example.com': 'test123'
-            }
-            
-            if email not in valid_credentials or valid_credentials[email] != password:
+            # Проверка учетных данных в USERS_STORAGE
+            user = USERS_STORAGE.get(email)
+            if not user or not check_password_hash(user['password_hash'], password):
                 return {
                     "error": "Authentication Failed",
-                    "message": "Неверный email или пароль",
+                    "message": "Invalid email or password",
                     "status_code": 401,
                     "timestamp": datetime.now().isoformat()
                 }, 401
-            
+
+            # Генерация JWT токена
+            access_token = generate_jwt(user['id'], email)
+
             # Успешная авторизация
             return {
-                "message": "Успешная авторизация",
-                "access_token": f"mock_access_token_{email}",
-                "refresh_token": f"mock_refresh_token_{email}",
-                "expires_in": 3600,
+                "message": "Login successful",
+                "access_token": access_token,
+                "token_type": "bearer",
+                "expires_in": 86400,
                 "user": {
-                    "id": 1,
-                    "email": email,
-                    "username": email.split('@')[0],
-                    "is_verified": True
+                    "id": user['id'],
+                    "email": user['email'],
+                    "username": user['username'],
+                    "is_verified": False
                 }
             }, 200
                 
