@@ -53,37 +53,6 @@ def verify_jwt_token(token):
     except:
         return None
 
-# ==================== JWT MIDDLEWARE ====================
-
-from functools import wraps
-
-def jwt_required(f):
-    """Декоратор для проверки JWT токена"""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        token = None
-        
-        # Извлечь токен из Authorization header
-        if 'Authorization' in request.headers:
-            auth_header = request.headers['Authorization']
-            try:
-                token = auth_header.split(" ")[1]  # Bearer <token>
-            except:
-                return {"error": "Invalid token format. Use: Bearer <token>"}, 401
-        
-        if not token:
-            return {"error": "Authorization token is missing"}, 401
-        
-        # Проверить токен
-        payload = verify_jwt_token(token)
-        if not payload:
-            return {"error": "Invalid or expired token"}, 401
-        
-        # Передать user info в функцию
-        return f(*args, current_user=payload, **kwargs)
-    
-    return decorated_function
-
 # Создаем namespaces для API
 api = Namespace('api', description='AI Content Orchestrator API')
 auth_ns = Namespace('auth', description='Authentication API')
@@ -423,13 +392,12 @@ def handle_exception(e: Exception) -> tuple:
 
 @api.route('/content/create')
 class ContentCreate(Resource):
-    @jwt_required
     @api.doc('create_content', description='Создает контент через AI агентов')
     @api.expect(content_request_model, validate=True)
     @api.marshal_with(content_response_model, code=201, description='Контент успешно создан')
     @api.marshal_with(common_models['error'], code=400, description='Ошибка валидации')
     @api.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
-    def post(self, current_user):
+    def post(self):
         """
         Создает контент через AI агентов
         
@@ -437,22 +405,16 @@ class ContentCreate(Resource):
         с участием всех необходимых агентов.
         """
         try:
-            # current_user уже проверен в jwt_required
-            user_id = current_user.get('user_id')
-            email = current_user.get('email')
-            
             # Валидируем входные данные
             try:
                 content_request = ContentRequestSchema(**request.json)
             except ValidationError as e:
                 return handle_validation_error(e)
             
-            logger.info(f"User {email} (ID: {user_id}) создает контент: {content_request.title}")
+            logger.info(f"Получен запрос на создание контента: {content_request.title}")
             
             # Преобразуем Pydantic модель в словарь
             request_data = content_request.dict()
-            # Добавляем user_id в данные запроса
-            request_data['user_id'] = user_id
             
             # Запускаем обработку через оркестратор
             result = run_async(orchestrator.process_content_request(request_data))
@@ -501,21 +463,16 @@ class ContentExample(Resource):
 
 @api.route('/workflow/<string:workflow_id>/status')
 class WorkflowStatus(Resource):
-    @jwt_required
     @api.doc('get_workflow_status', description='Получает статус workflow по ID')
     @api.marshal_with(workflow_status_model, code=200, description='Статус workflow')
     @api.marshal_with(common_models['error'], code=404, description='Workflow не найден')
     @api.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
-    def get(self, workflow_id, current_user):
+    def get(self, workflow_id):
         """
         Получает статус workflow по ID
         """
         try:
-            # current_user уже проверен в jwt_required
-            user_id = current_user.get('user_id')
-            email = current_user.get('email')
-            
-            logger.info(f"User {email} (ID: {user_id}) запрашивает статус workflow: {workflow_id}")
+            logger.info(f"Запрос статуса workflow: {workflow_id}")
             
             # Получаем статус workflow
             status = orchestrator.get_workflow_status(workflow_id)
@@ -562,26 +519,21 @@ class WorkflowCancel(Resource):
 
 @api.route('/agents/status')
 class AgentsStatus(Resource):
-    @jwt_required
     @api.doc('get_agents_status', description='Получает статус всех агентов или конкретного агента')
     @api.param('agent_id', 'ID конкретного агента (опционально)', type='string')
     @api.marshal_with(agent_status_model, code=200, description='Статус агента')
     @api.marshal_with(common_models['error'], code=404, description='Агент не найден')
     @api.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
-    def get(self, current_user):
+    def get(self):
         """
         Получает статус всех агентов или конкретного агента
         """
         try:
-            # current_user уже проверен в jwt_required
-            user_id = current_user.get('user_id')
-            email = current_user.get('email')
-            
             agent_id = request.args.get('agent_id')
             
             if agent_id:
                 # Статус конкретного агента
-                logger.info(f"User {email} (ID: {user_id}) запрашивает статус агента: {agent_id}")
+                logger.info(f"Запрос статуса агента: {agent_id}")
                 status = orchestrator.get_agent_status(agent_id)
                 
                 if status:
@@ -595,7 +547,7 @@ class AgentsStatus(Resource):
                     }, 404
             else:
                 # Статус всех агентов
-                logger.info(f"User {email} (ID: {user_id}) запрашивает статус всех агентов")
+                logger.info("Запрос статуса всех агентов")
                 status = orchestrator.get_all_agents_status()
                 return status, 200
                 
@@ -855,20 +807,15 @@ class PlatformConfig(Resource):
 
 @api.route('/trends/analyze')
 class TrendsAnalyze(Resource):
-    @jwt_required
     @api.doc('analyze_trends', description='Анализ трендов через TrendsScoutAgent')
     @api.expect(trends_analysis_request_model, validate=True)
     @api.marshal_with(trends_analysis_response_model, code=200, description='Анализ трендов выполнен')
     @api.marshal_with(common_models['error'], code=400, description='Некорректные данные')
     @api.marshal_with(common_models['error'], code=503, description='Агент недоступен')
     @api.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
-    def post(self, current_user):
+    def post(self):
         """Анализ трендов через TrendsScoutAgent"""
         try:
-            # current_user уже проверен в jwt_required
-            user_id = current_user.get('user_id')
-            email = current_user.get('email')
-            
             data = request.get_json()
             if not data:
                 return {
@@ -877,8 +824,6 @@ class TrendsAnalyze(Resource):
                     "status_code": 400,
                     "timestamp": datetime.now().isoformat()
                 }, 400
-            
-            logger.info(f"User {email} (ID: {user_id}) анализирует тренды")
             
             # Извлекаем параметры
             analysis_type = data.get('analysis_type', 'general')
@@ -1539,23 +1484,53 @@ class AuthRefresh(Resource):
 
 @auth_ns.route('/logout')
 class AuthLogout(Resource):
-    @jwt_required
     @auth_ns.doc('logout_user', description='Выход пользователя')
     @auth_ns.marshal_with(common_models['success'], code=200, description='Успешный выход')
     @auth_ns.marshal_with(common_models['error'], code=401, description='Не авторизован')
     @auth_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
-    def post(self, current_user):
+    def post(self):
         """Выход пользователя"""
         try:
-            # current_user уже проверен в jwt_required
-            user_id = current_user.get('user_id')
-            email = current_user.get('email')
+            # Проверяем токен
+            auth_header = request.headers.get('Authorization')
+            if not auth_header or not auth_header.startswith('Bearer '):
+                return {
+                    "error": "Unauthorized",
+                    "message": "Токен не предоставлен",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
             
-            # Логика выхода пользователя
-            logger.info(f"User {email} (ID: {user_id}) logged out successfully")
+            token = auth_header.split(' ')[1]
             
+            # Простая проверка токена (заглушка)
+            if not token or len(token) < 10:
+                return {
+                    "error": "Unauthorized",
+                    "message": "Неверный токен",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
+            
+            # Проверка на валидные mock токены
+            valid_tokens = [
+                'mock_access_token_admin@example.com',
+                'mock_access_token_user@example.com',
+                'mock_access_token_test@example.com'
+            ]
+            
+            if token not in valid_tokens:
+                return {
+                    "error": "Unauthorized",
+                    "message": "Неверный токен",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
+            
+            # Успешный выход
             return {
-                "message": "Logout successful",
+                "success": True,
+                "message": "Успешный выход из системы",
                 "timestamp": datetime.now().isoformat()
             }, 200
                 
@@ -1571,71 +1546,130 @@ class AuthLogout(Resource):
 
 @auth_ns.route('/logout-all')
 class AuthLogoutAll(Resource):
-    @jwt_required
     @auth_ns.doc('logout_all_sessions', description='Выход из всех сессий')
     @auth_ns.marshal_with(common_models['success'], code=200, description='Успешный выход из всех сессий')
     @auth_ns.marshal_with(common_models['error'], code=401, description='Не авторизован')
     @auth_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
-    def post(self, current_user):
+    def post(self):
         """Выход из всех сессий"""
         try:
-            # current_user уже проверен в jwt_required
-            user_id = current_user.get('user_id')
-            email = current_user.get('email')
+            from ...auth.services.auth_service import AuthService
+            from ...auth.utils.email import EmailService
+            from ...database.connection import get_db_session
+            from ...auth.middleware.jwt import JWTMiddleware
             
-            # В in-memory системе просто логируем выход из всех сессий
-            logger.info(f"User {email} (ID: {user_id}) logged out from all sessions")
+            db_session = get_db_session()
+            email_service = EmailService()
+            auth_service = AuthService(db_session, current_app.config['SECRET_KEY'], email_service)
+            jwt_middleware = JWTMiddleware(auth_service)
             
-            return {
-                "success": True,
-                "message": "Successfully logged out from all sessions",
-                "timestamp": datetime.now().isoformat()
-            }, 200
+            # Проверяем токен
+            auth_header = request.headers.get('Authorization')
+            if not auth_header or not auth_header.startswith('Bearer '):
+                return {
+                    "error": "Unauthorized",
+                    "message": "Токен не предоставлен",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
+            
+            token = auth_header.split(' ')[1]
+            payload = jwt_middleware.verify_token(token)
+            
+            if not payload:
+                return {
+                    "error": "Unauthorized",
+                    "message": "Неверный токен",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
+            
+            user_id = payload.get('user_id')
+            success, message = auth_service.logout_all_sessions(user_id)
+            
+            if success:
+                return {
+                    "success": True,
+                    "message": message,
+                    "timestamp": datetime.now().isoformat()
+                }, 200
+            else:
+                return {
+                    "error": "Logout Failed",
+                    "message": message,
+                    "status_code": 500,
+                    "timestamp": datetime.now().isoformat()
+                }, 500
                 
         except Exception as e:
-            logger.error(f"Error in logout-all: {e}")
-            return {
-                "error": "Internal server error",
-                "message": "Внутренняя ошибка сервера",
-                "status_code": 500,
-                "timestamp": datetime.now().isoformat()
-            }, 500
+            return handle_exception(e)
 
 
 @auth_ns.route('/me')
 class AuthMe(Resource):
-    @jwt_required
     @auth_ns.doc('get_current_user', description='Получить информацию о текущем пользователе')
     @auth_ns.marshal_with(user_model, code=200, description='Информация о пользователе')
     @auth_ns.marshal_with(common_models['error'], code=401, description='Не авторизован')
     @auth_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
-    def get(self, current_user):
+    def get(self):
         """Получить информацию о текущем пользователе"""
         try:
-            # current_user уже проверен в jwt_required
-            user_id = current_user.get('user_id')
-            email = current_user.get('email')
+            # Проверяем токен
+            auth_header = request.headers.get('Authorization')
+            if not auth_header or not auth_header.startswith('Bearer '):
+                return {
+                    "error": "Unauthorized",
+                    "message": "Токен не предоставлен",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
             
-            # Получить данные пользователя из USERS_STORAGE
-            user_data = USERS_STORAGE.get(email, {})
+            token = auth_header.split(' ')[1]
+            
+            # Простая проверка токена (заглушка)
+            if not token or len(token) < 10:
+                return {
+                    "error": "Unauthorized",
+                    "message": "Неверный токен",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
+            
+            # Проверка на валидные mock токены
+            valid_tokens = [
+                'mock_access_token_admin@example.com',
+                'mock_access_token_user@example.com',
+                'mock_access_token_test@example.com'
+            ]
+            
+            if token not in valid_tokens:
+                return {
+                    "error": "Unauthorized",
+                    "message": "Неверный токен",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
+            
+            # Извлекаем email из токена
+            email = token.replace('mock_access_token_', '')
             
             # Возвращаем информацию о пользователе
             return {
                 "user": {
-                    "id": user_id,
+                    "id": 1,
                     "email": email,
-                    "username": user_data.get('username', email.split('@')[0]),
-                    "first_name": user_data.get('first_name'),
-                    "last_name": user_data.get('last_name'),
-                    "is_verified": False,
+                    "username": email.split('@')[0],
+                    "first_name": "Test",
+                    "last_name": "User",
+                    "is_verified": True,
                     "role": "user",
-                    "created_at": user_data.get('created_at'),
-                    "updated_at": datetime.now().isoformat()
+                    "created_at": "2024-01-01T00:00:00Z",
+                    "updated_at": "2024-01-01T00:00:00Z"
                 },
                 "usage_stats": {
-                    "posts_used": 0,
+                    "posts_used": 5,
                     "posts_limit": 50,
-                    "api_calls_used": 0,
+                    "api_calls_used": 100,
                     "api_calls_limit": 1000
                 }
             }, 200
@@ -1652,19 +1686,45 @@ class AuthMe(Resource):
 
 @auth_ns.route('/profile')
 class AuthProfile(Resource):
-    @jwt_required
     @auth_ns.doc('update_profile', description='Обновление профиля пользователя')
     @auth_ns.expect(update_profile_model, validate=True)
     @auth_ns.marshal_with(user_model, code=200, description='Профиль успешно обновлен')
     @auth_ns.marshal_with(common_models['error'], code=400, description='Ошибка валидации')
     @auth_ns.marshal_with(common_models['error'], code=401, description='Не авторизован')
     @auth_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
-    def put(self, current_user):
+    def put(self):
         """Обновление профиля пользователя"""
         try:
-            # current_user уже проверен в jwt_required
-            user_id = current_user.get('user_id')
-            email = current_user.get('email')
+            from ...auth.services.auth_service import AuthService
+            from ...auth.utils.email import EmailService
+            from ...database.connection import get_db_session
+            from ...auth.middleware.jwt import JWTMiddleware
+            
+            db_session = get_db_session()
+            email_service = EmailService()
+            auth_service = AuthService(db_session, current_app.config['SECRET_KEY'], email_service)
+            jwt_middleware = JWTMiddleware(auth_service)
+            
+            # Проверяем токен
+            auth_header = request.headers.get('Authorization')
+            if not auth_header or not auth_header.startswith('Bearer '):
+                return {
+                    "error": "Unauthorized",
+                    "message": "Токен не предоставлен",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
+            
+            token = auth_header.split(' ')[1]
+            payload = jwt_middleware.verify_token(token)
+            
+            if not payload:
+                return {
+                    "error": "Unauthorized",
+                    "message": "Неверный токен",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
             
             data = request.get_json()
             if not data:
@@ -1675,39 +1735,18 @@ class AuthProfile(Resource):
                     "timestamp": datetime.now().isoformat()
                 }, 400
             
-            # Обновить данные пользователя в USERS_STORAGE
-            if email in USERS_STORAGE:
-                user_data = USERS_STORAGE[email]
-                # Обновляем только переданные поля
-                if 'first_name' in data:
-                    user_data['first_name'] = data['first_name']
-                if 'last_name' in data:
-                    user_data['last_name'] = data['last_name']
-                if 'company' in data:
-                    user_data['company'] = data['company']
-                if 'phone' in data:
-                    user_data['phone'] = data['phone']
-                
-                USERS_STORAGE[email] = user_data
-                
+            user_id = payload.get('user_id')
+            success, message, user = auth_service.update_user_profile(user_id, **data)
+            
+            if success:
                 return {
-                    "message": "Profile updated successfully",
-                    "user": {
-                        "id": user_id,
-                        "email": email,
-                        "username": user_data.get('username'),
-                        "first_name": user_data.get('first_name'),
-                        "last_name": user_data.get('last_name'),
-                        "company": user_data.get('company'),
-                        "phone": user_data.get('phone'),
-                        "is_verified": False,
-                        "created_at": user_data.get('created_at'),
-                        "updated_at": datetime.now().isoformat()
-                    }
+                    "message": message,
+                    "user": user.to_dict() if user else None
                 }, 200
             else:
                 return {
-                    "error": "User not found",
+                    "error": "Update Failed",
+                    "message": message,
                     "status_code": 400,
                     "timestamp": datetime.now().isoformat()
                 }, 400
@@ -1718,19 +1757,45 @@ class AuthProfile(Resource):
 
 @auth_ns.route('/change-password')
 class AuthChangePassword(Resource):
-    @jwt_required
     @auth_ns.doc('change_password', description='Смена пароля')
     @auth_ns.expect(change_password_model, validate=True)
     @auth_ns.marshal_with(common_models['success'], code=200, description='Пароль успешно изменен')
     @auth_ns.marshal_with(common_models['error'], code=400, description='Ошибка валидации')
     @auth_ns.marshal_with(common_models['error'], code=401, description='Не авторизован')
     @auth_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
-    def post(self, current_user):
+    def post(self):
         """Смена пароля"""
         try:
-            # current_user уже проверен в jwt_required
-            user_id = current_user.get('user_id')
-            email = current_user.get('email')
+            from ...auth.services.auth_service import AuthService
+            from ...auth.utils.email import EmailService
+            from ...database.connection import get_db_session
+            from ...auth.middleware.jwt import JWTMiddleware
+            
+            db_session = get_db_session()
+            email_service = EmailService()
+            auth_service = AuthService(db_session, current_app.config['SECRET_KEY'], email_service)
+            jwt_middleware = JWTMiddleware(auth_service)
+            
+            # Проверяем токен
+            auth_header = request.headers.get('Authorization')
+            if not auth_header or not auth_header.startswith('Bearer '):
+                return {
+                    "error": "Unauthorized",
+                    "message": "Токен не предоставлен",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
+            
+            token = auth_header.split(' ')[1]
+            payload = jwt_middleware.verify_token(token)
+            
+            if not payload:
+                return {
+                    "error": "Unauthorized",
+                    "message": "Неверный токен",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
             
             data = request.get_json()
             if not data:
@@ -1741,136 +1806,169 @@ class AuthChangePassword(Resource):
                     "timestamp": datetime.now().isoformat()
                 }, 400
             
-            # Проверяем обязательные поля
-            if 'current_password' not in data or 'new_password' not in data:
+            user_id = payload.get('user_id')
+            success, message = auth_service.change_password(
+                user_id,
+                data['current_password'],
+                data['new_password']
+            )
+            
+            if success:
                 return {
-                    "error": "Validation Error",
-                    "message": "Требуются current_password и new_password",
+                    "success": True,
+                    "message": message,
+                    "timestamp": datetime.now().isoformat()
+                }, 200
+            else:
+                return {
+                    "error": "Change Password Failed",
+                    "message": message,
                     "status_code": 400,
                     "timestamp": datetime.now().isoformat()
                 }, 400
-            
-            # Проверяем новый пароль
-            if len(data['new_password']) < 8:
-                return {
-                    "error": "Validation Error",
-                    "message": "Новый пароль должен содержать минимум 8 символов",
-                    "status_code": 400,
-                    "timestamp": datetime.now().isoformat()
-                }, 400
-            
-            # Получаем пользователя из USERS_STORAGE
-            if email not in USERS_STORAGE:
-                return {
-                    "error": "User not found",
-                    "status_code": 404,
-                    "timestamp": datetime.now().isoformat()
-                }, 404
-            
-            user_data = USERS_STORAGE[email]
-            
-            # Проверяем текущий пароль
-            if not check_password_hash(user_data['password_hash'], data['current_password']):
-                return {
-                    "error": "Authentication Failed",
-                    "message": "Неверный текущий пароль",
-                    "status_code": 401,
-                    "timestamp": datetime.now().isoformat()
-                }, 401
-            
-            # Обновляем пароль
-            user_data['password_hash'] = generate_password_hash(data['new_password'])
-            USERS_STORAGE[email] = user_data
-            
-            logger.info(f"User {email} (ID: {user_id}) changed password successfully")
-            
-            return {
-                "success": True,
-                "message": "Password changed successfully",
-                "timestamp": datetime.now().isoformat()
-            }, 200
                 
         except Exception as e:
-            logger.error(f"Error in change-password: {e}")
-            return {
-                "error": "Internal server error",
-                "message": "Внутренняя ошибка сервера",
-                "status_code": 500,
-                "timestamp": datetime.now().isoformat()
-            }, 500
+            return handle_exception(e)
 
 
 @auth_ns.route('/sessions')
 class AuthSessions(Resource):
-    @jwt_required
     @auth_ns.doc('get_user_sessions', description='Получить активные сессии пользователя')
     @auth_ns.marshal_with(session_model, code=200, description='Список активных сессий')
     @auth_ns.marshal_with(common_models['error'], code=401, description='Не авторизован')
     @auth_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
-    def get(self, current_user):
+    def get(self):
         """Получить активные сессии пользователя"""
         try:
-            # current_user уже проверен в jwt_required
-            user_id = current_user.get('user_id')
-            email = current_user.get('email')
+            from ...auth.services.auth_service import AuthService
+            from ...auth.utils.email import EmailService
+            from ...database.connection import get_db_session
+            from ...auth.middleware.jwt import JWTMiddleware
             
-            # В in-memory системе возвращаем текущую сессию
+            db_session = get_db_session()
+            email_service = EmailService()
+            auth_service = AuthService(db_session, current_app.config['SECRET_KEY'], email_service)
+            jwt_middleware = JWTMiddleware(auth_service)
+            
+            # Проверяем токен
+            auth_header = request.headers.get('Authorization')
+            if not auth_header or not auth_header.startswith('Bearer '):
+                return {
+                    "error": "Unauthorized",
+                    "message": "Токен не предоставлен",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
+            
+            token = auth_header.split(' ')[1]
+            payload = jwt_middleware.verify_token(token)
+            
+            if not payload:
+                return {
+                    "error": "Unauthorized",
+                    "message": "Неверный токен",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
+            
+            user_id = payload.get('user_id')
+            user = auth_service.get_user_by_id(user_id)
+            
+            if not user:
+                return {
+                    "error": "User Not Found",
+                    "message": "Пользователь не найден",
+                    "status_code": 404,
+                    "timestamp": datetime.now().isoformat()
+                }, 404
+            
             sessions = [
-                {
-                    "id": 1,
-                    "device_info": "Current Session",
-                    "ip_address": request.remote_addr,
-                    "user_agent": request.headers.get('User-Agent', 'Unknown'),
-                    "is_active": True,
-                    "created_at": datetime.now().isoformat(),
-                    "last_activity": datetime.now().isoformat()
-                }
+                session.to_dict() for session in user.sessions 
+                if session.is_active and not session.is_expired()
             ]
             
             return {"sessions": sessions}, 200
                 
         except Exception as e:
-            logger.error(f"Error in sessions: {e}")
-            return {
-                "error": "Internal server error",
-                "message": "Внутренняя ошибка сервера",
-                "status_code": 500,
-                "timestamp": datetime.now().isoformat()
-            }, 500
+            return handle_exception(e)
 
 
 @auth_ns.route('/sessions/<int:session_id>')
 class AuthSession(Resource):
-    @jwt_required
     @auth_ns.doc('revoke_session', description='Отозвать конкретную сессию')
     @auth_ns.marshal_with(common_models['success'], code=200, description='Сессия успешно отозвана')
     @auth_ns.marshal_with(common_models['error'], code=401, description='Не авторизован')
     @auth_ns.marshal_with(common_models['error'], code=404, description='Сессия не найдена')
     @auth_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
-    def delete(self, session_id, current_user):
+    def delete(self, session_id):
         """Отозвать конкретную сессию"""
         try:
-            # current_user уже проверен в jwt_required
-            user_id = current_user.get('user_id')
-            email = current_user.get('email')
+            from ...auth.services.auth_service import AuthService
+            from ...auth.utils.email import EmailService
+            from ...database.connection import get_db_session
+            from ...auth.middleware.jwt import JWTMiddleware
             
-            # В in-memory системе просто логируем отзыв сессии
-            logger.info(f"User {email} (ID: {user_id}) revoked session {session_id}")
+            db_session = get_db_session()
+            email_service = EmailService()
+            auth_service = AuthService(db_session, current_app.config['SECRET_KEY'], email_service)
+            jwt_middleware = JWTMiddleware(auth_service)
+            
+            # Проверяем токен
+            auth_header = request.headers.get('Authorization')
+            if not auth_header or not auth_header.startswith('Bearer '):
+                return {
+                    "error": "Unauthorized",
+                    "message": "Токен не предоставлен",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
+            
+            token = auth_header.split(' ')[1]
+            payload = jwt_middleware.verify_token(token)
+            
+            if not payload:
+                return {
+                    "error": "Unauthorized",
+                    "message": "Неверный токен",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
+            
+            user_id = payload.get('user_id')
+            user = auth_service.get_user_by_id(user_id)
+            
+            if not user:
+                return {
+                    "error": "User Not Found",
+                    "message": "Пользователь не найден",
+                    "status_code": 404,
+                    "timestamp": datetime.now().isoformat()
+                }, 404
+            
+            session = next(
+                (s for s in user.sessions if s.id == session_id), 
+                None
+            )
+            
+            if not session:
+                return {
+                    "error": "Session Not Found",
+                    "message": "Сессия не найдена",
+                    "status_code": 404,
+                    "timestamp": datetime.now().isoformat()
+                }, 404
+            
+            session.is_active = False
+            db_session.commit()
             
             return {
                 "success": True,
-                "message": "Session revoked successfully",
+                "message": "Сессия отозвана",
                 "timestamp": datetime.now().isoformat()
             }, 200
                 
         except Exception as e:
-            logger.error(f"Error in revoke session: {e}")
-            return {
-                "error": "Internal server error",
-                "message": "Внутренняя ошибка сервера",
-                "status_code": 500,
-                "timestamp": datetime.now().isoformat()
-            }, 500
+            return handle_exception(e)
 
 
 # ==================== BILLING ENDPOINTS ====================
@@ -1968,44 +2066,53 @@ class BillingPlan(Resource):
 
 @billing_ns.route('/subscription')
 class BillingSubscription(Resource):
-    @jwt_required
     @billing_ns.doc('get_subscription', description='Получить подписку пользователя')
     @billing_ns.marshal_with(subscription_model, code=200, description='Подписка пользователя')
     @billing_ns.marshal_with(common_models['error'], code=400, description='Не указан ID пользователя')
     @billing_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
-    def get(self, current_user):
+    def get(self):
         """Получить подписку пользователя"""
         try:
-            # current_user уже проверен в jwt_required
-            user_id = current_user.get('user_id')
-            email = current_user.get('email')
+            user_id = request.headers.get('X-User-ID')
+            if not user_id:
+                return {
+                    "error": "Validation Error",
+                    "message": "Не указан ID пользователя",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
             
-            # В in-memory системе возвращаем базовую подписку
-            subscription = {
-                "id": 1,
-                "user_id": user_id,
-                "plan_id": 1,
-                "status": "active",
-                "start_date": datetime.now().isoformat(),
-                "end_date": (datetime.now() + timedelta(days=30)).isoformat(),
-                "auto_renew": True,
-                "created_at": datetime.now().isoformat(),
-                "updated_at": datetime.now().isoformat()
-            }
+            # TODO: Получить сессию БД из контекста приложения
+            # subscription_service = SubscriptionService(db_session)
+            # subscription = subscription_service.get_user_subscription(user_id)
+            
+            # Временная заглушка
+            subscription = None
+            
+            if not subscription:
+                return {
+                    "success": True,
+                    "subscription": None,
+                    "message": "У пользователя нет активной подписки"
+                }, 200
             
             return {
                 "success": True,
-                "subscription": subscription
+                "subscription": {
+                    "id": subscription.id,
+                    "plan_id": subscription.plan_id,
+                    "status": subscription.status,
+                    "starts_at": subscription.starts_at.isoformat(),
+                    "expires_at": subscription.expires_at.isoformat(),
+                    "trial_ends_at": subscription.trial_ends_at.isoformat() if subscription.trial_ends_at else None,
+                    "auto_renew": subscription.auto_renew,
+                    "last_payment_at": subscription.last_payment_at.isoformat() if subscription.last_payment_at else None,
+                    "next_payment_at": subscription.next_payment_at.isoformat() if subscription.next_payment_at else None
+                }
             }, 200
             
         except Exception as e:
-            logger.error(f"Error in get subscription: {e}")
-            return {
-                "error": "Internal server error",
-                "message": "Внутренняя ошибка сервера",
-                "status_code": 500,
-                "timestamp": datetime.now().isoformat()
-            }, 500
+            return handle_exception(e)
 
     @billing_ns.doc('create_subscription', description='Создать подписку')
     @billing_ns.expect(create_subscription_model, validate=True)
@@ -2160,29 +2267,37 @@ class BillingCancelSubscription(Resource):
 
 @billing_ns.route('/usage')
 class BillingUsage(Resource):
-    @jwt_required
     @billing_ns.doc('get_usage', description='Получить статистику использования')
     @billing_ns.marshal_with(usage_stats_model, code=200, description='Статистика использования')
     @billing_ns.marshal_with(common_models['error'], code=400, description='Не указан ID пользователя')
     @billing_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
-    def get(self, current_user):
+    def get(self):
         """Получить статистику использования"""
         try:
-            # current_user уже проверен в jwt_required
-            user_id = current_user.get('user_id')
-            email = current_user.get('email')
+            user_id = request.headers.get('X-User-ID')
+            if not user_id:
+                return {
+                    "error": "Validation Error",
+                    "message": "Не указан ID пользователя",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
             
-            # В in-memory системе возвращаем базовую статистику
+            # TODO: Получить статистику через SubscriptionService
+            # subscription_service = SubscriptionService(db_session)
+            # usage_stats = subscription_service.get_usage_stats(user_id)
+            
+            # Временная заглушка
             usage_stats = {
-                "posts_used": 0,
+                "posts_used": 15,
                 "posts_limit": 50,
-                "api_calls_used": 0,
-                "api_calls_limit": 1000,
-                "storage_used_gb": 0,
+                "api_calls_used": 250,
+                "api_calls_limit": 100,
+                "storage_used_gb": 0.5,
                 "storage_limit_gb": 1,
-                "agents_used": 0,
+                "agents_used": 2,
                 "agents_limit": 3,
-                "period_start": datetime.now().replace(day=1).isoformat() + "Z",
+                "period_start": "2024-01-01T00:00:00Z",
                 "period_end": "2024-01-31T23:59:59Z"
             }
             
@@ -2192,49 +2307,21 @@ class BillingUsage(Resource):
             }, 200
             
         except Exception as e:
-            logger.error(f"Error in get usage: {e}")
-            return {
-                "error": "Internal server error",
-                "message": "Внутренняя ошибка сервера",
-                "status_code": 500,
-                "timestamp": datetime.now().isoformat()
-            }, 500
+            return handle_exception(e)
 
 
 @billing_ns.route('/payment-methods')
 class BillingPaymentMethods(Resource):
-    @jwt_required
     @billing_ns.doc('get_payment_methods', description='Получить доступные способы оплаты')
     @billing_ns.marshal_with(common_models['success'], code=200, description='Способы оплаты')
     @billing_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
-    def get(self, current_user):
+    def get(self):
         """Получить доступные способы оплаты"""
         try:
-            # current_user уже проверен в jwt_required
-            user_id = current_user.get('user_id')
-            email = current_user.get('email')
+            from ...billing.services.yookassa_service import YooKassaService
             
-            # В in-memory системе возвращаем базовые способы оплаты
-            payment_methods = [
-                {
-                    "id": "card",
-                    "name": "Банковская карта",
-                    "description": "Visa, MasterCard, МИР",
-                    "enabled": True
-                },
-                {
-                    "id": "yoomoney",
-                    "name": "ЮMoney",
-                    "description": "ЮMoney кошелек",
-                    "enabled": True
-                },
-                {
-                    "id": "qiwi",
-                    "name": "QIWI",
-                    "description": "QIWI кошелек",
-                    "enabled": True
-                }
-            ]
+            yookassa_service = YooKassaService()
+            payment_methods = yookassa_service.get_payment_methods()
             
             return {
                 "success": True,
@@ -2242,40 +2329,30 @@ class BillingPaymentMethods(Resource):
             }, 200
             
         except Exception as e:
-            logger.error(f"Error in get payment methods: {e}")
-            return {
-                "error": "Internal server error",
-                "message": "Внутренняя ошибка сервера",
-                "status_code": 500,
-                "timestamp": datetime.now().isoformat()
-            }, 500
+            return handle_exception(e)
 
 
 @billing_ns.route('/payment/<string:payment_id>')
 class BillingPayment(Resource):
-    @jwt_required
     @billing_ns.doc('get_payment_status', description='Получить статус платежа')
     @billing_ns.marshal_with(payment_model, code=200, description='Статус платежа')
     @billing_ns.marshal_with(common_models['error'], code=404, description='Платеж не найден')
     @billing_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
-    def get(self, payment_id, current_user):
+    def get(self, payment_id):
         """Получить статус платежа"""
         try:
-            # current_user уже проверен в jwt_required
-            user_id = current_user.get('user_id')
-            email = current_user.get('email')
+            from ...billing.services.yookassa_service import YooKassaService
             
-            # В in-memory системе возвращаем базовую информацию о платеже
-            payment_info = {
-                "id": payment_id,
-                "user_id": user_id,
-                "amount": 999.00,
-                "currency": "RUB",
-                "status": "succeeded",
-                "description": "Подписка на месяц",
-                "created_at": datetime.now().isoformat(),
-                "paid_at": datetime.now().isoformat()
-            }
+            yookassa_service = YooKassaService()
+            payment_info = yookassa_service.get_payment(payment_id)
+            
+            if not payment_info:
+                return {
+                    "error": "Payment Not Found",
+                    "message": "Платеж не найден",
+                    "status_code": 404,
+                    "timestamp": datetime.now().isoformat()
+                }, 404
             
             return {
                 "success": True,
@@ -2283,13 +2360,7 @@ class BillingPayment(Resource):
             }, 200
             
         except Exception as e:
-            logger.error(f"Error in get payment: {e}")
-            return {
-                "error": "Internal server error",
-                "message": "Внутренняя ошибка сервера",
-                "status_code": 500,
-                "timestamp": datetime.now().isoformat()
-            }, 500
+            return handle_exception(e)
 
 
 @billing_ns.route('/events')
