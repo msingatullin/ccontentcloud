@@ -1136,7 +1136,7 @@ def validate_auth_data(data, required_fields):
 class AuthRegister(Resource):
     @auth_ns.doc('register_user', description='Регистрация нового пользователя')
     @auth_ns.expect(register_model, validate=True)
-    # @auth_ns.marshal_with(auth_response_model, code=201, description='Пользователь успешно зарегистрирован')  # ВРЕМЕННО ОТКЛЮЧЕНО
+    @auth_ns.marshal_with(auth_response_model, code=201, description='Пользователь успешно зарегистрирован')
     @auth_ns.marshal_with(common_models['error'], code=400, description='Ошибка валидации')
     @auth_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
     def post(self):
@@ -1212,6 +1212,10 @@ class AuthRegister(Resource):
                 'email': email,
                 'username': username,
                 'password_hash': password_hash,
+                'first_name': data.get('first_name') or "",
+                'last_name': data.get('last_name') or "",
+                'company': data.get('company') or "",
+                'phone': data.get('phone') or "",
                 'created_at': datetime.now().isoformat()
             }
             
@@ -1234,17 +1238,17 @@ class AuthRegister(Resource):
                     "id": int(user_id),
                     "email": email,
                     "username": username,
-                    "first_name": data.get('first_name'),
-                    "last_name": data.get('last_name'),
-                    "company": data.get('company'),
-                    "phone": data.get('phone'),
+                    "first_name": data.get('first_name') or "",
+                    "last_name": data.get('last_name') or "",
+                    "company": data.get('company') or "",
+                    "phone": data.get('phone') or "",
                     "role": "user",
                     "is_verified": False,
                     "created_at": datetime.now().isoformat(),
                     "updated_at": datetime.now().isoformat()
                 },
                 "access_token": access_token,
-                "refresh_token": None,  # TODO: implement refresh tokens
+                "refresh_token": "",  # Пустая строка вместо None
                 "expires_in": 86400
             }, 201
                 
@@ -1341,19 +1345,19 @@ class AuthLogin(Resource):
             return {
                 "message": "Login successful",
                 "access_token": access_token,
-                "refresh_token": None,  # TODO: implement refresh tokens
+                "refresh_token": "",  # Пустая строка вместо None
                 "expires_in": 86400,
                 "user": {
                     "id": int(user['id']),
                     "email": user['email'],
                     "username": user['username'],
-                    "first_name": user.get('first_name'),
-                    "last_name": user.get('last_name'),
-                    "company": user.get('company'),
-                    "phone": user.get('phone'),
+                    "first_name": user.get('first_name') or "",
+                    "last_name": user.get('last_name') or "",
+                    "company": user.get('company') or "",
+                    "phone": user.get('phone') or "",
                     "role": "user",
                     "is_verified": False,
-                    "created_at": user.get('created_at'),
+                    "created_at": user.get('created_at') or "",
                     "updated_at": datetime.now().isoformat()
                 }
             }, 200
