@@ -1136,7 +1136,7 @@ def validate_auth_data(data, required_fields):
 class AuthRegister(Resource):
     @auth_ns.doc('register_user', description='Регистрация нового пользователя')
     @auth_ns.expect(register_model, validate=True)
-    @auth_ns.marshal_with(auth_response_model, code=201, description='Пользователь успешно зарегистрирован')
+    # @auth_ns.marshal_with(auth_response_model, code=201, description='Пользователь успешно зарегистрирован')  # ВРЕМЕННО ОТКЛЮЧЕНО
     @auth_ns.marshal_with(common_models['error'], code=400, description='Ошибка валидации')
     @auth_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
     def post(self):
