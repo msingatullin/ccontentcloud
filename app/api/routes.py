@@ -1142,7 +1142,12 @@ class AuthRegister(Resource):
     def post(self):
         """Регистрация нового пользователя"""
         try:
+            print("=== REGISTER ENDPOINT CALLED ===")
+            logger.info("=== REGISTER ENDPOINT CALLED ===")
+            
             data = request.get_json()
+            print(f"=== REGISTER DATA: {data} ===")
+            logger.info(f"=== REGISTER DATA: {data} ===")
             
             # Валидация обязательных полей
             required_fields = ['email', 'password', 'username']
@@ -1244,10 +1249,16 @@ class AuthRegister(Resource):
             }, 201
                 
         except Exception as e:
+            print(f"=== REGISTER EXCEPTION: {e} ===")
+            print(f"=== REGISTER EXCEPTION TYPE: {type(e)} ===")
+            import traceback
+            print(f"=== REGISTER TRACEBACK: {traceback.format_exc()} ===")
             logger.error(f"Ошибка регистрации: {e}")
+            logger.error(f"Exception type: {type(e)}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return {
                 "error": "Internal server error",
-                "message": "Внутренняя ошибка сервера",
+                "message": f"Внутренняя ошибка сервера: {str(e)}",
                 "status_code": 500,
                 "timestamp": datetime.now().isoformat()
             }, 500
