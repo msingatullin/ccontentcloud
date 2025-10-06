@@ -13,9 +13,6 @@ from flask_restx import Namespace, Resource, fields
 from pydantic import ValidationError
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from app.auth.services.auth_service import AuthService
-from app.auth.utils.email import EmailService
-from app.database.connection import get_db_session
 from ..orchestrator.main_orchestrator import orchestrator
 from .schemas import (
     ContentRequestSchema,
@@ -33,15 +30,28 @@ from .swagger_config import create_common_models, get_example_data
 # Настройка логирования
 logger = logging.getLogger(__name__)
 
-# ==================== AUTH SERVICE INTEGRATION ====================
+# ==================== IN-MEMORY AUTH SYSTEM ====================
 
-# Инициализация AuthService
-def get_auth_service():
-    """Получить экземпляр AuthService"""
-    db_session = get_db_session()
-    secret_key = current_app.config.get('SECRET_KEY', 'fallback-secret-key')
-    email_service = EmailService()
-    return AuthService(db_session, secret_key, email_service)
+# In-memory хранилище пользователей
+USERS_STORAGE = {}
+SECRET_KEY = "content-curator-secret-key-2025"  # TODO: вынести в env
+
+def generate_jwt(user_id, email):
+    """Генерация JWT токена"""
+    payload = {
+        'user_id': user_id,
+        'email': email,
+        'exp': datetime.utcnow() + timedelta(hours=24)
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm='HS256')
+
+def verify_jwt_token(token):
+    """Проверка JWT токена"""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+        return payload
+    except:
+        return None
 
 # ==================== JWT MIDDLEWARE ====================
 
@@ -64,15 +74,10 @@ def jwt_required(f):
         if not token:
             return {"error": "Authorization token is missing"}, 401
         
-        # Проверить токен через AuthService
-        try:
-            auth_service = get_auth_service()
-            payload = auth_service.verify_token(token)
-            if not payload:
-                return {"error": "Invalid or expired token"}, 401
-        except Exception as e:
-            logger.error(f"JWT verification error: {e}")
-            return {"error": "Token verification failed"}, 401
+        # Проверить токен
+        payload = verify_jwt_token(token)
+        if not payload:
+            return {"error": "Invalid or expired token"}, 401
         
         # Передать user info в функцию
         return f(*args, current_user=payload, **kwargs)
@@ -1138,9 +1143,11 @@ class AuthRegister(Resource):
     def post(self):
         """Регистрация нового пользователя"""
         try:
+            print("=== REGISTER ENDPOINT CALLED ===")
             logger.info("=== REGISTER ENDPOINT CALLED ===")
             
             data = request.get_json()
+            print(f"=== REGISTER DATA: {data} ===")
             logger.info(f"=== REGISTER DATA: {data} ===")
             
             # Валидация обязательных полей
@@ -1155,52 +1162,104 @@ class AuthRegister(Resource):
                     "timestamp": datetime.now().isoformat()
                 }, 400
             
-            # Используем AuthService для регистрации
-            auth_service = get_auth_service()
-            success, message, user = auth_service.register_user(
-                email=data['email'],
-                password=data['password'],
-                username=data['username'],
-                first_name=data.get('first_name'),
-                last_name=data.get('last_name'),
-                company=data.get('company'),
-                phone=data.get('phone')
-            )
-            
-            if success and user:
-                # Генерируем токены через AuthService
-                tokens = auth_service._create_tokens(user, None, None, None)
-                
+            # Дополнительная валидация email
+            email = data.get('email', '')
+            if '@' not in email or '.' not in email:
                 return {
-                    "message": "Registration successful",
-                    "user": {
-                        "id": user.id,
-                        "email": user.email,
-                        "username": user.username,
-                        "first_name": user.first_name or "",
-                        "last_name": user.last_name or "",
-                        "company": user.company or "",
-                        "phone": user.phone or "",
-                        "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
-                        "is_verified": user.is_verified,
-                        "created_at": user.created_at.isoformat() if user.created_at else "",
-                        "updated_at": user.updated_at.isoformat() if user.updated_at else ""
-                    },
-                    "access_token": tokens.get('access_token'),
-                    "refresh_token": tokens.get('refresh_token', ""),
-                    "expires_in": tokens.get('expires_in', 86400)
-                }, 201
-            else:
-                return {
-                    "error": "Registration Failed",
-                    "message": message,
+                    "error": "Validation Error",
+                    "message": "Некорректный email",
                     "status_code": 400,
                     "timestamp": datetime.now().isoformat()
                 }, 400
+            
+            # Валидация пароля
+            password = data.get('password', '')
+            if len(password) < 8:
+                return {
+                    "error": "Validation Error",
+                    "message": "Пароль должен содержать минимум 8 символов",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            # Валидация username
+            username = data.get('username', '')
+            if len(username) < 3:
+                return {
+                    "error": "Validation Error",
+                    "message": "Имя пользователя должно содержать минимум 3 символа",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            # Проверка существующего пользователя
+            if email in USERS_STORAGE:
+                return {
+                    "error": "Registration Failed",
+                    "message": "Email already registered",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+
+            # Создание нового пользователя
+            user_id = str(len(USERS_STORAGE) + 1)
+            password_hash = generate_password_hash(password)
+            
+            print(f"DEBUG: Creating user with ID: {user_id}, email: {email}")
+            logger.info(f"DEBUG: Creating user with ID: {user_id}, email: {email}")
+
+            USERS_STORAGE[email] = {
+                'id': user_id,
+                'email': email,
+                'username': username,
+                'password_hash': password_hash,
+                'first_name': data.get('first_name') or "",
+                'last_name': data.get('last_name') or "",
+                'company': data.get('company') or "",
+                'phone': data.get('phone') or "",
+                'created_at': datetime.now().isoformat()
+            }
+            
+            print(f"DEBUG: User stored in USERS_STORAGE: {USERS_STORAGE[email]}")
+            print(f"DEBUG: USERS_STORAGE now contains {len(USERS_STORAGE)} users")
+            logger.info(f"DEBUG: User stored in USERS_STORAGE: {USERS_STORAGE[email]}")
+            logger.info(f"DEBUG: USERS_STORAGE now contains {len(USERS_STORAGE)} users")
+
+            # Генерация JWT токена
+            print(f"DEBUG: Generating JWT for new user: {user_id}, email: {email}")
+            logger.info(f"DEBUG: Generating JWT for new user: {user_id}, email: {email}")
+            access_token = generate_jwt(user_id, email)
+            print(f"DEBUG: Generated token: {access_token[:50]}..." if access_token else "DEBUG: Token is None!")
+            logger.info(f"DEBUG: Generated token: {access_token[:50]}..." if access_token else "DEBUG: Token is None!")
+
+            # Успешная регистрация
+            return {
+                "message": "Registration successful",
+                "user": {
+                    "id": int(user_id),
+                    "email": email,
+                    "username": username,
+                    "first_name": data.get('first_name') or "",
+                    "last_name": data.get('last_name') or "",
+                    "company": data.get('company') or "",
+                    "phone": data.get('phone') or "",
+                    "role": "user",
+                    "is_verified": False,
+                    "created_at": datetime.now().isoformat(),
+                    "updated_at": datetime.now().isoformat()
+                },
+                "access_token": access_token,
+                "refresh_token": "",  # Пустая строка вместо None
+                "expires_in": 86400
+            }, 201
                 
         except Exception as e:
-            logger.error(f"Ошибка регистрации: {e}")
+            print(f"=== REGISTER EXCEPTION: {e} ===")
+            print(f"=== REGISTER EXCEPTION TYPE: {type(e)} ===")
             import traceback
+            print(f"=== REGISTER TRACEBACK: {traceback.format_exc()} ===")
+            logger.error(f"Ошибка регистрации: {e}")
+            logger.error(f"Exception type: {type(e)}")
             logger.error(f"Traceback: {traceback.format_exc()}")
             return {
                 "error": "Internal server error",
@@ -1222,10 +1281,7 @@ class AuthLogin(Resource):
     def post(self):
         """Авторизация пользователя"""
         try:
-            logger.info("=== LOGIN ENDPOINT CALLED ===")
-            
             data = request.get_json()
-            logger.info(f"=== LOGIN DATA: {data} ===")
             
             # Валидация обязательных полей
             required_fields = ['email', 'password']
@@ -1251,61 +1307,68 @@ class AuthLogin(Resource):
                     "timestamp": datetime.now().isoformat()
                 }, 400
             
-            # Используем AuthService для авторизации
-            auth_service = get_auth_service()
+            # DEBUG: Показываем содержимое USERS_STORAGE
+            print(f"USERS_STORAGE: {USERS_STORAGE}")
+            print(f"Looking for: {email}")
+            user = USERS_STORAGE.get(email)
+            print(f"Found user: {user}")
             
-            # Информация об устройстве для сессии
-            device_info = {
-                'user_agent': request.headers.get('User-Agent'),
-                'ip': request.remote_addr
-            }
+            logger.info(f"DEBUG: USERS_STORAGE contains {len(USERS_STORAGE)} users")
+            logger.info(f"DEBUG: Looking for email: {email}")
+            logger.info(f"DEBUG: Available emails: {list(USERS_STORAGE.keys())}")
+            logger.info(f"DEBUG: Found user: {user}")
             
-            success, message, tokens = auth_service.login_user(
-                email=email,
-                password=password,
-                device_info=device_info,
-                ip_address=request.remote_addr,
-                user_agent=request.headers.get('User-Agent')
-            )
+            if not user:
+                logger.error(f"DEBUG: User not found in USERS_STORAGE for email: {email}")
+                return {
+                    "error": "Authentication Failed",
+                    "message": "User not found. Please register first.",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
             
-            if success and tokens:
-                # Получаем информацию о пользователе
-                user = auth_service.get_user_by_email(email)
-                if user:
-                    return {
-                        "message": "Login successful",
-                        "access_token": tokens.get('access_token'),
-                        "refresh_token": tokens.get('refresh_token', ""),
-                        "expires_in": tokens.get('expires_in', 86400),
-                        "user": {
-                            "id": user.id,
-                            "email": user.email,
-                            "username": user.username,
-                            "first_name": user.first_name or "",
-                            "last_name": user.last_name or "",
-                            "company": user.company or "",
-                            "phone": user.phone or "",
-                            "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
-                            "is_verified": user.is_verified,
-                            "created_at": user.created_at.isoformat() if user.created_at else "",
-                            "updated_at": user.updated_at.isoformat() if user.updated_at else ""
-                        }
-                    }, 200
-            
+            if not check_password_hash(user['password_hash'], password):
+                logger.error(f"DEBUG: Password check failed for user: {email}")
+                return {
+                    "error": "Authentication Failed",
+                    "message": "Invalid password",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
+
+            # Генерация JWT токена
+            print(f"DEBUG: Generating JWT for user: {user['id']}, email: {email}")
+            logger.info(f"DEBUG: Generating JWT for user: {user['id']}, email: {email}")
+            access_token = generate_jwt(user['id'], email)
+            print(f"DEBUG: Generated token: {access_token[:50]}..." if access_token else "DEBUG: Token is None!")
+            logger.info(f"DEBUG: Generated token: {access_token[:50]}..." if access_token else "DEBUG: Token is None!")
+
+            # Успешная авторизация
             return {
-                "error": "Authentication Failed",
-                "message": message,
-                "status_code": 401,
-                "timestamp": datetime.now().isoformat()
-            }, 401
+                "message": "Login successful",
+                "access_token": access_token,
+                "refresh_token": "",  # Пустая строка вместо None
+                "expires_in": 86400,
+                "user": {
+                    "id": int(user['id']),
+                    "email": user['email'],
+                    "username": user['username'],
+                    "first_name": user.get('first_name') or "",
+                    "last_name": user.get('last_name') or "",
+                    "company": user.get('company') or "",
+                    "phone": user.get('phone') or "",
+                    "role": "user",
+                    "is_verified": False,
+                    "created_at": user.get('created_at') or "",
+                    "updated_at": datetime.now().isoformat()
+                }
+            }, 200
                 
         except Exception as e:
             logger.error(f"Ошибка авторизации: {e}")
-            import traceback
-            logger.error(f"Traceback: {traceback.format_exc()}")
             return {
                 "error": "Internal server error",
-                "message": f"Внутренняя ошибка сервера: {str(e)}",
+                "message": "Внутренняя ошибка сервера",
                 "status_code": 500,
                 "timestamp": datetime.now().isoformat()
             }, 500
@@ -1619,38 +1682,29 @@ class AuthMe(Resource):
             user_id = current_user.get('user_id')
             email = current_user.get('email')
             
-            # Получить данные пользователя через AuthService
-            auth_service = get_auth_service()
-            user = auth_service.get_user_by_email(email)
+            # Получить данные пользователя из USERS_STORAGE
+            user_data = USERS_STORAGE.get(email, {})
             
             # Возвращаем информацию о пользователе
-            if user:
-                return {
-                    "user": {
-                        "id": user.id,
-                        "email": user.email,
-                        "username": user.username,
-                        "first_name": user.first_name or "",
-                        "last_name": user.last_name or "",
-                        "is_verified": user.is_verified,
-                        "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
-                        "created_at": user.created_at.isoformat() if user.created_at else "",
-                        "updated_at": user.updated_at.isoformat() if user.updated_at else ""
-                    },
-                    "usage_stats": {
-                        "posts_used": 0,
-                        "posts_limit": 50,
-                        "api_calls_used": 0,
-                        "api_calls_limit": 1000
-                    }
-                }, 200
-            else:
-                return {
-                    "error": "User not found",
-                    "message": "Пользователь не найден",
-                    "status_code": 404,
-                    "timestamp": datetime.now().isoformat()
-                }, 404
+            return {
+                "user": {
+                    "id": user_id,
+                    "email": email,
+                    "username": user_data.get('username', email.split('@')[0]),
+                    "first_name": user_data.get('first_name'),
+                    "last_name": user_data.get('last_name'),
+                    "is_verified": False,
+                    "role": "user",
+                    "created_at": user_data.get('created_at'),
+                    "updated_at": datetime.now().isoformat()
+                },
+                "usage_stats": {
+                    "posts_used": 0,
+                    "posts_limit": 50,
+                    "api_calls_used": 0,
+                    "api_calls_limit": 1000
+                }
+            }, 200
                 
         except Exception as e:
             logger.error(f"Ошибка получения профиля: {e}")
@@ -1687,36 +1741,39 @@ class AuthProfile(Resource):
                     "timestamp": datetime.now().isoformat()
                 }, 400
             
-            # Обновить данные пользователя через AuthService
-            auth_service = get_auth_service()
-            success, message = auth_service.update_user_profile(
-                email=email,
-                **data
-            )
-            
-            if success:
-                # Получаем обновленного пользователя
-                user = auth_service.get_user_by_email(email)
+            # Обновить данные пользователя в USERS_STORAGE
+            if email in USERS_STORAGE:
+                user_data = USERS_STORAGE[email]
+                # Обновляем только переданные поля
+                if 'first_name' in data:
+                    user_data['first_name'] = data['first_name']
+                if 'last_name' in data:
+                    user_data['last_name'] = data['last_name']
+                if 'company' in data:
+                    user_data['company'] = data['company']
+                if 'phone' in data:
+                    user_data['phone'] = data['phone']
+                
+                USERS_STORAGE[email] = user_data
                 
                 return {
                     "message": "Profile updated successfully",
                     "user": {
-                        "id": user.id,
-                        "email": user.email,
-                        "username": user.username,
-                        "first_name": user.first_name or "",
-                        "last_name": user.last_name or "",
-                        "company": user.company or "",
-                        "phone": user.phone or "",
-                        "is_verified": user.is_verified,
-                        "created_at": user.created_at.isoformat() if user.created_at else "",
-                        "updated_at": user.updated_at.isoformat() if user.updated_at else ""
+                        "id": user_id,
+                        "email": email,
+                        "username": user_data.get('username'),
+                        "first_name": user_data.get('first_name'),
+                        "last_name": user_data.get('last_name'),
+                        "company": user_data.get('company'),
+                        "phone": user_data.get('phone'),
+                        "is_verified": False,
+                        "created_at": user_data.get('created_at'),
+                        "updated_at": datetime.now().isoformat()
                     }
                 }, 200
             else:
                 return {
-                    "error": "Profile update failed",
-                    "message": message,
+                    "error": "User not found",
                     "status_code": 400,
                     "timestamp": datetime.now().isoformat()
                 }, 400
@@ -1768,23 +1825,30 @@ class AuthChangePassword(Resource):
                     "timestamp": datetime.now().isoformat()
                 }, 400
             
-            # Изменяем пароль через AuthService
-            auth_service = get_auth_service()
-            success, message = auth_service.change_password(
-                email=email,
-                current_password=data['current_password'],
-                new_password=data['new_password']
-            )
-            
-            if success:
-                logger.info(f"User {email} (ID: {user_id}) changed password successfully")
-            else:
+            # Получаем пользователя из USERS_STORAGE
+            if email not in USERS_STORAGE:
                 return {
-                    "error": "Password change failed",
-                    "message": message,
+                    "error": "User not found",
+                    "status_code": 404,
+                    "timestamp": datetime.now().isoformat()
+                }, 404
+            
+            user_data = USERS_STORAGE[email]
+            
+            # Проверяем текущий пароль
+            if not check_password_hash(user_data['password_hash'], data['current_password']):
+                return {
+                    "error": "Authentication Failed",
+                    "message": "Неверный текущий пароль",
                     "status_code": 401,
                     "timestamp": datetime.now().isoformat()
                 }, 401
+            
+            # Обновляем пароль
+            user_data['password_hash'] = generate_password_hash(data['new_password'])
+            USERS_STORAGE[email] = user_data
+            
+            logger.info(f"User {email} (ID: {user_id}) changed password successfully")
             
             return {
                 "success": True,

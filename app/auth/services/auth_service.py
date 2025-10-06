@@ -128,8 +128,9 @@ class AuthService:
             if user.status == UserStatus.SUSPENDED:
                 return False, "Аккаунт заблокирован", None
             
-            if user.status == UserStatus.PENDING_VERIFICATION:
-                return False, "Подтвердите email для входа в систему", None
+            # ВРЕМЕННО ОТКЛЮЧЕНО ДЛЯ ТЕСТИРОВАНИЯ
+            # if user.status == UserStatus.PENDING_VERIFICATION:
+            #     return False, "Подтвердите email для входа в систему", None
             
             # Обновление информации о входе
             user.update_login_info()

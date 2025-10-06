@@ -30,7 +30,7 @@ from app.agents.paid_creative_agent import PaidCreativeAgent
 from app.billing.api.billing_routes import billing_bp
 from app.billing.webhooks.yookassa_webhook import webhook_bp
 from app.billing.middleware.usage_middleware import UsageMiddleware
-from app.auth.routes.auth import init_auth_routes
+# from app.auth.routes.auth import init_auth_routes, auth_bp  # Не используем Flask Blueprint
 from app.auth.models.user import User, UserSession
 from app.database.connection import init_database, get_db_session
 from app.api.schemas import (
@@ -92,8 +92,7 @@ def create_app():
     # Получаем сессию базы данных
     db_session = get_db_session()
     
-    # Инициализируем auth систему
-    auth_bp, jwt_middleware = init_auth_routes(db_session, app.config['SECRET_KEY'])
+    # Auth система инициализируется через Flask-RESTX endpoints
 
     # Создаем и регистрируем Flask-RESTX API с Swagger
     swagger_api = create_swagger_api(app)
@@ -106,7 +105,7 @@ def create_app():
     # Регистрируем остальные blueprints
     app.register_blueprint(billing_bp)
     app.register_blueprint(webhook_bp)
-    app.register_blueprint(auth_bp)
+    # auth_bp не регистрируем - используем Flask-RESTX endpoints
 
     # Инициализируем billing middleware
     billing_middleware = UsageMiddleware(app)
