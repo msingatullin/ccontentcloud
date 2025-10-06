@@ -69,7 +69,6 @@ def create_app():
                 "http://localhost:3000",
                 "http://127.0.0.1:3000",
                 "http://localhost:5173",  # для локальной разработки
-                "https://pizzalegs.github.io",  # GitHub Pages frontend
                 "https://goinvesting.ai",
                 "https://www.goinvesting.ai",
                 "https://content-curator-frontend-dt3n7kzpwq-uc.a.run.app",
