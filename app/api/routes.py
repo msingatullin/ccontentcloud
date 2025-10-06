@@ -1636,29 +1636,50 @@ class AuthRefresh(Resource):
 @auth_ns.route('/logout')
 class AuthLogout(Resource):
     @jwt_required
-    @auth_ns.doc('logout_user', description='Выход пользователя')
-    @auth_ns.marshal_with(common_models['success'], code=200, description='Успешный выход')
-    @auth_ns.marshal_with(common_models['error'], code=401, description='Не авторизован')
-    @auth_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    @auth_ns.doc('logout_user', description='Выход пользователя (деактивация текущей сессии)')
+    # @auth_ns.marshal_with убран для корректного отображения
     def post(self, current_user):
-        """Выход пользователя"""
+        """Выход пользователя - деактивирует текущую сессию в БД"""
         try:
+            from ...auth.services.auth_service import AuthService
+            from ...auth.utils.email import EmailService
+            from ...database.connection import get_db_session
+            
             # current_user уже проверен в jwt_required
             user_id = current_user.get('user_id')
             email = current_user.get('email')
+            token_jti = current_user.get('jti')  # Получаем JTI из токена
             
-            # Логика выхода пользователя
-            logger.info(f"User {email} (ID: {user_id}) logged out successfully")
+            logger.info(f"Logout request from user {email} (ID: {user_id})")
             
-            return {
-                "message": "Logout successful",
-                "timestamp": datetime.now().isoformat()
-            }, 200
+            # Инициализируем AuthService
+            db_session = get_db_session()
+            email_service = EmailService()
+            auth_service = AuthService(db_session, current_app.config['SECRET_KEY'], email_service)
+            
+            # Деактивируем сессию в БД
+            success, message = auth_service.logout_user(token_jti)
+            
+            if success:
+                logger.info(f"User {email} (ID: {user_id}) logged out successfully")
+                return {
+                    "success": True,
+                    "message": message,
+                    "timestamp": datetime.now().isoformat()
+                }, 200
+            else:
+                logger.error(f"Logout failed for user {email}: {message}")
+                return {
+                    "error": "Logout Failed",
+                    "message": message,
+                    "status_code": 500,
+                    "timestamp": datetime.now().isoformat()
+                }, 500
                 
         except Exception as e:
             logger.error(f"Ошибка выхода: {e}")
             return {
-                "error": "Internal server error",
+                "error": "Internal Server Error",
                 "message": "Внутренняя ошибка сервера",
                 "status_code": 500,
                 "timestamp": datetime.now().isoformat()
@@ -1668,30 +1689,49 @@ class AuthLogout(Resource):
 @auth_ns.route('/logout-all')
 class AuthLogoutAll(Resource):
     @jwt_required
-    @auth_ns.doc('logout_all_sessions', description='Выход из всех сессий')
-    @auth_ns.marshal_with(common_models['success'], code=200, description='Успешный выход из всех сессий')
-    @auth_ns.marshal_with(common_models['error'], code=401, description='Не авторизован')
-    @auth_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    @auth_ns.doc('logout_all_sessions', description='Выход из всех сессий (деактивация всех сессий пользователя)')
+    # @auth_ns.marshal_with убран для корректного отображения
     def post(self, current_user):
-        """Выход из всех сессий"""
+        """Выход из всех сессий - деактивирует все активные сессии пользователя в БД"""
         try:
+            from ...auth.services.auth_service import AuthService
+            from ...auth.utils.email import EmailService
+            from ...database.connection import get_db_session
+            
             # current_user уже проверен в jwt_required
             user_id = current_user.get('user_id')
             email = current_user.get('email')
             
-            # В in-memory системе просто логируем выход из всех сессий
-            logger.info(f"User {email} (ID: {user_id}) logged out from all sessions")
+            logger.info(f"Logout-all request from user {email} (ID: {user_id})")
             
-            return {
-                "success": True,
-                "message": "Successfully logged out from all sessions",
-                "timestamp": datetime.now().isoformat()
-            }, 200
+            # Инициализируем AuthService
+            db_session = get_db_session()
+            email_service = EmailService()
+            auth_service = AuthService(db_session, current_app.config['SECRET_KEY'], email_service)
+            
+            # Деактивируем ВСЕ сессии пользователя в БД
+            success, message = auth_service.logout_all_sessions(user_id)
+            
+            if success:
+                logger.info(f"User {email} (ID: {user_id}) logged out from all sessions")
+                return {
+                    "success": True,
+                    "message": message,
+                    "timestamp": datetime.now().isoformat()
+                }, 200
+            else:
+                logger.error(f"Logout-all failed for user {email}: {message}")
+                return {
+                    "error": "Logout All Failed",
+                    "message": message,
+                    "status_code": 500,
+                    "timestamp": datetime.now().isoformat()
+                }, 500
                 
         except Exception as e:
             logger.error(f"Error in logout-all: {e}")
             return {
-                "error": "Internal server error",
+                "error": "Internal Server Error",
                 "message": "Внутренняя ошибка сервера",
                 "status_code": 500,
                 "timestamp": datetime.now().isoformat()
