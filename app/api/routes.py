@@ -6,6 +6,7 @@ RESTful endpoints для работы с контентом и агентами
 
 import asyncio
 import logging
+import os
 from datetime import datetime, timedelta
 import jwt
 from flask import request, current_app
@@ -579,6 +580,22 @@ class AgentsStatus(Resource):
         Получает статус всех агентов или конкретного агента
         """
         try:
+            # Проверка feature flag DISABLE_AGENTS
+            if os.getenv('DISABLE_AGENTS', 'false').lower() == 'true':
+                logger.warning("⚠️ Агенты отключены (DISABLE_AGENTS=true)")
+                agent_id = request.args.get('agent_id')
+                if agent_id:
+                    return {
+                        "agent_id": agent_id,
+                        "status": "disabled",
+                        "message": "Система агентов отключена для debugging"
+                    }, 200
+                else:
+                    return {
+                        "message": "Система агентов отключена для debugging",
+                        "agents": {}
+                    }, 200
+            
             # JWT временно отключен для тестирования
             # user_id = current_user.get('user_id')
             # email = current_user.get('email')
@@ -626,6 +643,17 @@ class AgentTasks(Resource):
         Получает список задач конкретного агента
         """
         try:
+            # Проверка feature flag DISABLE_AGENTS
+            if os.getenv('DISABLE_AGENTS', 'false').lower() == 'true':
+                logger.warning("⚠️ Агенты отключены (DISABLE_AGENTS=true)")
+                return {
+                    "agent_id": agent_id,
+                    "message": "Система агентов отключена для debugging",
+                    "current_tasks": [],
+                    "completed_tasks": 0,
+                    "status": "disabled"
+                }, 200
+            
             logger.info(f"Запрос задач агента: {agent_id}")
             
             # Получаем статус агента
@@ -668,6 +696,21 @@ class SystemStatus(Resource):
         Получает общий статус системы
         """
         try:
+            # Проверка feature flag DISABLE_AGENTS
+            if os.getenv('DISABLE_AGENTS', 'false').lower() == 'true':
+                logger.warning("⚠️ Агенты отключены (DISABLE_AGENTS=true)")
+                return {
+                    "status": "agents_disabled",
+                    "message": "Система агентов отключена для debugging",
+                    "agents": {
+                        "total_agents": 0,
+                        "active_agents": 0,
+                        "idle_agents": 0,
+                        "error_agents": 0
+                    },
+                    "timestamp": datetime.now().isoformat()
+                }, 200
+            
             logger.info("Запрос статуса системы")
             
             status = orchestrator.get_system_status()
@@ -689,6 +732,18 @@ class SystemHealth(Resource):
         Проверка здоровья системы
         """
         try:
+            # Проверка feature flag DISABLE_AGENTS
+            if os.getenv('DISABLE_AGENTS', 'false').lower() == 'true':
+                logger.warning("⚠️ Агенты отключены (DISABLE_AGENTS=true)")
+                return {
+                    "status": "healthy",
+                    "message": "API работает (агенты отключены для debugging)",
+                    "timestamp": datetime.now().isoformat(),
+                    "checks": {
+                        "agents": "disabled"
+                    }
+                }, 200
+            
             # Получаем базовый статус
             system_status = orchestrator.get_system_status()
             
@@ -1519,10 +1574,7 @@ class AuthResetPassword(Resource):
 class AuthRefresh(Resource):
     @auth_ns.doc('refresh_token', description='Обновление токена')
     @auth_ns.expect(refresh_token_model, validate=True)
-    @auth_ns.marshal_with(auth_response_model, code=200, description='Токен успешно обновлен')
-    @auth_ns.marshal_with(common_models['error'], code=400, description='Ошибка валидации')
-    @auth_ns.marshal_with(common_models['error'], code=401, description='Неверный токен')
-    @auth_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    # @auth_ns.marshal_with снят для корректного отображения токенов
     def post(self):
         """Обновление токена"""
         try:
@@ -1546,9 +1598,22 @@ class AuthRefresh(Resource):
             success, message, tokens = auth_service.refresh_token(data['refresh_token'])
             
             if success:
+                # Возвращаем полную структуру с токенами
+                user_data = tokens.get('user', {})
                 return {
                     "message": message,
-                    **tokens
+                    "access_token": tokens.get('access_token', ""),
+                    "refresh_token": tokens.get('refresh_token', ""),
+                    "token_type": tokens.get('token_type', 'bearer'),
+                    "expires_in": tokens.get('expires_in', 86400),
+                    "user": {
+                        "id": user_data.get('id'),
+                        "email": user_data.get('email', ""),
+                        "username": user_data.get('username', ""),
+                        "full_name": user_data.get('full_name', ""),
+                        "role": user_data.get('role', "user"),
+                        "status": user_data.get('status', "active")
+                    }
                 }, 200
             else:
                 return {
@@ -1559,7 +1624,13 @@ class AuthRefresh(Resource):
                 }, 401
                 
         except Exception as e:
-            return handle_exception(e)
+            logger.error(f"Error in refresh endpoint: {e}")
+            return {
+                "error": "Internal Server Error",
+                "message": "Внутренняя ошибка сервера",
+                "status_code": 500,
+                "timestamp": datetime.now().isoformat()
+            }, 500
 
 
 @auth_ns.route('/logout')

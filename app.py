@@ -215,13 +215,20 @@ def run_initialization():
     except Exception as e:
         logger.error(f"Ошибка при запуске инициализации: {e}")
 
+# Feature flag для отключения агентов в тестовом режиме
+DISABLE_AGENTS = os.getenv('DISABLE_AGENTS', 'false').lower() == 'true'
+
 # Создаем приложение
 app = create_app()
 
 # Инициализируем оркестратор при запуске
 if __name__ == '__main__':
-    # Запускаем инициализацию
-    run_initialization()
+    # Запускаем инициализацию агентов (если не отключено)
+    if not DISABLE_AGENTS:
+        logger.info("Инициализация агентов включена")
+        run_initialization()
+    else:
+        logger.warning("⚠️ AGENTS DISABLED: Система работает БЕЗ агентов (DISABLE_AGENTS=true)")
     
     # Запускаем Flask приложение
     port = int(os.environ.get('PORT', 8080))
@@ -231,4 +238,8 @@ if __name__ == '__main__':
     app.run(host='0.0.0.0', port=port, debug=debug)
 else:
     # Для production (gunicorn)
-    run_initialization()
+    if not DISABLE_AGENTS:
+        logger.info("Инициализация агентов включена (production mode)")
+        run_initialization()
+    else:
+        logger.warning("⚠️ AGENTS DISABLED: Система работает БЕЗ агентов (DISABLE_AGENTS=true)")
