@@ -41,9 +41,15 @@ def get_auth_service():
     """Получить экземпляр AuthService"""
     db_session = get_db_session()
     secret_key = current_app.config.get('SECRET_KEY', 'fallback-secret-key')
+    print(f"DEBUG: Creating AuthService with secret_key: {secret_key[:10] if secret_key else 'None'}...")
+    print(f"DEBUG: secret_key type: {type(secret_key)}")
+    print(f"DEBUG: secret_key length: {len(secret_key) if secret_key else 'None'}")
     logger.info(f"AuthService SECRET_KEY: {secret_key[:10]}...")
     email_service = EmailService()
-    return AuthService(db_session, secret_key, email_service)
+    auth_service = AuthService(db_session, secret_key, email_service)
+    print(f"DEBUG: AuthService created successfully")
+    print(f"DEBUG: AuthService.secret_key: {auth_service.secret_key[:10] if auth_service.secret_key else 'None'}")
+    return auth_service
 
 # Создаем namespaces для API
 api = Namespace('', description='AI Content Orchestrator API')  # Пустое имя для корневого namespace
