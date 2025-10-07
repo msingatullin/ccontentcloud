@@ -449,41 +449,63 @@ class AuthService:
     def verify_token(self, token: str) -> Tuple[bool, Optional[Dict]]:
         """Верификация JWT токена"""
         try:
+            logger.info(f"AuthService.verify_token called with token: {token[:20]}...")
+            logger.info(f"AuthService SECRET_KEY: {self.secret_key[:10]}...")
+            
             payload = jwt.decode(token, self.secret_key, algorithms=[self.jwt_algorithm])
+            logger.info(f"JWT payload decoded successfully: {payload}")
             
             # Проверка типа токена
             if payload.get('type') != 'access':
+                logger.warning(f"Invalid token type: {payload.get('type')}")
                 return False, None
             
             # Проверка существования сессии
+            jti = payload.get('jti')
+            logger.info(f"Looking for session with JTI: {jti}")
+            
             session = self.db.query(UserSession).filter(
-                UserSession.token_jti == payload.get('jti'),
+                UserSession.token_jti == jti,
                 UserSession.is_active == True
             ).first()
             
-            if not session or session.is_expired():
+            if not session:
+                logger.warning(f"Session not found for JTI: {jti}")
+                return False, None
+            
+            if session.is_expired():
+                logger.warning(f"Session expired for JTI: {jti}")
                 return False, None
             
             # Проверка пользователя
             user = session.user
+            logger.info(f"User found: id={user.id}, email={user.email}, is_active={user.is_active}, status={user.status}")
+            
             if not user.is_active or user.status != UserStatus.ACTIVE:
+                logger.warning(f"User not active: is_active={user.is_active}, status={user.status}")
                 return False, None
             
             # Обновление времени последнего использования
             session.update_last_used()
             self.db.commit()
             
-            return True, {
+            result = {
                 'user_id': user.id,
                 'email': user.email,
                 'role': user.role.value,
                 'jti': payload.get('jti')
             }
+            logger.info(f"Token verification successful: {result}")
+            return True, result
             
-        except jwt.ExpiredSignatureError:
+        except jwt.ExpiredSignatureError as e:
+            logger.warning(f"JWT token expired: {e}")
             return False, None
-        except jwt.InvalidTokenError:
+        except jwt.InvalidTokenError as e:
+            logger.warning(f"Invalid JWT token: {e}")
             return False, None
         except Exception as e:
             logger.error(f"Error verifying token: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return False, None
