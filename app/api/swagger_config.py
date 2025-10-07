@@ -70,6 +70,16 @@ def create_swagger_api(app) -> Api:
     Returns:
         Настроенный Api объект
     """
+    # Настройка JWT авторизации для Swagger UI
+    authorizations = {
+        'BearerAuth': {
+            'type': 'apiKey',
+            'in': 'header',
+            'name': 'Authorization',
+            'description': 'JWT Authorization header using the Bearer scheme. Example: "Bearer {token}"'
+        }
+    }
+    
     api = Api(
         app,
         version='1.0.0',
@@ -86,7 +96,13 @@ def create_swagger_api(app) -> Api:
         
         ## Аутентификация:
         API использует JWT токены для аутентификации.
-        Получите токен через /auth/login endpoint.
+        
+        ### Как получить токен:
+        1. Зарегистрируйтесь через `/auth/register`
+        2. Войдите через `/auth/login` и получите `access_token`
+        3. Нажмите кнопку "Authorize" вверху страницы
+        4. Введите токен в формате: `Bearer <ваш_токен>`
+        5. Нажмите "Authorize" и "Close"
         
         ## Примеры использования:
         Смотрите разделы ниже для примеров запросов и ответов.
@@ -97,6 +113,8 @@ def create_swagger_api(app) -> Api:
         contact_url='https://content-orchestrator.ai/support',
         license='MIT',
         license_url='https://opensource.org/licenses/MIT',
+        authorizations=authorizations,
+        security='BearerAuth',
         tags=[
             {'name': 'content', 'description': 'Создание и управление контентом'},
             {'name': 'workflow', 'description': 'Управление workflow и задачами'},
