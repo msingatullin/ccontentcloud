@@ -39,16 +39,43 @@ logger = logging.getLogger(__name__)
 # Инициализация AuthService
 def get_auth_service():
     """Получить экземпляр AuthService"""
-    db_session = get_db_session()
-    secret_key = current_app.config.get('SECRET_KEY', 'fallback-secret-key')
-    print(f"DEBUG: Creating AuthService with secret_key: {secret_key[:10] if secret_key else 'None'}...")
-    print(f"DEBUG: secret_key type: {type(secret_key)}")
-    print(f"DEBUG: secret_key length: {len(secret_key) if secret_key else 'None'}")
+    print(f"DEBUG: get_auth_service() called")
+    try:
+        print(f"DEBUG: Calling get_db_session()...")
+        db_session = get_db_session()
+        print(f"DEBUG: get_db_session() successful")
+    except Exception as e:
+        print(f"DEBUG: ERROR in get_db_session(): {e}")
+        raise
+    
+    try:
+        print(f"DEBUG: Getting SECRET_KEY from config...")
+        secret_key = current_app.config.get('SECRET_KEY', 'fallback-secret-key')
+        print(f"DEBUG: SECRET_KEY obtained: {secret_key[:10] if secret_key else 'None'}...")
+        print(f"DEBUG: secret_key type: {type(secret_key)}")
+        print(f"DEBUG: secret_key length: {len(secret_key) if secret_key else 'None'}")
+    except Exception as e:
+        print(f"DEBUG: ERROR getting SECRET_KEY: {e}")
+        raise
+    
+    try:
+        print(f"DEBUG: Creating EmailService...")
+        email_service = EmailService()
+        print(f"DEBUG: EmailService created successfully")
+    except Exception as e:
+        print(f"DEBUG: ERROR creating EmailService: {e}")
+        raise
+    
+    try:
+        print(f"DEBUG: Creating AuthService...")
+        auth_service = AuthService(db_session, secret_key, email_service)
+        print(f"DEBUG: AuthService created successfully")
+        print(f"DEBUG: AuthService.secret_key: {auth_service.secret_key[:10] if auth_service.secret_key else 'None'}")
+    except Exception as e:
+        print(f"DEBUG: ERROR creating AuthService: {e}")
+        raise
+    
     logger.info(f"AuthService SECRET_KEY: {secret_key[:10]}...")
-    email_service = EmailService()
-    auth_service = AuthService(db_session, secret_key, email_service)
-    print(f"DEBUG: AuthService created successfully")
-    print(f"DEBUG: AuthService.secret_key: {auth_service.secret_key[:10] if auth_service.secret_key else 'None'}")
     return auth_service
 
 # Создаем namespaces для API
