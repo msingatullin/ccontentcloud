@@ -100,7 +100,6 @@ def create_swagger_api(app) -> Api:
         tags=[
             {'name': 'content', 'description': 'Создание и управление контентом'},
             {'name': 'workflow', 'description': 'Управление workflow и задачами'},
-            {'name': 'agents', 'description': 'Мониторинг и управление агентами'},
             {'name': 'system', 'description': 'Системные endpoints и мониторинг'},
             {'name': 'platforms', 'description': 'Управление платформами публикации'},
             {'name': 'trends', 'description': 'Анализ трендов и вирусного контента'},
