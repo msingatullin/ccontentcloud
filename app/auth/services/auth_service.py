@@ -457,8 +457,19 @@ class AuthService:
             logger.info(f"AuthService.verify_token called with token: {token[:20]}...")
             logger.info(f"AuthService SECRET_KEY: {self.secret_key[:10]}...")
             
-            payload = jwt.decode(token, self.secret_key, algorithms=[self.jwt_algorithm])
-            logger.info(f"JWT payload decoded successfully: {payload}")
+            try:
+                logger.info(f"Attempting JWT decode with algorithm: {self.jwt_algorithm}")
+                payload = jwt.decode(token, self.secret_key, algorithms=[self.jwt_algorithm])
+                logger.info(f"JWT payload decoded successfully: {payload}")
+            except jwt.ExpiredSignatureError as e:
+                logger.error(f"JWT EXPIRED: {e}")
+                return False, None
+            except jwt.InvalidTokenError as e:
+                logger.error(f"JWT INVALID TOKEN: {e}")
+                return False, None
+            except Exception as e:
+                logger.error(f"JWT DECODE ERROR: {e}")
+                return False, None
             
             # Проверка типа токена
             if payload.get('type') != 'access':
