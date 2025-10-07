@@ -123,8 +123,9 @@ def jwt_required(f):
         
         # Проверить токен через AuthService
         try:
-            print(f"DEBUG: Calling get_auth_service()...")
+            print(f"DEBUG: About to call get_auth_service()...")
             auth_service = get_auth_service()
+            print(f"DEBUG: get_auth_service() success: {type(auth_service)}")
             print(f"DEBUG: AuthService obtained, calling verify_token...")
             logger.info(f"Verifying token: {token[:20]}...")
             success, payload = auth_service.verify_token(token)  # Распаковываем Tuple
@@ -134,6 +135,11 @@ def jwt_required(f):
                 print(f"DEBUG: Token verification failed: success={success}, payload={payload}")
                 logger.warning(f"Token verification failed: success={success}, payload={payload}")
                 return {"error": "Invalid or expired token"}, 401
+        except Exception as e:
+            print(f"ERROR: get_auth_service() failed: {e}")
+            import traceback
+            print(f"TRACEBACK: {traceback.format_exc()}")
+            return jsonify({'error': 'Service initialization failed'}), 500
         except Exception as e:
             logger.error(f"JWT verification error: {e}")
             import traceback
