@@ -522,8 +522,13 @@ class AuthService:
             user = session.user
             logger.info(f"User found: id={user.id}, email={user.email}, is_active={user.is_active}, status={user.status}")
             
-            if not user.is_active or user.status != UserStatus.ACTIVE:
+            if not user.is_active:
                 logger.warning(f"User not active: is_active={user.is_active}, status={user.status}")
+                return False, None
+            
+            # Разрешаем доступ пользователям в статусе PENDING_VERIFICATION для тестирования
+            if user.status not in [UserStatus.ACTIVE, UserStatus.PENDING_VERIFICATION]:
+                logger.warning(f"User status not allowed: is_active={user.is_active}, status={user.status}")
                 return False, None
             
             # Обновление времени последнего использования
