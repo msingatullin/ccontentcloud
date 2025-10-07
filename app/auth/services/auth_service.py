@@ -471,7 +471,7 @@ class AuthService:
             
             # ВРЕМЕННАЯ ДИАГНОСТИКА: проверим все сессии
             all_sessions = self.db.query(UserSession).all()
-            logger.info(f"Total sessions in DB: {len(all_sessions)}")
+            print(f"DEBUG: Total sessions in DB: {len(all_sessions)}")
             for sess in all_sessions:
                 logger.info(f"Session: JTI={sess.token_jti}, is_active={sess.is_active}, user_id={sess.user_id}")
             
