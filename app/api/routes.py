@@ -39,44 +39,30 @@ logger = logging.getLogger(__name__)
 # Инициализация AuthService
 def get_auth_service():
     """Получить экземпляр AuthService"""
-    print(f"DEBUG: get_auth_service() called")
+    print("DEBUG: Starting get_auth_service()")
     try:
-        print(f"DEBUG: Calling get_db_session()...")
+        print("DEBUG: Calling get_db_session()")
         db_session = get_db_session()
-        print(f"DEBUG: get_db_session() successful")
-    except Exception as e:
-        print(f"DEBUG: ERROR in get_db_session(): {e}")
-        raise
-    
-    try:
-        print(f"DEBUG: Getting SECRET_KEY from config...")
+        print(f"DEBUG: DB session created: {type(db_session)}")
+        
+        print("DEBUG: Getting SECRET_KEY")
         secret_key = current_app.config.get('SECRET_KEY', 'fallback-secret-key')
-        print(f"DEBUG: SECRET_KEY obtained: {secret_key[:10] if secret_key else 'None'}...")
-        print(f"DEBUG: secret_key type: {type(secret_key)}")
-        print(f"DEBUG: secret_key length: {len(secret_key) if secret_key else 'None'}")
-    except Exception as e:
-        print(f"DEBUG: ERROR getting SECRET_KEY: {e}")
-        raise
-    
-    try:
-        print(f"DEBUG: Creating EmailService...")
+        print(f"DEBUG: SECRET_KEY obtained: {secret_key[:10] if secret_key else 'None'}")
+        
+        print("DEBUG: Creating EmailService")
         email_service = EmailService()
-        print(f"DEBUG: EmailService created successfully")
-    except Exception as e:
-        print(f"DEBUG: ERROR creating EmailService: {e}")
-        raise
-    
-    try:
-        print(f"DEBUG: Creating AuthService...")
+        print(f"DEBUG: EmailService created: {type(email_service)}")
+        
+        print("DEBUG: Creating AuthService")
         auth_service = AuthService(db_session, secret_key, email_service)
-        print(f"DEBUG: AuthService created successfully")
-        print(f"DEBUG: AuthService.secret_key: {auth_service.secret_key[:10] if auth_service.secret_key else 'None'}")
+        print(f"DEBUG: AuthService created: {type(auth_service)}")
+        
+        return auth_service
     except Exception as e:
-        print(f"DEBUG: ERROR creating AuthService: {e}")
+        print(f"ERROR in get_auth_service: {e}")
+        import traceback
+        print(f"TRACEBACK: {traceback.format_exc()}")
         raise
-    
-    logger.info(f"AuthService SECRET_KEY: {secret_key[:10]}...")
-    return auth_service
 
 # Создаем namespaces для API
 api = Namespace('', description='AI Content Orchestrator API')  # Пустое имя для корневого namespace
