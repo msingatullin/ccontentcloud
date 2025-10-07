@@ -522,7 +522,9 @@ class AuthService:
             user = session.user
             logger.info(f"User found: id={user.id}, email={user.email}, is_active={user.is_active}, status={user.status}")
             
+            print(f"DEBUG: User is_active check: {user.is_active} (type: {type(user.is_active)})")
             if not user.is_active:
+                print(f"DEBUG: User not active: is_active={user.is_active}, status={user.status}")
                 logger.warning(f"User not active: is_active={user.is_active}, status={user.status}")
                 return False, None
             
