@@ -469,6 +469,12 @@ class AuthService:
             jti = payload.get('jti')
             logger.info(f"Looking for session with JTI: {jti}")
             
+            # ВРЕМЕННАЯ ДИАГНОСТИКА: проверим все сессии
+            all_sessions = self.db.query(UserSession).all()
+            logger.info(f"Total sessions in DB: {len(all_sessions)}")
+            for sess in all_sessions:
+                logger.info(f"Session: JTI={sess.token_jti}, is_active={sess.is_active}, user_id={sess.user_id}")
+            
             session = self.db.query(UserSession).filter(
                 UserSession.token_jti == jti,
                 UserSession.is_active == True
