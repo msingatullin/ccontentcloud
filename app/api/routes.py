@@ -52,17 +52,25 @@ def jwt_required(f):
     """Декоратор для проверки JWT токена"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        logger.info(f"JWT middleware called for endpoint: {request.endpoint}")
+        logger.info(f"Request path: {request.path}")
+        logger.info(f"Request method: {request.method}")
+        
         token = None
         
         # Извлечь токен из Authorization header
         if 'Authorization' in request.headers:
             auth_header = request.headers['Authorization']
+            logger.info(f"Authorization header: {auth_header[:20] if auth_header else 'None'}...")
             try:
                 token = auth_header.split(" ")[1]  # Bearer <token>
+                logger.info(f"Extracted token: {token[:20]}...")
             except:
+                logger.warning("Invalid token format")
                 return {"error": "Invalid token format. Use: Bearer <token>"}, 401
         
         if not token:
+            logger.warning("Authorization token is missing")
             return {"error": "Authorization token is missing"}, 401
         
         # Проверить токен через AuthService
