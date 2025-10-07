@@ -66,6 +66,9 @@ def jwt_required(f):
     """Декоратор для проверки JWT токена"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        print(f"DEBUG: JWT middleware called for endpoint: {request.endpoint}")
+        print(f"DEBUG: Request path: {request.path}")
+        print(f"DEBUG: Request method: {request.method}")
         logger.info(f"JWT middleware called for endpoint: {request.endpoint}")
         logger.info(f"Request path: {request.path}")
         logger.info(f"Request method: {request.method}")
@@ -75,25 +78,33 @@ def jwt_required(f):
         # Извлечь токен из Authorization header
         if 'Authorization' in request.headers:
             auth_header = request.headers['Authorization']
+            print(f"DEBUG: Authorization header: {auth_header[:20] if auth_header else 'None'}...")
             logger.info(f"Authorization header: {auth_header[:20] if auth_header else 'None'}...")
             try:
                 token = auth_header.split(" ")[1]  # Bearer <token>
+                print(f"DEBUG: Extracted token: {token[:20]}...")
                 logger.info(f"Extracted token: {token[:20]}...")
             except:
+                print(f"DEBUG: Invalid token format")
                 logger.warning("Invalid token format")
                 return {"error": "Invalid token format. Use: Bearer <token>"}, 401
         
         if not token:
+            print(f"DEBUG: Authorization token is missing")
             logger.warning("Authorization token is missing")
             return {"error": "Authorization token is missing"}, 401
         
         # Проверить токен через AuthService
         try:
+            print(f"DEBUG: Calling get_auth_service()...")
             auth_service = get_auth_service()
+            print(f"DEBUG: AuthService obtained, calling verify_token...")
             logger.info(f"Verifying token: {token[:20]}...")
             success, payload = auth_service.verify_token(token)  # Распаковываем Tuple
+            print(f"DEBUG: Token verification result: success={success}, payload={payload}")
             logger.info(f"Token verification result: success={success}, payload={payload}")
             if not success or not payload:
+                print(f"DEBUG: Token verification failed: success={success}, payload={payload}")
                 logger.warning(f"Token verification failed: success={success}, payload={payload}")
                 return {"error": "Invalid or expired token"}, 401
         except Exception as e:
