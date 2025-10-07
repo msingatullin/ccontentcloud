@@ -96,9 +96,9 @@ def jwt_required(f):
         print(f"DEBUG: JWT middleware called for endpoint: {request.endpoint}")
         print(f"DEBUG: Request path: {request.path}")
         print(f"DEBUG: Request method: {request.method}")
-        logger.info(f"JWT middleware called for endpoint: {request.endpoint}")
-        logger.info(f"Request path: {request.path}")
-        logger.info(f"Request method: {request.method}")
+        logger.error(f"JWT middleware called for endpoint: {request.endpoint}")
+        logger.error(f"Request path: {request.path}")
+        logger.error(f"Request method: {request.method}")
         
         token = None
         
