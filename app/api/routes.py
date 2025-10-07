@@ -1617,12 +1617,16 @@ class AuthLogout(Resource):
             token_jti = current_user.get('jti')  # Получаем JTI из токена
             
             logger.info(f"Logout request from user {email} (ID: {user_id})")
+            logger.info(f"Current user data: {current_user}")
+            logger.info(f"Token JTI: {token_jti}")
             
             # Используем уже инициализированный AuthService
             auth_service = get_auth_service()
             
             # Деактивируем сессию в БД
+            logger.info(f"Calling logout_user with JTI: {token_jti}")
             success, message = auth_service.logout_user(token_jti)
+            logger.info(f"Logout result: success={success}, message={message}")
             
             if success:
                 logger.info(f"User {email} (ID: {user_id}) logged out successfully")
@@ -1700,9 +1704,7 @@ class AuthLogoutAll(Resource):
 class AuthMe(Resource):
     @jwt_required
     @auth_ns.doc('get_current_user', description='Получить информацию о текущем пользователе')
-    @auth_ns.marshal_with(user_model, code=200, description='Информация о пользователе')
-    @auth_ns.marshal_with(common_models['error'], code=401, description='Не авторизован')
-    @auth_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    # @auth_ns.marshal_with убран для корректного отображения
     def get(self, current_user):
         """Получить информацию о текущем пользователе"""
         try:
@@ -1710,32 +1712,34 @@ class AuthMe(Resource):
             user_id = current_user.get('user_id')
             email = current_user.get('email')
             
+            logger.info(f"Profile request from user {email} (ID: {user_id})")
+            logger.info(f"Current user data: {current_user}")
+            
             # Получить данные пользователя через AuthService
             auth_service = get_auth_service()
             user = auth_service.get_user_by_email(email)
             
+            logger.info(f"User found: {user is not None}")
+            if user:
+                logger.info(f"User data: id={user.id}, email={user.email}, username={user.username}")
+            
             # Возвращаем информацию о пользователе
             if user:
                 return {
-                    "user": {
-                        "id": user.id,
-                        "email": user.email,
-                        "username": user.username,
-                        "first_name": user.first_name or "",
-                        "last_name": user.last_name or "",
-                        "is_verified": user.is_verified,
-                        "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
-                        "created_at": user.created_at.isoformat() if user.created_at else "",
-                        "updated_at": user.updated_at.isoformat() if user.updated_at else ""
-                    },
-                    "usage_stats": {
-                        "posts_used": 0,
-                        "posts_limit": 50,
-                        "api_calls_used": 0,
-                        "api_calls_limit": 1000
-                    }
+                    "id": user.id,
+                    "email": user.email,
+                    "username": user.username,
+                    "first_name": user.first_name or "",
+                    "last_name": user.last_name or "",
+                    "company": user.company or "",
+                    "phone": user.phone or "",
+                    "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
+                    "is_verified": user.is_verified,
+                    "created_at": user.created_at.isoformat() if user.created_at else "",
+                    "updated_at": user.updated_at.isoformat() if user.updated_at else ""
                 }, 200
             else:
+                logger.error(f"User not found for email: {email}")
                 return {
                     "error": "User not found",
                     "message": "Пользователь не найден",
@@ -1745,8 +1749,10 @@ class AuthMe(Resource):
                 
         except Exception as e:
             logger.error(f"Ошибка получения профиля: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return {
-                "error": "Internal server error",
+                "error": "Internal Server Error",
                 "message": "Внутренняя ошибка сервера",
                 "status_code": 500,
                 "timestamp": datetime.now().isoformat()
