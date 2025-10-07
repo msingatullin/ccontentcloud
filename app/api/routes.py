@@ -68,11 +68,16 @@ def jwt_required(f):
         # Проверить токен через AuthService
         try:
             auth_service = get_auth_service()
+            logger.info(f"Verifying token: {token[:20]}...")
             success, payload = auth_service.verify_token(token)  # Распаковываем Tuple
+            logger.info(f"Token verification result: success={success}, payload={payload}")
             if not success or not payload:
+                logger.warning(f"Token verification failed: success={success}, payload={payload}")
                 return {"error": "Invalid or expired token"}, 401
         except Exception as e:
             logger.error(f"JWT verification error: {e}")
+            import traceback
+            logger.error(f"JWT verification traceback: {traceback.format_exc()}")
             return {"error": "Token verification failed"}, 401
         
         # Передать user info в функцию
