@@ -478,11 +478,22 @@ class AuthService:
             
             # Проверка существования сессии
             jti = payload.get('jti')
-            logger.info(f"Looking for session with JTI: {jti}")
             
-            # ВРЕМЕННАЯ ДИАГНОСТИКА: проверим все сессии
-            all_sessions = self.db.query(UserSession).all()
-            print(f"DEBUG: Total sessions in DB: {len(all_sessions)}")
+            try:
+                logger.info(f"Looking for session with JTI: {jti}")
+                logger.info(f"DB session type: {type(self.db)}")
+                logger.info(f"DB session is active: {self.db.is_active if hasattr(self.db, 'is_active') else 'unknown'}")
+                
+                all_sessions = self.db.query(UserSession).all()
+                print(f"DEBUG: Total sessions in DB: {len(all_sessions)}")
+                
+            except Exception as db_error:
+                logger.error(f"DATABASE ERROR: {db_error}")
+                logger.error(f"DB ERROR TYPE: {type(db_error)}")
+                import traceback
+                logger.error(f"DB TRACEBACK: {traceback.format_exc()}")
+                return False, None
+            
             for sess in all_sessions:
                 logger.info(f"Session: JTI={sess.token_jti}, is_active={sess.is_active}, user_id={sess.user_id}")
             
