@@ -103,7 +103,7 @@ def create_app():
     swagger_api.add_namespace(health_ns)
     
     # Регистрируем swagger_api в Flask app
-    app.register_blueprint(swagger_api.blueprint)
+    # swagger_api уже зарегистрирован в Flask app через create_swagger_api(app)
     
     # Регистрируем остальные blueprints
     app.register_blueprint(billing_bp)
