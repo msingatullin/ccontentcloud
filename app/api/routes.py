@@ -1836,14 +1836,14 @@ class AuthProfile(Resource):
             
             # Обновить данные пользователя через AuthService
             auth_service = get_auth_service()
-            success, message = auth_service.update_user_profile(
-                email=email,
+            success, message, updated_user = auth_service.update_user_profile(
+                user_id=user_id,
                 **data
             )
             
             if success:
-                # Получаем обновленного пользователя
-                user = auth_service.get_user_by_email(email)
+                # Используем обновленного пользователя из результата
+                user = updated_user
                 
                 return {
                     "message": "Profile updated successfully",
