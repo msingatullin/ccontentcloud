@@ -516,7 +516,7 @@ class AuthService:
             logger.warning(f"Invalid JWT token: {e}")
             return False, None
         except Exception as e:
-            logger.error(f"Error verifying token: {e}")
+            logger.error(f"CRITICAL ERROR in verify_token: {e}")
             import traceback
-            logger.error(f"Traceback: {traceback.format_exc()}")
+            logger.error(f"CRITICAL TRACEBACK: {traceback.format_exc()}")
             return False, None
