@@ -1398,13 +1398,7 @@ class AuthVerifyEmail(Resource):
     def post(self):
         """Верификация email"""
         try:
-            from ...auth.services.auth_service import AuthService
-            from ...auth.utils.email import EmailService
-            from ...database.connection import get_db_session
-            
-            db_session = get_db_session()
-            email_service = EmailService()
-            auth_service = AuthService(db_session, current_app.config['SECRET_KEY'], email_service)
+            auth_service = get_auth_service()
             
             data = request.get_json()
             if not data:
@@ -1444,13 +1438,7 @@ class AuthResendVerification(Resource):
     def post(self):
         """Повторная отправка email верификации"""
         try:
-            from ...auth.services.auth_service import AuthService
-            from ...auth.utils.email import EmailService
-            from ...database.connection import get_db_session
-            
-            db_session = get_db_session()
-            email_service = EmailService()
-            auth_service = AuthService(db_session, current_app.config['SECRET_KEY'], email_service)
+            auth_service = get_auth_service()
             
             data = request.get_json()
             if not data or 'email' not in data:
@@ -1491,13 +1479,7 @@ class AuthForgotPassword(Resource):
     def post(self):
         """Запрос сброса пароля"""
         try:
-            from ...auth.services.auth_service import AuthService
-            from ...auth.utils.email import EmailService
-            from ...database.connection import get_db_session
-            
-            db_session = get_db_session()
-            email_service = EmailService()
-            auth_service = AuthService(db_session, current_app.config['SECRET_KEY'], email_service)
+            auth_service = get_auth_service()
             
             data = request.get_json()
             if not data:
@@ -1530,13 +1512,7 @@ class AuthResetPassword(Resource):
     def post(self):
         """Сброс пароля"""
         try:
-            from ...auth.services.auth_service import AuthService
-            from ...auth.utils.email import EmailService
-            from ...database.connection import get_db_session
-            
-            db_session = get_db_session()
-            email_service = EmailService()
-            auth_service = AuthService(db_session, current_app.config['SECRET_KEY'], email_service)
+            auth_service = get_auth_service()
             
             data = request.get_json()
             if not data:
@@ -1578,13 +1554,7 @@ class AuthRefresh(Resource):
     def post(self):
         """Обновление токена"""
         try:
-            from ...auth.services.auth_service import AuthService
-            from ...auth.utils.email import EmailService
-            from ...database.connection import get_db_session
-            
-            db_session = get_db_session()
-            email_service = EmailService()
-            auth_service = AuthService(db_session, current_app.config['SECRET_KEY'], email_service)
+            auth_service = get_auth_service()
             
             data = request.get_json()
             if not data:
@@ -1641,10 +1611,6 @@ class AuthLogout(Resource):
     def post(self, current_user):
         """Выход пользователя - деактивирует текущую сессию в БД"""
         try:
-            from ...auth.services.auth_service import AuthService
-            from ...auth.utils.email import EmailService
-            from ...database.connection import get_db_session
-            
             # current_user уже проверен в jwt_required
             user_id = current_user.get('user_id')
             email = current_user.get('email')
@@ -1652,10 +1618,8 @@ class AuthLogout(Resource):
             
             logger.info(f"Logout request from user {email} (ID: {user_id})")
             
-            # Инициализируем AuthService
-            db_session = get_db_session()
-            email_service = EmailService()
-            auth_service = AuthService(db_session, current_app.config['SECRET_KEY'], email_service)
+            # Используем уже инициализированный AuthService
+            auth_service = get_auth_service()
             
             # Деактивируем сессию в БД
             success, message = auth_service.logout_user(token_jti)
@@ -1694,20 +1658,14 @@ class AuthLogoutAll(Resource):
     def post(self, current_user):
         """Выход из всех сессий - деактивирует все активные сессии пользователя в БД"""
         try:
-            from ...auth.services.auth_service import AuthService
-            from ...auth.utils.email import EmailService
-            from ...database.connection import get_db_session
-            
             # current_user уже проверен в jwt_required
             user_id = current_user.get('user_id')
             email = current_user.get('email')
             
             logger.info(f"Logout-all request from user {email} (ID: {user_id})")
             
-            # Инициализируем AuthService
-            db_session = get_db_session()
-            email_service = EmailService()
-            auth_service = AuthService(db_session, current_app.config['SECRET_KEY'], email_service)
+            # Используем уже инициализированный AuthService
+            auth_service = get_auth_service()
             
             # Деактивируем ВСЕ сессии пользователя в БД
             success, message = auth_service.logout_all_sessions(user_id)
