@@ -41,6 +41,7 @@ def get_auth_service():
     """Получить экземпляр AuthService"""
     db_session = get_db_session()
     secret_key = current_app.config.get('SECRET_KEY', 'fallback-secret-key')
+    logger.info(f"AuthService SECRET_KEY: {secret_key[:10]}...")
     email_service = EmailService()
     return AuthService(db_session, secret_key, email_service)
 
