@@ -102,6 +102,9 @@ def create_app():
     swagger_api.add_namespace(webhook_ns)
     swagger_api.add_namespace(health_ns)
     
+    # Регистрируем swagger_api в Flask app
+    app.register_blueprint(swagger_api.blueprint)
+    
     # Регистрируем остальные blueprints
     app.register_blueprint(billing_bp)
     app.register_blueprint(webhook_bp)
