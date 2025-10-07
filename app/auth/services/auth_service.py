@@ -453,9 +453,17 @@ class AuthService:
 
     def verify_token(self, token: str) -> Tuple[bool, Optional[Dict]]:
         """Верификация JWT токена"""
+        print(f"DEBUG: AuthService.verify_token called with token: {token[:20]}...")
+        print(f"DEBUG: self.secret_key type: {type(self.secret_key)}")
+        print(f"DEBUG: self.secret_key value: {self.secret_key[:10] if self.secret_key else 'None'}...")
         try:
             logger.info(f"AuthService.verify_token called with token: {token[:20]}...")
-            logger.info(f"AuthService SECRET_KEY: {self.secret_key[:10]}...")
+            try:
+                logger.info(f"AuthService SECRET_KEY: {self.secret_key[:10]}...")
+            except Exception as e:
+                print(f"DEBUG: ERROR accessing self.secret_key: {e}")
+                logger.error(f"ERROR accessing self.secret_key: {e}")
+                return False, None
             
             try:
                 logger.info(f"Attempting JWT decode with algorithm: {self.jwt_algorithm}")
