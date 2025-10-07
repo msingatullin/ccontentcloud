@@ -393,6 +393,9 @@ class AuthService:
         now = datetime.utcnow()
         jti = self._generate_jti()
         
+        logger.info(f"AuthService._create_tokens called for user {user.email}")
+        logger.info(f"AuthService SECRET_KEY for token creation: {self.secret_key[:10]}...")
+        
         # Access token
         access_token_payload = {
             'user_id': user.id,
@@ -404,7 +407,9 @@ class AuthService:
             'exp': now + timedelta(minutes=self.access_token_expire_minutes)
         }
         
+        logger.info(f"Access token payload: {access_token_payload}")
         access_token = jwt.encode(access_token_payload, self.secret_key, algorithm=self.jwt_algorithm)
+        logger.info(f"Access token created: {access_token[:20]}...")
         
         # Refresh token
         refresh_token = self._generate_refresh_token()
