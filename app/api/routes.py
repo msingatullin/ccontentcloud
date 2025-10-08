@@ -497,15 +497,20 @@ class ContentCreate(Resource):
         Принимает запрос на создание контента и запускает workflow
         с участием всех необходимых агентов.
         """
+        logger.error("=== POST METHOD CALLED IN ContentCreate ===")
+        print("DEBUG: POST METHOD CALLED IN ContentCreate")
         try:
             # current_user уже проверен в jwt_required
             user_id = current_user.get('user_id')
             email = current_user.get('email')
+            logger.error(f"User info: ID={user_id}, email={email}")
             
             # Валидируем входные данные
             try:
+                logger.error(f"Request JSON: {request.json}")
                 content_request = ContentRequestSchema(**request.json)
             except ValidationError as e:
+                logger.error(f"Validation error: {e}")
                 return handle_validation_error(e)
             
             logger.info(f"User {email} (ID: {user_id}) создает контент: {content_request.title}")
