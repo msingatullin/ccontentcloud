@@ -511,9 +511,11 @@ class ContentCreate(Resource):
             logger.info(f"User {email} (ID: {user_id}) создает контент: {content_request.title}")
             
             # Преобразуем Pydantic модель в словарь
+            logger.info("Преобразуем Pydantic модель в словарь")
             request_data = content_request.dict()
             # Добавляем user_id в данные запроса
             request_data['user_id'] = user_id
+            logger.info(f"Request data prepared: {request_data}")
             
             # Запускаем обработку через оркестратор
             logger.info(f"Запускаем orchestrator.process_content_request для пользователя {user_id}")
