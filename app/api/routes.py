@@ -436,12 +436,17 @@ health_model = health_ns.model('HealthResponse', {
 def run_async(coro):
     """Запускает асинхронную функцию в синхронном контексте"""
     try:
+        logger.info("run_async: Getting event loop")
         loop = asyncio.get_event_loop()
-    except RuntimeError:
+    except RuntimeError as e:
+        logger.info(f"run_async: Creating new event loop (RuntimeError: {e})")
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
     
-    return loop.run_until_complete(coro)
+    logger.info("run_async: Running coroutine")
+    result = loop.run_until_complete(coro)
+    logger.info(f"run_async: Completed with result type: {type(result)}")
+    return result
 
 
 def handle_validation_error(e: ValidationError) -> tuple:
