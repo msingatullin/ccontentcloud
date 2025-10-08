@@ -1918,7 +1918,7 @@ class AuthChangePassword(Resource):
             # Изменяем пароль через AuthService
             auth_service = get_auth_service()
             success, message = auth_service.change_password(
-                email=email,
+                user_id=user_id,
                 current_password=data['current_password'],
                 new_password=data['new_password']
             )
