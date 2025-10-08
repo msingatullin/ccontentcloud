@@ -511,7 +511,9 @@ class ContentCreate(Resource):
             request_data['user_id'] = user_id
             
             # Запускаем обработку через оркестратор
+            logger.info(f"Запускаем orchestrator.process_content_request для пользователя {user_id}")
             result = run_async(orchestrator.process_content_request(request_data))
+            logger.info(f"Результат от orchestrator: {result}")
             
             if result["success"]:
                 logger.info(f"Контент успешно создан: {result['workflow_id']}")
