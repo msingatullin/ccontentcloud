@@ -94,12 +94,17 @@ def jwt_required(f):
             print(f"DEBUG: Authorization header: {auth_header[:20] if auth_header else 'None'}...")
             logger.info(f"Authorization header: {auth_header[:20] if auth_header else 'None'}...")
             try:
-                token = auth_header.split(" ")[1]  # Bearer <token>
+                # Поддерживаем оба формата: "Bearer <token>" и просто "<token>" (для Swagger UI)
+                if auth_header.startswith('Bearer '):
+                    token = auth_header.split(" ")[1]
+                else:
+                    # Swagger UI может передавать токен без "Bearer "
+                    token = auth_header
                 print(f"DEBUG: Extracted token: {token[:20]}...")
                 logger.info(f"Extracted token: {token[:20]}...")
-            except:
-                print(f"DEBUG: Invalid token format")
-                logger.warning("Invalid token format")
+            except Exception as e:
+                print(f"DEBUG: Invalid token format: {e}")
+                logger.warning(f"Invalid token format: {e}")
                 return {"error": "Invalid token format. Use: Bearer <token>"}, 401
         
         if not token:
