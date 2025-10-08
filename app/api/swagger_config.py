@@ -116,13 +116,10 @@ def create_swagger_api(app) -> Api:
         authorizations=authorizations,
         security='BearerAuth',
         tags=[
-            {'name': 'content', 'description': 'Создание и управление контентом'},
-            {'name': 'workflow', 'description': 'Управление workflow и задачами'},
-            {'name': 'system', 'description': 'Системные endpoints и мониторинг'},
-            {'name': 'platforms', 'description': 'Управление платформами публикации'},
-            {'name': 'trends', 'description': 'Анализ трендов и вирусного контента'},
             {'name': 'auth', 'description': 'Аутентификация и авторизация'},
-            {'name': 'billing', 'description': 'Биллинг и подписки'}
+            {'name': 'billing', 'description': 'Биллинг и подписки'},
+            {'name': 'webhook', 'description': 'Webhooks'},
+            {'name': 'health', 'description': 'Health Check'}
         ]
     )
     
