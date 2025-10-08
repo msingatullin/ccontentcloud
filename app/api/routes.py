@@ -482,9 +482,9 @@ class ContentCreate(Resource):
     @jwt_required
     @api.doc('create_content', description='Создает контент через AI агентов')
     @api.expect(content_request_model, validate=True)
-    @api.marshal_with(content_response_model, code=201, description='Контент успешно создан')
-    @api.marshal_with(common_models['error'], code=400, description='Ошибка валидации')
-    @api.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    @api.response(201, 'Контент успешно создан')
+    @api.response(400, 'Ошибка валидации')
+    @api.response(500, 'Внутренняя ошибка сервера')
     def post(self, current_user):
         """
         Создает контент через AI агентов
@@ -525,6 +525,7 @@ class ContentCreate(Resource):
                     "timestamp": datetime.now().isoformat()
                 }
                 
+                logger.info(f"Возвращаем ответ: {response_data}")
                 return response_data, 201
             else:
                 logger.error(f"Ошибка создания контента: {result['error']}")
