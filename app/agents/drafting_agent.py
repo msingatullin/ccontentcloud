@@ -517,6 +517,15 @@ class DraftingAgent(BaseAgent):
                                       strategy_data: Dict[str, Any], platform: str) -> Optional[str]:
         """Генерирует контент через AI модели"""
         try:
+            import os
+            import openai
+            
+            # Проверяем наличие OpenAI API ключа
+            api_key = os.getenv('OPENAI_API_KEY')
+            if not api_key:
+                logger.warning("OPENAI_API_KEY не установлен, используем fallback")
+                return None
+            
             # Получаем промпт для платформы
             prompt_key = f"{platform}_post"
             prompt = self.ai_prompts.get(prompt_key)
@@ -539,7 +548,36 @@ class DraftingAgent(BaseAgent):
                 keywords=keywords
             )
             
-            # Пытаемся использовать HuggingFace
+            # Вызываем OpenAI API напрямую
+            try:
+                client = openai.OpenAI(api_key=api_key)
+                response = client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": prompt.system_message},
+                        {"role": "user", "content": final_prompt}
+                    ],
+                    max_tokens=prompt.max_tokens,
+                    temperature=prompt.temperature,
+                    n=1
+                )
+                
+                if response.choices and len(response.choices) > 0:
+                    generated_text = response.choices[0].message.content.strip()
+                    logger.info(f"✅ Контент успешно сгенерирован через OpenAI для {platform}")
+                    return generated_text
+                
+            except openai.APIError as e:
+                logger.error(f"OpenAI API Error: {e}")
+                return None
+            except openai.RateLimitError as e:
+                logger.error(f"OpenAI Rate Limit: {e}")
+                return None
+            except Exception as e:
+                logger.error(f"OpenAI Error: {e}")
+                return None
+            
+            # Fallback на MCP интеграции если OpenAI не сработал
             if self.huggingface_mcp is not None:
                 result = await self.huggingface_mcp.execute_with_retry(
                     'generate_text',
@@ -551,7 +589,6 @@ class DraftingAgent(BaseAgent):
                 if result.success and result.data:
                     return result.data.get('generated_text', '')
             
-            # Fallback на OpenAI если доступен
             if self.openai_mcp is not None:
                 result = await self.openai_mcp.execute_with_retry(
                     'generate_content',
@@ -747,12 +784,15 @@ class DraftingAgent(BaseAgent):
         
         # SEO оценка
         seo_score = await self._calculate_seo_score(text, content.content_piece.hashtags)
+        content.seo_score = seo_score
         
         # Потенциал вовлеченности
         engagement_potential = await self._calculate_engagement_potential(text)
+        content.engagement_potential = engagement_potential
         
         # Читаемость
         readability_score = await self._calculate_readability_score(text)
+        content.readability_score = readability_score
         
         return {
             "seo_score": seo_score,
