@@ -83,3 +83,13 @@ psycopg2-binary>=2.9.0
 
 # Database migrations
 alembic>=1.12.0
+
+# NLP and Text Analysis Dependencies
+# Natural language processing
+nltk>=3.8.0
+
+# Sentiment analysis
+textblob>=0.17.0
+
+# Language detection
+langdetect>=1.0.9
