@@ -638,14 +638,14 @@ class WorkflowCancel(Resource):
 
 @api.route('/agents/status')
 class AgentsStatus(Resource):
-    # @jwt_required  # ВРЕМЕННО ОТКЛЮЧЕНО ДЛЯ ТЕСТИРОВАНИЯ
-    @api.doc('get_agents_status', description='Получает статус всех агентов или конкретного агента')
+    @jwt_required
+    @api.doc('get_agents_status', description='Получает статус всех агентов или конкретного агента', security='BearerAuth')
     @api.param('agent_id', 'ID конкретного агента (опционально)', type='string')
     # ВРЕМЕННО ОТКЛЮЧЕНЫ ВСЕ marshal_with для корректного отображения данных
     # @api.marshal_with(agents_response_model, code=200, description='Статус агентов')
     # @api.marshal_with(common_models['error'], code=404, description='Агент не найден')
     # @api.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
-    def get(self):
+    def get(self, current_user):
         """
         Получает статус всех агентов или конкретного агента
         """
@@ -666,9 +666,9 @@ class AgentsStatus(Resource):
                         "agents": {}
                     }, 200
             
-            # JWT временно отключен для тестирования
-            # user_id = current_user.get('user_id')
-            # email = current_user.get('email')
+            # Получаем данные пользователя из JWT
+            user_id = current_user.get('user_id')
+            logger.info(f"Запрос статуса агентов от пользователя: {user_id}")
             
             agent_id = request.args.get('agent_id')
             
@@ -704,15 +704,18 @@ class AgentsStatus(Resource):
 
 @api.route('/agents/<string:agent_id>/tasks')
 class AgentTasks(Resource):
-    @api.doc('get_agent_tasks', description='Получает список задач конкретного агента')
+    @jwt_required
+    @api.doc('get_agent_tasks', description='Получает список задач конкретного агента', security='BearerAuth')
     # ВРЕМЕННО ОТКЛЮЧЕНЫ marshal_with для корректного отображения данных
     # @api.marshal_with(common_models['error'], code=404, description='Агент не найден')
     # @api.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
-    def get(self, agent_id):
+    def get(self, current_user, agent_id):
         """
         Получает список задач конкретного агента
         """
         try:
+            user_id = current_user.get('user_id')
+            logger.info(f"Запрос задач агента {agent_id} от пользователя: {user_id}")
             # Проверка feature flag DISABLE_AGENTS
             if os.getenv('DISABLE_AGENTS', 'false').lower() == 'true':
                 logger.warning("⚠️ Агенты отключены (DISABLE_AGENTS=true)")
@@ -755,8 +758,9 @@ class AgentTasks(Resource):
 
 @api.route('/agents/restart-all')
 class AgentsRestartAll(Resource):
-    @api.doc('restart_all_agents', description='Перезапускает все агенты (сбрасывает ошибки)')
-    def post(self):
+    @jwt_required
+    @api.doc('restart_all_agents', description='Перезапускает все агенты (сбрасывает ошибки)', security='BearerAuth')
+    def post(self, current_user):
         """
         Перезапускает все агенты в системе
         
@@ -764,6 +768,8 @@ class AgentsRestartAll(Resource):
         Полезно при возникновении массовых ошибок или для технического обслуживания.
         """
         try:
+            user_id = current_user.get('user_id')
+            logger.info(f"🔄 Запрос на перезапуск всех агентов от пользователя: {user_id}")
             # Проверка feature flag DISABLE_AGENTS
             if os.getenv('DISABLE_AGENTS', 'false').lower() == 'true':
                 logger.warning("⚠️ Агенты отключены (DISABLE_AGENTS=true)")
@@ -772,8 +778,6 @@ class AgentsRestartAll(Resource):
                     "message": "Система агентов отключена для debugging",
                     "timestamp": datetime.now().isoformat()
                 }, 200
-            
-            logger.info("🔄 Запрос на перезапуск всех агентов")
             
             # Вызываем метод перезапуска
             result = orchestrator.restart_all_agents()
