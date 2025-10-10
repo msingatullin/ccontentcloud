@@ -186,6 +186,11 @@ class ContentOrchestrator:
         """Возвращает статус всех агентов"""
         return self.agent_manager.get_all_agents_status()
     
+    def restart_all_agents(self) -> Dict[str, Any]:
+        """Перезапускает все агенты в системе"""
+        logger.info("🔄 ContentOrchestrator: перезапуск всех агентов")
+        return self.agent_manager.restart_all_agents()
+    
     async def process_content_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
         """Обрабатывает запрос на создание контента"""
         try:

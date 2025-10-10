@@ -753,6 +753,40 @@ class AgentTasks(Resource):
             return handle_exception(e)
 
 
+@api.route('/agents/restart-all')
+class AgentsRestartAll(Resource):
+    @api.doc('restart_all_agents', description='Перезапускает все агенты (сбрасывает ошибки)')
+    def post(self):
+        """
+        Перезапускает все агенты в системе
+        
+        Сбрасывает статус ERROR у всех агентов и возвращает их в рабочее состояние.
+        Полезно при возникновении массовых ошибок или для технического обслуживания.
+        """
+        try:
+            # Проверка feature flag DISABLE_AGENTS
+            if os.getenv('DISABLE_AGENTS', 'false').lower() == 'true':
+                logger.warning("⚠️ Агенты отключены (DISABLE_AGENTS=true)")
+                return {
+                    "success": False,
+                    "message": "Система агентов отключена для debugging",
+                    "timestamp": datetime.now().isoformat()
+                }, 200
+            
+            logger.info("🔄 Запрос на перезапуск всех агентов")
+            
+            # Вызываем метод перезапуска
+            result = orchestrator.restart_all_agents()
+            
+            return result, 200
+            
+        except Exception as e:
+            logger.error(f"Ошибка при перезапуске агентов: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return handle_exception(e)
+
+
 # ==================== SYSTEM ENDPOINTS ====================
 
 @api.route('/system/status')
