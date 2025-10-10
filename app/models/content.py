@@ -200,3 +200,134 @@ class ContentCampaign:
     
     created_at: datetime = field(default_factory=datetime.now)
     created_by: str = ""
+
+
+# ==================== SQLAlchemy МОДЕЛИ ДЛЯ БД ====================
+
+from sqlalchemy import Column, Integer, String, Text, DateTime, Float, Boolean, JSON, ForeignKey, Enum as SQLEnum
+from sqlalchemy.orm import relationship
+from app.database.connection import Base
+
+
+class ContentPieceDB(Base):
+    """SQLAlchemy модель для сохранения готового контента"""
+    __tablename__ = 'content_pieces'
+    
+    id = Column(String(36), primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
+    workflow_id = Column(String(36), nullable=True, index=True)
+    brief_id = Column(String(36), nullable=True)
+    
+    # Основные поля
+    title = Column(String(500), nullable=False)
+    text = Column(Text, nullable=False)
+    content_type = Column(String(50), nullable=False)
+    platform = Column(String(50), nullable=False, index=True)
+    
+    # Дополнительные элементы
+    hashtags = Column(JSON, default=list)
+    mentions = Column(JSON, default=list)
+    media_urls = Column(JSON, default=list)
+    call_to_action = Column(String(500), nullable=True)
+    
+    # Статус и метаданные
+    status = Column(String(50), default='draft', index=True)
+    created_by_agent = Column(String(100), nullable=True)
+    
+    # AI метрики качества
+    seo_score = Column(Float, default=0.0)
+    engagement_potential = Column(Float, default=0.0)
+    readability_score = Column(Float, default=0.0)
+    
+    # Публикация
+    published_at = Column(DateTime, nullable=True)
+    platform_post_id = Column(String(255), nullable=True)
+    
+    # Метрики производительности
+    views = Column(Integer, default=0)
+    likes = Column(Integer, default=0)
+    shares = Column(Integer, default=0)
+    comments = Column(Integer, default=0)
+    
+    # Метаданные
+    metadata = Column(JSON, default=dict)
+    
+    # Даты
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Связи
+    user = relationship("User", back_populates="content_pieces")
+    token_usage_records = relationship("TokenUsageDB", back_populates="content_piece")
+    history_records = relationship("ContentHistoryDB", back_populates="content_piece")
+
+
+class ContentHistoryDB(Base):
+    """История изменений контента"""
+    __tablename__ = 'content_history'
+    
+    id = Column(Integer, primary_key=True)
+    content_id = Column(String(36), ForeignKey('content_pieces.id'), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    
+    # Изменения
+    action = Column(String(50), nullable=False)  # created, updated, published, archived
+    changed_fields = Column(JSON, default=dict)
+    changed_by_agent = Column(String(100), nullable=True)
+    
+    # Снапшот контента
+    content_snapshot = Column(JSON, nullable=False)
+    
+    # Дата
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    
+    # Связи
+    user = relationship("User")
+    content_piece = relationship("ContentPieceDB", back_populates="history_records")
+
+
+class TokenUsageDB(Base):
+    """Детальный учет использования AI токенов"""
+    __tablename__ = 'token_usage'
+    
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
+    content_id = Column(String(36), ForeignKey('content_pieces.id'), nullable=True)
+    workflow_id = Column(String(36), nullable=True, index=True)
+    agent_id = Column(String(100), nullable=False, index=True)
+    
+    # Запрос
+    request_id = Column(String(255), unique=True, index=True)
+    endpoint = Column(String(100), nullable=True)
+    
+    # AI Модель
+    ai_provider = Column(String(50), nullable=False)  # openai, anthropic, huggingface
+    ai_model = Column(String(100), nullable=False)  # gpt-3.5-turbo, gpt-4, dall-e-3
+    
+    # Токены
+    prompt_tokens = Column(Integer, nullable=False, default=0)
+    completion_tokens = Column(Integer, nullable=False, default=0)
+    total_tokens = Column(Integer, nullable=False, default=0)
+    
+    # Стоимость
+    cost_usd = Column(Float, nullable=False, default=0.0)
+    cost_rub = Column(Float, nullable=False, default=0.0)
+    
+    # Детали запроса
+    platform = Column(String(50), nullable=True)
+    content_type = Column(String(50), nullable=True)
+    task_type = Column(String(50), nullable=True)
+    
+    # Время выполнения
+    execution_time_ms = Column(Integer, nullable=True)
+    
+    # Метаданные
+    request_metadata = Column(JSON, default=dict)
+    response_metadata = Column(JSON, default=dict)
+    
+    # Даты
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    
+    # Связи
+    user = relationship("User", back_populates="token_usage_records")
+    content_piece = relationship("ContentPieceDB", back_populates="token_usage_records")
