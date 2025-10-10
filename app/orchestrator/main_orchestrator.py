@@ -227,7 +227,7 @@ class ContentOrchestrator:
                 call_to_action=content_piece.call_to_action,
                 status=content_piece.status.value,
                 created_by_agent=agent_id,
-                metadata=content_piece.metadata
+                meta_data=content_piece.metadata
             )
             
             # Сохраняем в БД

@@ -696,7 +696,7 @@ class ContentDetail(Resource):
                     "call_to_action": content.call_to_action,
                     "status": content.status,
                     "created_by_agent": content.created_by_agent,
-                    "metadata": content.metadata,
+                    "metadata": content.meta_data,
                     "quality_metrics": {
                         "seo_score": content.seo_score,
                         "engagement_potential": content.engagement_potential,

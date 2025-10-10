@@ -249,8 +249,8 @@ class ContentPieceDB(Base):
     shares = Column(Integer, default=0)
     comments = Column(Integer, default=0)
     
-    # Метаданные
-    metadata = Column(JSON, default=dict)
+    # Метаданные (переименовано из metadata - зарезервированное слово в SQLAlchemy)
+    meta_data = Column(JSON, default=dict)
     
     # Даты
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
