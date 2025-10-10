@@ -11,8 +11,9 @@ from dataclasses import dataclass
 
 from .workflow_engine import WorkflowEngine, Task, TaskType, TaskPriority, TaskStatus
 from .agent_manager import AgentManager, BaseAgent, AgentCapability, AgentStatus
-from ..models.content import ContentBrief, ContentPiece, Platform, ContentType
+from ..models.content import ContentBrief, ContentPiece, Platform, ContentType, ContentPieceDB, TokenUsageDB, ContentHistoryDB
 from ..models.workflow import WorkflowInstance, WorkflowStatus
+from ..database.connection import get_db_session
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
@@ -26,6 +27,7 @@ class ContentOrchestrator:
         self.agent_manager = AgentManager(self.workflow_engine)
         self.is_running = False
         self.auto_assign_enabled = True
+        self.db_session = get_db_session()
         
         logger.info("ContentOrchestrator инициализирован")
     
@@ -67,7 +69,8 @@ class ContentOrchestrator:
     
     async def create_content_workflow(self, brief: ContentBrief, 
                                     platforms: List[Platform] = None,
-                                    content_types: List[ContentType] = None) -> str:
+                                    content_types: List[ContentType] = None,
+                                    user_id: Optional[int] = None) -> str:
         """Создает workflow для создания контента"""
         platforms = platforms or [Platform.TELEGRAM, Platform.VK]
         content_types = content_types or [ContentType.POST]
@@ -79,7 +82,8 @@ class ContentOrchestrator:
             context={
                 "brief_id": brief.id,
                 "platforms": [p.value for p in platforms],
-                "content_types": [ct.value for ct in content_types]
+                "content_types": [ct.value for ct in content_types],
+                "user_id": user_id  # Добавляем user_id для сохранения в БД
             }
         )
         
@@ -114,6 +118,9 @@ class ContentOrchestrator:
         results = {}
         
         try:
+            # Получаем user_id из контекста workflow
+            user_id = workflow.context.get('user_id')
+            
             # Выполняем задачи по порядку
             for task in workflow.tasks:
                 if task.status == TaskStatus.PENDING:
@@ -123,6 +130,10 @@ class ContentOrchestrator:
                         # Выполняем задачу
                         result = await self.agent_manager.execute_task(task.id)
                         results[task.id] = result
+                        
+                        # Сохраняем результат в БД если это контент
+                        if user_id and 'content' in result:
+                            await self._save_task_result_to_db(result, user_id, workflow_id, agent_id, task)
                     else:
                         logger.warning(f"Не удалось назначить задачу {task.id}")
                         task.status = TaskStatus.FAILED
@@ -131,6 +142,11 @@ class ContentOrchestrator:
                     # Задача уже назначена, выполняем её
                     result = await self.agent_manager.execute_task(task.id)
                     results[task.id] = result
+                    
+                    # Сохраняем результат в БД если это контент
+                    agent_id = self.agent_manager.task_assignments.get(task.id)
+                    if user_id and agent_id and 'content' in result:
+                        await self._save_task_result_to_db(result, user_id, workflow_id, agent_id, task)
             
             # Проверяем статус workflow
             completed_tasks = sum(1 for t in workflow.tasks if t.status == TaskStatus.COMPLETED)
@@ -191,6 +207,146 @@ class ContentOrchestrator:
         logger.info("🔄 ContentOrchestrator: перезапуск всех агентов")
         return self.agent_manager.restart_all_agents()
     
+    def save_content_to_db(self, content_piece: ContentPiece, user_id: int, 
+                          workflow_id: str, agent_id: str) -> Optional[str]:
+        """Сохраняет созданный контент в БД"""
+        try:
+            # Создаем запись в БД
+            content_db = ContentPieceDB(
+                id=content_piece.id,
+                user_id=user_id,
+                workflow_id=workflow_id,
+                brief_id=content_piece.brief_id,
+                title=content_piece.title,
+                text=content_piece.text,
+                content_type=content_piece.content_type.value,
+                platform=content_piece.platform.value,
+                hashtags=content_piece.hashtags,
+                mentions=content_piece.mentions,
+                media_urls=content_piece.media_urls,
+                call_to_action=content_piece.call_to_action,
+                status=content_piece.status.value,
+                created_by_agent=agent_id,
+                metadata=content_piece.metadata
+            )
+            
+            # Сохраняем в БД
+            self.db_session.add(content_db)
+            self.db_session.commit()
+            
+            # Создаем запись в истории
+            history_record = ContentHistoryDB(
+                content_id=content_piece.id,
+                user_id=user_id,
+                action='created',
+                changed_by_agent=agent_id,
+                content_snapshot={
+                    "title": content_piece.title,
+                    "text": content_piece.text,
+                    "platform": content_piece.platform.value,
+                    "created_at": datetime.now().isoformat()
+                }
+            )
+            
+            self.db_session.add(history_record)
+            self.db_session.commit()
+            
+            logger.info(f"✅ Контент {content_piece.id} сохранен в БД для пользователя {user_id}")
+            return content_piece.id
+            
+        except Exception as e:
+            logger.error(f"❌ Ошибка сохранения контента в БД: {e}")
+            self.db_session.rollback()
+            return None
+    
+    def save_token_usage(self, user_id: int, agent_id: str, workflow_id: str,
+                        content_id: Optional[str], ai_model: str, 
+                        prompt_tokens: int, completion_tokens: int,
+                        cost_usd: float, platform: str, content_type: str) -> None:
+        """Сохраняет информацию об использовании токенов"""
+        try:
+            import uuid
+            
+            # Конвертируем USD в RUB (примерный курс)
+            usd_to_rub_rate = 95.0  # обновлять из API ЦБ РФ
+            cost_rub = cost_usd * usd_to_rub_rate
+            
+            token_usage = TokenUsageDB(
+                user_id=user_id,
+                content_id=content_id,
+                workflow_id=workflow_id,
+                agent_id=agent_id,
+                request_id=str(uuid.uuid4()),
+                endpoint='/content/create',
+                ai_provider='openai',
+                ai_model=ai_model,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=prompt_tokens + completion_tokens,
+                cost_usd=cost_usd,
+                cost_rub=cost_rub,
+                platform=platform,
+                content_type=content_type,
+                task_type='content_generation'
+            )
+            
+            self.db_session.add(token_usage)
+            self.db_session.commit()
+            
+            logger.info(f"✅ Использование токенов сохранено: {prompt_tokens + completion_tokens} токенов, {cost_rub:.2f}₽")
+            
+        except Exception as e:
+            logger.error(f"❌ Ошибка сохранения token usage: {e}")
+            self.db_session.rollback()
+    
+    async def _save_task_result_to_db(self, result: Dict[str, Any], user_id: int, 
+                                     workflow_id: str, agent_id: str, task: Task) -> None:
+        """Сохраняет результат выполнения задачи в БД"""
+        try:
+            content_data = result.get('content', {})
+            
+            # Создаем ContentPiece из результата
+            content_piece = ContentPiece(
+                id=content_data.get('id', ''),
+                brief_id=task.context.get('brief_id', ''),
+                content_type=ContentType(content_data.get('content_type', 'post')),
+                platform=Platform(content_data.get('platform', 'telegram')),
+                title=content_data.get('title', ''),
+                text=content_data.get('text', ''),
+                hashtags=content_data.get('hashtags', []),
+                call_to_action=content_data.get('call_to_action', ''),
+                created_by_agent=agent_id
+            )
+            
+            # Сохраняем контент
+            self.save_content_to_db(content_piece, user_id, workflow_id, agent_id)
+            
+            # Сохраняем использование токенов если есть информация
+            quality_metrics = result.get('quality_metrics', {})
+            if quality_metrics:
+                # Примерный расчет токенов (для точного нужно получать из OpenAI response)
+                estimated_prompt_tokens = len(content_piece.title + content_piece.text) // 4  # примерно 4 символа = 1 токен
+                estimated_completion_tokens = len(content_piece.text) // 4
+                
+                # Расчет стоимости для gpt-3.5-turbo
+                cost_usd = (estimated_prompt_tokens / 1000 * 0.0015) + (estimated_completion_tokens / 1000 * 0.002)
+                
+                self.save_token_usage(
+                    user_id=user_id,
+                    agent_id=agent_id,
+                    workflow_id=workflow_id,
+                    content_id=content_piece.id,
+                    ai_model='gpt-3.5-turbo',
+                    prompt_tokens=estimated_prompt_tokens,
+                    completion_tokens=estimated_completion_tokens,
+                    cost_usd=cost_usd,
+                    platform=content_piece.platform.value,
+                    content_type=content_piece.content_type.value
+                )
+            
+        except Exception as e:
+            logger.error(f"❌ Ошибка сохранения результата задачи: {e}")
+    
     async def process_content_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
         """Обрабатывает запрос на создание контента"""
         try:
@@ -210,8 +366,11 @@ class ContentOrchestrator:
             platforms = [Platform(p) for p in request.get("platforms", ["telegram", "vk"])]
             content_types = [ContentType(ct) for ct in request.get("content_types", ["post"])]
             
+            # Получаем user_id из запроса
+            user_id = request.get("user_id")
+            
             # Создаем workflow
-            workflow_id = await self.create_content_workflow(brief, platforms, content_types)
+            workflow_id = await self.create_content_workflow(brief, platforms, content_types, user_id)
             
             # Проверяем нужен ли фактчекинг
             constraints = request.get("constraints", {})
