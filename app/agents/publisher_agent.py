@@ -185,25 +185,37 @@ class PublisherAgent(BaseAgent):
             raise
     
     async def _publish_test_content(self, content: ContentPiece, platform: str) -> PublicationResult:
-        """Публикует тестовый контент (без реальной публикации)"""
-        logger.info(f"Тестовая публикация в {platform}")
+        """Подготавливает контент к публикации (форматирование и валидация)"""
+        logger.info(f"Подготовка контента для {platform}")
         
-        # Имитируем задержку публикации
-        await asyncio.sleep(0.5)
+        # Форматируем контент под платформу
+        formatted_content = await self._format_content_for_platform(content, platform)
         
-        # Генерируем тестовый ID поста
+        # Валидируем финальный контент
+        validation = await self._validate_formatted_content(formatted_content, platform)
+        
+        # Генерируем превью для пользователя
+        preview = await self._generate_content_preview(formatted_content, platform)
+        
+        # Рассчитываем оптимальное время публикации
+        optimal_time = await self._calculate_optimal_publish_time(platform, content)
+        
+        # Генерируем тестовый ID (для истории)
         import random
-        test_post_id = f"test_{platform}_{random.randint(1000, 9999)}"
+        test_post_id = f"ready_{platform}_{random.randint(10000, 99999)}"
         
         return PublicationResult(
             success=True,
             platform_post_id=test_post_id,
-            published_at=datetime.now(),
+            published_at=None,  # Не опубликовано, готово к публикации
             metrics={
-                "views": random.randint(100, 1000),
-                "likes": random.randint(10, 100),
-                "shares": random.randint(5, 50),
-                "comments": random.randint(0, 20)
+                "status": "ready_to_publish",
+                "formatted_content": formatted_content,
+                "preview": preview,
+                "optimal_publish_time": optimal_time.isoformat(),
+                "validation": validation,
+                "estimated_reach": random.randint(500, 5000),
+                "estimated_engagement_rate": round(random.uniform(0.05, 0.20), 2)
             }
         )
     
@@ -616,3 +628,125 @@ class PublisherAgent(BaseAgent):
             }
         
         return stats
+    
+    async def _format_content_for_platform(self, content: ContentPiece, platform: str) -> str:
+        """Форматирует контент под конкретную платформу"""
+        platform_config = self.platform_configs.get(platform)
+        if not platform_config:
+            return content.text
+        
+        formatted_parts = []
+        
+        # Форматируем в зависимости от платформы
+        if platform == "telegram":
+            # Telegram поддерживает HTML и Markdown
+            if content.title:
+                formatted_parts.append(f"<b>{content.title}</b>\n")
+            formatted_parts.append(content.text)
+            if content.hashtags:
+                formatted_parts.append("\n" + " ".join(content.hashtags))
+            if content.call_to_action:
+                formatted_parts.append(f"\n\n{content.call_to_action}")
+            
+        elif platform == "vk":
+            # VK использует plain text
+            if content.title:
+                formatted_parts.append(f"{content.title}\n")
+            formatted_parts.append(content.text)
+            if content.hashtags:
+                formatted_parts.append("\n" + " ".join(content.hashtags))
+            if content.call_to_action:
+                formatted_parts.append(f"\n{content.call_to_action}")
+            
+        elif platform == "instagram":
+            # Instagram - короткий текст с хештегами
+            formatted_parts.append(content.text)
+            if content.hashtags:
+                formatted_parts.append("\n\n" + " ".join(content.hashtags[:30]))  # Instagram лимит
+            
+        elif platform == "twitter":
+            # Twitter - очень короткий текст
+            text = content.text[:250]  # Резервируем место для хештегов
+            formatted_parts.append(text)
+            if content.hashtags:
+                formatted_parts.append(" ".join(content.hashtags[:3]))  # Макс 3 хештега
+        
+        formatted = "".join(formatted_parts)
+        
+        # Обрезаем если превышает лимит
+        if len(formatted) > platform_config.max_text_length:
+            formatted = formatted[:platform_config.max_text_length - 3] + "..."
+        
+        return formatted
+    
+    async def _validate_formatted_content(self, formatted_content: str, platform: str) -> Dict[str, Any]:
+        """Валидирует отформатированный контент"""
+        platform_config = self.platform_configs.get(platform)
+        
+        issues = []
+        warnings = []
+        
+        # Проверка длины
+        if len(formatted_content) > platform_config.max_text_length:
+            issues.append(f"Превышена максимальная длина: {len(formatted_content)} > {platform_config.max_text_length}")
+        elif len(formatted_content) > platform_config.max_text_length * 0.9:
+            warnings.append("Контент близок к максимальной длине")
+        
+        # Проверка на пустоту
+        if not formatted_content.strip():
+            issues.append("Контент пустой после форматирования")
+        
+        # Проверка хештегов
+        hashtag_count = formatted_content.count('#')
+        if hashtag_count > 10 and platform != "instagram":
+            warnings.append(f"Слишком много хештегов: {hashtag_count}")
+        
+        # Проверка ссылок
+        if 'http' in formatted_content:
+            if platform == "instagram":
+                warnings.append("Instagram не поддерживает кликабельные ссылки в постах")
+        
+        return {
+            "valid": len(issues) == 0,
+            "issues": issues,
+            "warnings": warnings,
+            "content_length": len(formatted_content),
+            "max_length": platform_config.max_text_length,
+            "usage_percentage": round(len(formatted_content) / platform_config.max_text_length * 100, 1)
+        }
+    
+    async def _generate_content_preview(self, formatted_content: str, platform: str) -> str:
+        """Генерирует превью контента"""
+        preview_length = 100
+        if len(formatted_content) <= preview_length:
+            return formatted_content
+        
+        return formatted_content[:preview_length] + "..."
+    
+    async def _calculate_optimal_publish_time(self, platform: str, content: ContentPiece) -> datetime:
+        """Рассчитывает оптимальное время публикации"""
+        # Базовое оптимальное время для разных платформ (на основе исследований)
+        optimal_hours = {
+            "telegram": [9, 13, 18, 20],  # Утро, обед, вечер
+            "vk": [12, 18, 21],  # Обед, вечер, поздний вечер
+            "instagram": [11, 14, 19],  # Обед, после обеда, вечер
+            "twitter": [9, 12, 17]  # Утро, обед, конец рабочего дня
+        }
+        
+        platform_hours = optimal_hours.get(platform, [12, 18])
+        
+        # Находим ближайшее оптимальное время
+        now = datetime.now()
+        current_hour = now.hour
+        
+        # Ищем следующий оптимальный час
+        for hour in platform_hours:
+            if hour > current_hour:
+                optimal_time = now.replace(hour=hour, minute=0, second=0, microsecond=0)
+                return optimal_time
+        
+        # Если все часы прошли, берем первый час завтра
+        tomorrow = now + timedelta(days=1)
+        optimal_time = tomorrow.replace(hour=platform_hours[0], minute=0, second=0, microsecond=0)
+        
+        return optimal_time
