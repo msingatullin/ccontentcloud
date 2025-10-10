@@ -573,6 +573,199 @@ class ContentExample(Resource):
         }
 
 
+@api.route('/content/history')
+class ContentHistory(Resource):
+    @jwt_required
+    @api.doc('get_content_history', description='Получает историю созданного контента', security='BearerAuth')
+    @api.param('page', 'Номер страницы', type='int', default=1)
+    @api.param('per_page', 'Элементов на странице', type='int', default=10)
+    @api.param('platform', 'Фильтр по платформе', type='string')
+    @api.param('date_from', 'Дата начала (ISO format)', type='string')
+    @api.param('date_to', 'Дата окончания (ISO format)', type='string')
+    def get(self, current_user):
+        """
+        Получает историю созданного контента пользователя
+        """
+        try:
+            from ..models.content import ContentPieceDB
+            from sqlalchemy import desc
+            
+            user_id = current_user.get('user_id')
+            
+            # Параметры пагинации
+            page = request.args.get('page', 1, type=int)
+            per_page = min(request.args.get('per_page', 10, type=int), 100)  # максимум 100
+            
+            # Фильтры
+            platform = request.args.get('platform')
+            date_from = request.args.get('date_from')
+            date_to = request.args.get('date_to')
+            
+            # Базовый запрос
+            query = db_session.query(ContentPieceDB).filter(ContentPieceDB.user_id == user_id)
+            
+            # Применяем фильтры
+            if platform:
+                query = query.filter(ContentPieceDB.platform == platform)
+            if date_from:
+                query = query.filter(ContentPieceDB.created_at >= datetime.fromisoformat(date_from))
+            if date_to:
+                query = query.filter(ContentPieceDB.created_at <= datetime.fromisoformat(date_to))
+            
+            # Сортировка и пагинация
+            total = query.count()
+            items = query.order_by(desc(ContentPieceDB.created_at)).offset((page - 1) * per_page).limit(per_page).all()
+            
+            # Форматируем результаты
+            formatted_items = []
+            for item in items:
+                formatted_items.append({
+                    "id": item.id,
+                    "title": item.title,
+                    "platform": item.platform,
+                    "content_type": item.content_type,
+                    "status": item.status,
+                    "created_at": item.created_at.isoformat(),
+                    "created_by_agent": item.created_by_agent,
+                    "views": item.views,
+                    "likes": item.likes,
+                    "engagement_rate": round((item.likes / max(item.views, 1)) * 100, 2) if item.views > 0 else 0
+                })
+            
+            return {
+                "success": True,
+                "items": formatted_items,
+                "pagination": {
+                    "page": page,
+                    "per_page": per_page,
+                    "total": total,
+                    "pages": (total + per_page - 1) // per_page
+                },
+                "timestamp": datetime.now().isoformat()
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Ошибка получения истории контента: {e}")
+            return handle_exception(e)
+
+
+@api.route('/content/<string:content_id>')
+class ContentDetail(Resource):
+    @jwt_required
+    @api.doc('get_content_detail', description='Получает детальную информацию о контенте', security='BearerAuth')
+    def get(self, current_user, content_id):
+        """
+        Получает конкретный контент со всеми деталями
+        """
+        try:
+            from ..models.content import ContentPieceDB, TokenUsageDB
+            
+            user_id = current_user.get('user_id')
+            
+            # Находим контент
+            content = db_session.query(ContentPieceDB).filter(
+                ContentPieceDB.id == content_id,
+                ContentPieceDB.user_id == user_id
+            ).first()
+            
+            if not content:
+                return {
+                    "error": "Content Not Found",
+                    "message": f"Контент с ID {content_id} не найден",
+                    "status_code": 404,
+                    "timestamp": datetime.now().isoformat()
+                }, 404
+            
+            # Получаем использование токенов для этого контента
+            token_usage = db_session.query(TokenUsageDB).filter(
+                TokenUsageDB.content_id == content_id
+            ).all()
+            
+            total_tokens = sum(t.total_tokens for t in token_usage)
+            total_cost_rub = sum(t.cost_rub for t in token_usage)
+            
+            return {
+                "success": True,
+                "content": {
+                    "id": content.id,
+                    "title": content.title,
+                    "text": content.text,
+                    "platform": content.platform,
+                    "content_type": content.content_type,
+                    "hashtags": content.hashtags,
+                    "call_to_action": content.call_to_action,
+                    "status": content.status,
+                    "created_by_agent": content.created_by_agent,
+                    "metadata": content.metadata,
+                    "quality_metrics": {
+                        "seo_score": content.seo_score,
+                        "engagement_potential": content.engagement_potential,
+                        "readability_score": content.readability_score
+                    },
+                    "performance_metrics": {
+                        "views": content.views,
+                        "likes": content.likes,
+                        "shares": content.shares,
+                        "comments": content.comments
+                    },
+                    "token_usage": {
+                        "total_tokens": total_tokens,
+                        "total_cost_rub": round(total_cost_rub, 2),
+                        "agents_used": [t.agent_id for t in token_usage]
+                    },
+                    "created_at": content.created_at.isoformat(),
+                    "updated_at": content.updated_at.isoformat()
+                },
+                "timestamp": datetime.now().isoformat()
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Ошибка получения контента: {e}")
+            return handle_exception(e)
+    
+    @jwt_required
+    @api.doc('delete_content', description='Удаляет контент из истории', security='BearerAuth')
+    def delete(self, current_user, content_id):
+        """
+        Удаляет контент из истории
+        """
+        try:
+            from ..models.content import ContentPieceDB
+            
+            user_id = current_user.get('user_id')
+            
+            # Находим контент
+            content = db_session.query(ContentPieceDB).filter(
+                ContentPieceDB.id == content_id,
+                ContentPieceDB.user_id == user_id
+            ).first()
+            
+            if not content:
+                return {
+                    "error": "Content Not Found",
+                    "message": f"Контент с ID {content_id} не найден",
+                    "status_code": 404,
+                    "timestamp": datetime.now().isoformat()
+                }, 404
+            
+            # Удаляем контент (cascade удалит связанные записи)
+            db_session.delete(content)
+            db_session.commit()
+            
+            logger.info(f"Контент {content_id} удален пользователем {user_id}")
+            
+            return {
+                "success": True,
+                "message": "Контент успешно удален",
+                "timestamp": datetime.now().isoformat()
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Ошибка удаления контента: {e}")
+            db_session.rollback()
+            return handle_exception(e)
+
+
 # ==================== WORKFLOW ENDPOINTS ====================
 
 @api.route('/workflow/<string:workflow_id>/status')
