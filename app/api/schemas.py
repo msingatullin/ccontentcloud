@@ -85,7 +85,7 @@ class ContentRequestSchema(BaseModel):
     description: str = Field(..., min_length=10, max_length=1000, description="Описание контента")
     target_audience: str = Field(..., min_length=1, max_length=200, description="Целевая аудитория")
     business_goals: List[str] = Field(..., min_items=1, max_items=10, description="Бизнес-цели")
-    call_to_action: str = Field(..., min_length=1, max_length=200, description="Призыв к действию")
+    call_to_action: List[str] = Field(default=[], max_items=10, description="Призывы к действию (текст, ссылки, действия)")
     tone: ToneEnum = Field(default=ToneEnum.PROFESSIONAL, description="Тон контента")
     keywords: List[str] = Field(default=[], max_items=20, description="Ключевые слова")
     platforms: List[PlatformEnum] = Field(..., min_items=1, max_items=5, description="Платформы для публикации")
@@ -357,7 +357,12 @@ class ExampleData:
             "образование аудитории о возможностях AI",
             "установление экспертного авторитета"
         ],
-        "call_to_action": "Подписывайтесь на наш канал для получения экспертных инсайтов",
+        "call_to_action": [
+            "Подписывайтесь на наш Telegram канал",
+            "https://t.me/ai_business_channel",
+            "Переходите на сайт за полной статьей",
+            "https://example.com/ai-revolution?utm_source=post"
+        ],
         "tone": "professional",
         "keywords": ["AI", "искусственный интеллект", "бизнес", "инновации"],
         "platforms": ["telegram", "vk", "twitter"],

@@ -638,24 +638,64 @@ class DraftingAgent(BaseAgent):
         return "\n".join(content_parts)
     
     async def _generate_call_to_action(self, brief_data: Dict[str, Any], platform: str) -> str:
-        """Генерирует призыв к действию"""
-        cta_text = brief_data.get("call_to_action", "")
+        """Генерирует призыв к действию из массива элементов"""
+        cta_items = brief_data.get("call_to_action", [])
         platform_guidelines = self.platform_guidelines.get(platform, {})
         
-        if not cta_text:
-            # Генерируем CTA в зависимости от платформы
+        # Если нет CTA элементов, генерируем дефолтный
+        if not cta_items:
             cta_style = platform_guidelines.get("call_to_action", "direct")
             
             if cta_style == "direct":
-                cta_text = "Подписывайтесь на наш канал!"
+                return "Подписывайтесь на наш канал!"
             elif cta_style == "engaging":
-                cta_text = "Что думаете? Пишите в комментариях!"
+                return "Что думаете? Пишите в комментариях!"
             elif cta_style == "soft":
-                cta_text = "Понравилось? Сохраните пост!"
+                return "Понравилось? Сохраните пост!"
             else:
-                cta_text = "Узнать больше"
+                return "Узнать больше"
         
-        return cta_text
+        # Обрабатываем массив CTA элементов
+        # Разделяем на текст и ссылки
+        texts = []
+        links = []
+        
+        for item in cta_items:
+            if item.startswith('http://') or item.startswith('https://'):
+                links.append(item)
+            else:
+                texts.append(item)
+        
+        # Формируем итоговый CTA в зависимости от платформы
+        if platform == "instagram":
+            # Instagram - только текст, ссылка в bio
+            if texts:
+                return texts[0] + " 🔗 Ссылка в bio"
+            return "Подробнее в bio 🔗"
+        
+        elif platform == "telegram":
+            # Telegram - можно использовать все элементы
+            result_parts = []
+            for i, text in enumerate(texts):
+                result_parts.append(text)
+                # Добавляем ссылку после текста если есть
+                if i < len(links):
+                    result_parts.append(links[i])
+            return "\n".join(result_parts) if result_parts else "Подписывайтесь!"
+        
+        elif platform == "vk":
+            # VK - текст + первая ссылка
+            result = texts[0] if texts else "Узнать больше"
+            if links:
+                result += f"\n{links[0]}"
+            return result
+        
+        else:
+            # Для остальных платформ - текст + первая ссылка
+            result = " ".join(texts[:2]) if texts else "Узнать больше"
+            if links:
+                result += f" {links[0]}"
+            return result
     
     async def _generate_hashtags(self, brief_data: Dict[str, Any], platform: str) -> List[str]:
         """Генерирует хештеги"""

@@ -152,7 +152,7 @@ content_request_model = api.model('ContentRequest', {
     'description': fields.String(required=True, min_length=10, max_length=1000, description='Описание контента'),
     'target_audience': fields.String(required=True, min_length=1, max_length=200, description='Целевая аудитория'),
     'business_goals': fields.List(fields.String, required=True, min_items=1, max_items=10, description='Бизнес-цели'),
-    'call_to_action': fields.String(required=True, min_length=1, max_length=200, description='Призыв к действию'),
+    'call_to_action': fields.List(fields.String, description='Призывы к действию (текст, ссылки, действия)', max_items=10),
     'tone': fields.String(description='Тон контента', enum=['professional', 'casual', 'friendly', 'authoritative'], default='professional'),
     'keywords': fields.List(fields.String, description='Ключевые слова', max_items=20),
     'platforms': fields.List(fields.String, required=True, min_items=1, max_items=5, description='Платформы для публикации'),
