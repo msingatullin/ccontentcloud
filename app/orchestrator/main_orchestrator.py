@@ -270,6 +270,7 @@ class ContentOrchestrator:
             # Конвертируем USD в RUB (примерный курс)
             usd_to_rub_rate = 95.0  # обновлять из API ЦБ РФ
             cost_rub = cost_usd * usd_to_rub_rate
+            cost_kopeks = int(cost_rub * 100)  # В копейках для AgentSubscription
             
             token_usage = TokenUsageDB(
                 user_id=user_id,
@@ -294,6 +295,22 @@ class ContentOrchestrator:
             self.db_session.commit()
             
             logger.info(f"✅ Использование токенов сохранено: {prompt_tokens + completion_tokens} токенов, {cost_rub:.2f}₽")
+            
+            # Обновляем счетчики в AgentSubscription
+            try:
+                from ..billing.middleware.agent_access_middleware import AgentAccessMiddleware
+                
+                total_tokens = prompt_tokens + completion_tokens
+                AgentAccessMiddleware.increment_agent_usage(
+                    user_id=user_id,
+                    agent_id=agent_id,
+                    tokens_used=total_tokens,
+                    cost_kopeks=cost_kopeks,
+                    db_session=self.db_session
+                )
+                logger.info(f"✅ Счетчики AgentSubscription обновлены для {agent_id}")
+            except Exception as sub_e:
+                logger.warning(f"⚠️ Не удалось обновить AgentSubscription: {sub_e}")
             
         except Exception as e:
             logger.error(f"❌ Ошибка сохранения token usage: {e}")
