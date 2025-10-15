@@ -529,9 +529,16 @@ class ContentCreate(Resource):
             request_data['user_id'] = user_id
             logger.info(f"Request data prepared: {request_data}")
             
-            # Запускаем обработку через оркестратор
-            logger.info(f"Запускаем orchestrator.process_content_request для пользователя {user_id}")
-            result = run_async(orchestrator.process_content_request(request_data))
+            # Получаем персональный оркестратор пользователя
+            from ...orchestrator.user_orchestrator_factory import UserOrchestratorFactory
+            db_session = get_db_session()
+            
+            logger.info(f"Получаем оркестратор для пользователя {user_id}")
+            user_orchestrator = UserOrchestratorFactory.get_orchestrator(user_id, db_session)
+            
+            # Запускаем обработку через персональный оркестратор
+            logger.info(f"Запускаем user_orchestrator.process_content_request для пользователя {user_id}")
+            result = run_async(user_orchestrator.process_content_request(request_data))
             logger.info(f"Результат от orchestrator: {result}")
             
             if result["success"]:
@@ -2694,6 +2701,341 @@ class BillingEvents(Resource):
             }, 200
             
         except Exception as e:
+            return handle_exception(e)
+
+
+# ==================== AGENT SUBSCRIPTIONS ENDPOINTS ====================
+
+# Модели для agent subscriptions
+agent_info_model = billing_ns.model('AgentInfo', {
+    'id': fields.String(description='ID агента'),
+    'name': fields.String(description='Название агента'),
+    'description': fields.String(description='Описание'),
+    'price_monthly': fields.Float(description='Цена в рублях'),
+    'category': fields.String(description='Категория'),
+    'icon': fields.String(description='Иконка'),
+    'features': fields.List(fields.String, description='Функции'),
+    'popular': fields.Boolean(description='Популярный агент'),
+    'recommended_for': fields.List(fields.String, description='Рекомендуется для')
+})
+
+bundle_info_model = billing_ns.model('BundleInfo', {
+    'id': fields.String(description='ID bundle'),
+    'name': fields.String(description='Название'),
+    'description': fields.String(description='Описание'),
+    'agents': fields.List(fields.String, description='Список agent_id в bundle'),
+    'price_monthly': fields.Float(description='Цена bundle в рублях'),
+    'regular_price': fields.Float(description='Обычная цена в рублях'),
+    'discount_percent': fields.Integer(description='Процент скидки'),
+    'discount_amount': fields.Float(description='Сумма скидки в рублях'),
+    'popular': fields.Boolean(description='Популярный bundle'),
+    'recommended': fields.Boolean(description='Рекомендованный bundle'),
+    'icon': fields.String(description='Иконка')
+})
+
+agent_subscription_model = billing_ns.model('AgentSubscription', {
+    'id': fields.Integer(description='ID подписки'),
+    'agent_id': fields.String(description='ID агента'),
+    'agent_name': fields.String(description='Название агента'),
+    'status': fields.String(description='Статус подписки'),
+    'price_monthly_rub': fields.Float(description='Цена в рублях'),
+    'starts_at': fields.String(description='Начало подписки'),
+    'expires_at': fields.String(description='Окончание подписки'),
+    'auto_renew': fields.Boolean(description='Автопродление'),
+    'usage': fields.Nested(billing_ns.model('SubscriptionUsage', {
+        'requests_this_month': fields.Integer(description='Запросов в этом месяце'),
+        'tokens_this_month': fields.Integer(description='Токенов в этом месяце'),
+        'cost_this_month_rub': fields.Float(description='Стоимость в рублях')
+    })),
+    'limits': fields.Nested(billing_ns.model('SubscriptionLimits', {
+        'max_requests': fields.Integer(description='Максимум запросов'),
+        'max_tokens': fields.Integer(description='Максимум токенов')
+    })),
+    'is_active': fields.Boolean(description='Активна ли подписка'),
+    'can_use': fields.Boolean(description='Можно ли использовать'),
+    'last_used_at': fields.String(description='Последнее использование')
+})
+
+subscribe_request_model = billing_ns.model('SubscribeRequest', {
+    'agent_id': fields.String(required=True, description='ID агента для подписки'),
+    'bundle_id': fields.String(description='ID bundle (если подписка через bundle)')
+})
+
+@billing_ns.route('/agents/available')
+class AvailableAgents(Resource):
+    @billing_ns.doc('get_available_agents', description='Получить список всех доступных AI агентов и bundles')
+    @billing_ns.marshal_with(billing_ns.model('AvailableAgentsResponse', {
+        'agents': fields.List(fields.Nested(agent_info_model)),
+        'bundles': fields.List(fields.Nested(bundle_info_model)),
+        'categories': fields.Raw(description='Категории агентов')
+    }), code=200, description='Список агентов и bundles')
+    def get(self):
+        """Получить все доступные агенты с ценами"""
+        try:
+            from ...billing.models.agent_pricing import AGENT_PRICING, AGENT_BUNDLES, AGENT_CATEGORIES
+            
+            # Формируем список агентов
+            agents = []
+            for agent_id, agent_data in AGENT_PRICING.items():
+                agents.append({
+                    'id': agent_id,
+                    'name': agent_data.get('name'),
+                    'description': agent_data.get('description'),
+                    'price_monthly': agent_data.get('price_monthly', 0) / 100,  # В рублях
+                    'category': agent_data.get('category'),
+                    'icon': agent_data.get('icon'),
+                    'features': agent_data.get('features', []),
+                    'popular': agent_data.get('popular', False),
+                    'recommended_for': agent_data.get('recommended_for', [])
+                })
+            
+            # Формируем список bundles
+            bundles = []
+            for bundle_id, bundle_data in AGENT_BUNDLES.items():
+                from ...billing.models.agent_pricing import get_bundle_agents
+                
+                bundles.append({
+                    'id': bundle_id,
+                    'name': bundle_data.get('name'),
+                    'description': bundle_data.get('description'),
+                    'agents': get_bundle_agents(bundle_id),
+                    'price_monthly': bundle_data.get('price_monthly', 0) / 100,
+                    'regular_price': bundle_data.get('regular_price', 0) / 100,
+                    'discount_percent': bundle_data.get('discount_percent', 0),
+                    'discount_amount': bundle_data.get('discount_amount', 0) / 100,
+                    'popular': bundle_data.get('popular', False),
+                    'recommended': bundle_data.get('recommended', False),
+                    'icon': bundle_data.get('icon'),
+                    'features': bundle_data.get('features', [])
+                })
+            
+            return {
+                'agents': agents,
+                'bundles': bundles,
+                'categories': AGENT_CATEGORIES
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Error getting available agents: {e}")
+            return handle_exception(e)
+
+
+@billing_ns.route('/agents/my-subscriptions')
+class MyAgentSubscriptions(Resource):
+    @jwt_required
+    @billing_ns.doc('get_my_subscriptions', description='Получить мои подписки на агентов', security='BearerAuth')
+    @billing_ns.marshal_with(billing_ns.model('MySubscriptionsResponse', {
+        'subscriptions': fields.List(fields.Nested(agent_subscription_model)),
+        'total_monthly_cost_rub': fields.Float(description='Общая стоимость в месяц'),
+        'active_agents_count': fields.Integer(description='Количество активных агентов')
+    }), code=200, description='Мои подписки')
+    def get(self, current_user):
+        """Получить мои активные подписки на агентов"""
+        try:
+            user_id = current_user.get('user_id')
+            db_session = get_db_session()
+            
+            from ...billing.middleware.agent_access_middleware import AgentAccessMiddleware
+            
+            subscriptions = AgentAccessMiddleware.get_user_subscriptions(user_id, db_session)
+            
+            # Подсчитываем общую стоимость
+            total_cost = sum(
+                sub.get('price_monthly_rub', 0) 
+                for sub in subscriptions 
+                if sub.get('is_active')
+            )
+            
+            active_count = sum(1 for sub in subscriptions if sub.get('is_active'))
+            
+            return {
+                'subscriptions': subscriptions,
+                'total_monthly_cost_rub': total_cost,
+                'active_agents_count': active_count
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Error getting user subscriptions: {e}")
+            return handle_exception(e)
+
+
+@billing_ns.route('/agents/subscribe')
+class SubscribeToAgent(Resource):
+    @jwt_required
+    @billing_ns.doc('subscribe_to_agent', description='Подписаться на агента', security='BearerAuth')
+    @billing_ns.expect(subscribe_request_model, validate=True)
+    @billing_ns.marshal_with(billing_ns.model('SubscribeResponse', {
+        'success': fields.Boolean(description='Успешность операции'),
+        'message': fields.String(description='Сообщение'),
+        'subscription': fields.Nested(agent_subscription_model)
+    }), code=201, description='Подписка создана')
+    def post(self, current_user):
+        """Подписаться на агента"""
+        try:
+            user_id = current_user.get('user_id')
+            data = request.json
+            agent_id = data.get('agent_id')
+            bundle_id = data.get('bundle_id')
+            
+            db_session = get_db_session()
+            from ...billing.models.agent_subscription import AgentSubscription
+            from ...billing.models.agent_pricing import AGENT_PRICING, get_bundle_agents, get_bundle_price
+            
+            # Проверяем существует ли агент
+            if agent_id not in AGENT_PRICING:
+                return {'error': f'Agent {agent_id} not found'}, 404
+            
+            # Проверяем нет ли уже активной подписки
+            existing = db_session.query(AgentSubscription).filter(
+                AgentSubscription.user_id == user_id,
+                AgentSubscription.agent_id == agent_id,
+                AgentSubscription.status == 'active'
+            ).first()
+            
+            if existing:
+                return {
+                    'success': False,
+                    'message': f'Вы уже подписаны на {agent_id}',
+                    'subscription': existing.to_dict()
+                }, 400
+            
+            # Создаем подписку
+            agent_data = AGENT_PRICING[agent_id]
+            
+            subscription = AgentSubscription(
+                user_id=user_id,
+                agent_id=agent_id,
+                agent_name=agent_data.get('name'),
+                status='active',
+                price_monthly=agent_data.get('price_monthly'),
+                starts_at=datetime.utcnow(),
+                expires_at=datetime.utcnow() + timedelta(days=30),
+                source='bundle' if bundle_id else 'direct',
+                bundle_id=bundle_id
+            )
+            
+            db_session.add(subscription)
+            db_session.commit()
+            
+            # Обновляем оркестратор пользователя
+            from ...orchestrator.user_orchestrator_factory import UserOrchestratorFactory
+            UserOrchestratorFactory.refresh_user_agents(user_id, db_session)
+            
+            logger.info(f"User {user_id} subscribed to agent {agent_id}")
+            
+            return {
+                'success': True,
+                'message': f'Вы успешно подписались на {agent_data.get("name")}',
+                'subscription': subscription.to_dict()
+            }, 201
+            
+        except Exception as e:
+            db_session.rollback()
+            logger.error(f"Error subscribing to agent: {e}")
+            return handle_exception(e)
+
+
+@billing_ns.route('/agents/unsubscribe')
+class UnsubscribeFromAgent(Resource):
+    @jwt_required
+    @billing_ns.doc('unsubscribe_from_agent', description='Отписаться от агента', security='BearerAuth')
+    @billing_ns.expect(billing_ns.model('UnsubscribeRequest', {
+        'agent_id': fields.String(required=True, description='ID агента')
+    }), validate=True)
+    def post(self, current_user):
+        """Отписаться от агента"""
+        try:
+            user_id = current_user.get('user_id')
+            data = request.json
+            agent_id = data.get('agent_id')
+            
+            db_session = get_db_session()
+            from ...billing.models.agent_subscription import AgentSubscription
+            
+            # Находим подписку
+            subscription = db_session.query(AgentSubscription).filter(
+                AgentSubscription.user_id == user_id,
+                AgentSubscription.agent_id == agent_id,
+                AgentSubscription.status == 'active'
+            ).first()
+            
+            if not subscription:
+                return {
+                    'success': False,
+                    'message': f'Активная подписка на {agent_id} не найдена'
+                }, 404
+            
+            # Отменяем подписку
+            subscription.cancel()
+            db_session.commit()
+            
+            # Обновляем оркестратор пользователя
+            from ...orchestrator.user_orchestrator_factory import UserOrchestratorFactory
+            UserOrchestratorFactory.refresh_user_agents(user_id, db_session)
+            
+            logger.info(f"User {user_id} unsubscribed from agent {agent_id}")
+            
+            return {
+                'success': True,
+                'message': f'Подписка на {subscription.agent_name} отменена'
+            }, 200
+            
+        except Exception as e:
+            db_session.rollback()
+            logger.error(f"Error unsubscribing from agent: {e}")
+            return handle_exception(e)
+
+
+@billing_ns.route('/usage/tokens')
+class TokenUsageStats(Resource):
+    @jwt_required
+    @billing_ns.doc('get_token_usage', description='Получить статистику использования токенов', security='BearerAuth')
+    @billing_ns.param('period', 'Период (day, week, month, year)', _in='query')
+    @billing_ns.param('agent_id', 'Фильтр по агенту', _in='query')
+    def get(self, current_user):
+        """Получить детальную статистику по токенам"""
+        try:
+            user_id = current_user.get('user_id')
+            period = request.args.get('period', 'month')
+            agent_id_filter = request.args.get('agent_id')
+            
+            db_session = get_db_session()
+            from ...billing.middleware.agent_access_middleware import AgentAccessMiddleware
+            
+            usage_stats = AgentAccessMiddleware.get_usage_stats(user_id, db_session)
+            
+            # Фильтруем по агенту если указан
+            if agent_id_filter:
+                usage_stats['by_agent'] = [
+                    agent for agent in usage_stats.get('by_agent', [])
+                    if agent.get('agent_id') == agent_id_filter
+                ]
+            
+            return usage_stats, 200
+            
+        except Exception as e:
+            logger.error(f"Error getting token usage: {e}")
+            return handle_exception(e)
+
+
+@billing_ns.route('/agents/recommendations')
+class AgentRecommendations(Resource):
+    @jwt_required
+    @billing_ns.doc('get_recommendations', description='Получить рекомендации по агентам', security='BearerAuth')
+    def get(self, current_user):
+        """Получить рекомендации агентов на основе использования"""
+        try:
+            user_id = current_user.get('user_id')
+            db_session = get_db_session()
+            
+            from ...billing.middleware.agent_access_middleware import AgentAccessMiddleware
+            
+            recommendations = AgentAccessMiddleware.recommend_agents(user_id, db_session)
+            
+            return recommendations, 200
+            
+        except Exception as e:
+            logger.error(f"Error getting recommendations: {e}")
             return handle_exception(e)
 
 

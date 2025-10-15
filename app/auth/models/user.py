@@ -78,6 +78,7 @@ class User(Base):
     content_pieces = relationship("ContentPieceDB", back_populates="user", cascade="all, delete-orphan")
     token_usage_records = relationship("TokenUsageDB", back_populates="user", cascade="all, delete-orphan")
     uploads = relationship("FileUploadDB", back_populates="user", cascade="all, delete-orphan")
+    agent_subscriptions = relationship("AgentSubscription", back_populates="user", cascade="all, delete-orphan")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

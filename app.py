@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Импортируем наши модули
-from app.orchestrator.main_orchestrator import orchestrator
+from app.orchestrator.main_orchestrator import orchestrator  # Singleton для старых эндпоинтов
 from app.agents.chief_agent import ChiefContentAgent
 from app.agents.drafting_agent import DraftingAgent
 from app.agents.publisher_agent import PublisherAgent
@@ -214,6 +214,12 @@ def run_initialization():
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         loop.run_until_complete(initialize_orchestrator())
+        
+        # Запускаем фоновую задачу очистки неактивных оркестраторов
+        from app.orchestrator.user_orchestrator_factory import orchestrator_cleanup_task
+        logger.info("Запуск фоновой задачи очистки оркестраторов...")
+        loop.create_task(orchestrator_cleanup_task())
+        
     except Exception as e:
         logger.error(f"Ошибка при запуске инициализации: {e}")
 
