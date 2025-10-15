@@ -93,6 +93,10 @@ class ContentRequestSchema(BaseModel):
     constraints: Dict[str, Any] = Field(default={}, description="Дополнительные ограничения")
     test_mode: bool = Field(default=True, description="Тестовый режим (без реальной публикации)")
     
+    # Медиа и документы
+    uploaded_files: List[str] = Field(default=[], max_items=10, description="IDs загруженных файлов для использования в контенте")
+    reference_urls: List[str] = Field(default=[], max_items=5, description="URLs референсных материалов")
+    
     @validator('keywords')
     def validate_keywords(cls, v):
         """Валидация ключевых слов"""

@@ -158,7 +158,9 @@ content_request_model = api.model('ContentRequest', {
     'platforms': fields.List(fields.String, required=True, min_items=1, max_items=5, description='Платформы для публикации'),
     'content_types': fields.List(fields.String, description='Типы контента', default=['post']),
     'constraints': fields.Raw(description='Дополнительные ограничения'),
-    'test_mode': fields.Boolean(description='Тестовый режим', default=True)
+    'test_mode': fields.Boolean(description='Тестовый режим', default=True),
+    'uploaded_files': fields.List(fields.String, description='IDs загруженных файлов', max_items=10),
+    'reference_urls': fields.List(fields.String, description='URLs референсных материалов', max_items=5)
 })
 
 content_response_model = api.model('ContentResponse', {
@@ -763,6 +765,318 @@ class ContentDetail(Resource):
         except Exception as e:
             logger.error(f"Ошибка удаления контента: {e}")
             db_session.rollback()
+            return handle_exception(e)
+
+
+# ==================== FILE UPLOADS ====================
+
+@api.route('/uploads/upload')
+class FileUpload(Resource):
+    @jwt_required
+    @api.doc('upload_file', description='Загрузить медиа файл или документ', security='BearerAuth')
+    @api.param('file', 'Файл для загрузки', type='file', required=True, _in='formData')
+    @api.param('folder', 'Папка (images/documents/videos)', type='string', _in='formData')
+    @api.param('analyze', 'Анализировать через AI', type='boolean', _in='formData')
+    def post(self, current_user):
+        """
+        Загружает файл в облако и опционально анализирует через AI
+        
+        Поддерживаемые типы:
+        - Изображения: jpg, jpeg, png, gif, webp
+        - Видео: mp4, mov, avi
+        - Документы: pdf, docx, xlsx, md, txt
+        """
+        try:
+            from werkzeug.datastructures import FileStorage
+            from ..services.storage_service import get_storage_service
+            from ..services.vision_service import get_vision_service
+            from ..services.document_parser import get_document_parser
+            from ..models.uploads import FileUploadDB
+            import uuid
+            
+            user_id = current_user.get('user_id')
+            
+            # Проверяем наличие файла
+            if 'file' not in request.files:
+                return {
+                    "error": "No file provided",
+                    "message": "Файл не предоставлен",
+                    "status_code": 400
+                }, 400
+            
+            file = request.files['file']
+            
+            if file.filename == '':
+                return {
+                    "error": "Empty filename",
+                    "message": "Имя файла пустое",
+                    "status_code": 400
+                }, 400
+            
+            # Параметры
+            folder = request.form.get('folder', 'uploads')
+            analyze = request.form.get('analyze', 'true').lower() == 'true'
+            
+            # Читаем содержимое файла
+            file_content = file.read()
+            file.seek(0)  # Возвращаем указатель в начало
+            
+            # Валидация размера (макс 100MB)
+            max_size = 100 * 1024 * 1024  # 100 MB
+            if len(file_content) > max_size:
+                return {
+                    "error": "File too large",
+                    "message": f"Файл слишком большой. Максимум: {max_size / (1024*1024):.0f}MB",
+                    "status_code": 400
+                }, 400
+            
+            # Загружаем в GCS
+            storage_service = get_storage_service()
+            upload_result = run_async(storage_service.upload_file(
+                file_content=file_content,
+                filename=file.filename,
+                user_id=str(user_id),
+                folder=folder
+            ))
+            
+            if not upload_result.get('success'):
+                return {
+                    "error": "Upload failed",
+                    "message": upload_result.get('error', 'Ошибка загрузки'),
+                    "status_code": 500
+                }, 500
+            
+            # Определяем тип файла
+            mime_type = upload_result['content_type']
+            if mime_type.startswith('image/'):
+                file_type = 'image'
+            elif mime_type.startswith('video/'):
+                file_type = 'video'
+            elif mime_type in ['application/pdf', 'application/msword', 
+                              'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                              'application/vnd.ms-excel',
+                              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                              'text/plain', 'text/markdown']:
+                file_type = 'document'
+            else:
+                file_type = 'other'
+            
+            # Создаем запись в БД
+            file_id = str(uuid.uuid4())
+            file_upload = FileUploadDB(
+                id=file_id,
+                user_id=user_id,
+                filename=upload_result['filename'],
+                original_filename=upload_result['original_filename'],
+                file_type=file_type,
+                mime_type=mime_type,
+                size_bytes=upload_result['size_bytes'],
+                storage_url=upload_result['url'],
+                storage_bucket=upload_result['bucket'],
+                storage_path=upload_result['path']
+            )
+            
+            db_session.add(file_upload)
+            db_session.commit()
+            
+            # AI анализ если запрошен
+            ai_result = None
+            if analyze:
+                if file_type == 'image':
+                    # Анализ изображения
+                    vision_service = get_vision_service()
+                    ai_result = run_async(vision_service.analyze_image(
+                        upload_result['url'],
+                        analysis_type='full'
+                    ))
+                    
+                    if ai_result.get('success'):
+                        analysis = ai_result.get('analysis', {})
+                        file_upload.ai_description = analysis.get('description', '')
+                        file_upload.ai_metadata = analysis
+                        file_upload.is_processed = True
+                        file_upload.processed_at = datetime.utcnow()
+                        db_session.commit()
+                
+                elif file_type == 'document':
+                    # Парсинг документа
+                    # Сначала скачиваем временно (можно оптимизировать)
+                    import tempfile
+                    import os
+                    
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as tmp_file:
+                        tmp_file.write(file_content)
+                        tmp_path = tmp_file.name
+                    
+                    try:
+                        doc_parser = get_document_parser()
+                        parse_result = run_async(doc_parser.parse_file(tmp_path))
+                        
+                        if parse_result.get('success'):
+                            file_upload.extracted_text = parse_result.get('text', '')
+                            file_upload.document_metadata = parse_result
+                            file_upload.is_processed = True
+                            file_upload.processed_at = datetime.utcnow()
+                            db_session.commit()
+                            
+                            ai_result = parse_result
+                    finally:
+                        os.unlink(tmp_path)
+            
+            logger.info(f"File uploaded: {file_id} by user {user_id}")
+            
+            return {
+                "success": True,
+                "file": file_upload.to_dict(),
+                "ai_analysis": ai_result,
+                "timestamp": datetime.now().isoformat()
+            }, 201
+            
+        except Exception as e:
+            return handle_exception(e)
+
+
+@api.route('/uploads/list')
+class FileUploadList(Resource):
+    @jwt_required
+    @api.doc('list_uploads', description='Список загруженных файлов', security='BearerAuth')
+    @api.param('page', 'Номер страницы', type='int', default=1)
+    @api.param('per_page', 'Файлов на странице', type='int', default=20)
+    @api.param('file_type', 'Фильтр по типу (image/document/video)', type='string')
+    def get(self, current_user):
+        """
+        Получает список загруженных файлов пользователя
+        """
+        try:
+            from ..models.uploads import FileUploadDB
+            from sqlalchemy import desc, func
+            
+            user_id = current_user.get('user_id')
+            
+            # Параметры пагинации
+            page = int(request.args.get('page', 1))
+            per_page = min(int(request.args.get('per_page', 20)), 100)
+            file_type = request.args.get('file_type')
+            
+            # Базовый запрос
+            query = db_session.query(FileUploadDB).filter(
+                FileUploadDB.user_id == user_id,
+                FileUploadDB.is_deleted == False
+            )
+            
+            # Фильтр по типу
+            if file_type:
+                query = query.filter(FileUploadDB.file_type == file_type)
+            
+            # Сортировка
+            query = query.order_by(desc(FileUploadDB.uploaded_at))
+            
+            # Пагинация
+            total = query.count()
+            files = query.offset((page - 1) * per_page).limit(per_page).all()
+            
+            # Считаем общий размер
+            total_size_bytes = db_session.query(func.sum(FileUploadDB.size_bytes)).filter(
+                FileUploadDB.user_id == user_id,
+                FileUploadDB.is_deleted == False
+            ).scalar() or 0
+            
+            return {
+                "files": [f.to_dict() for f in files],
+                "pagination": {
+                    "page": page,
+                    "per_page": per_page,
+                    "total": total,
+                    "pages": (total + per_page - 1) // per_page
+                },
+                "storage": {
+                    "total_files": total,
+                    "total_size_bytes": total_size_bytes,
+                    "total_size_mb": round(total_size_bytes / (1024 * 1024), 2)
+                }
+            }
+            
+        except Exception as e:
+            return handle_exception(e)
+
+
+@api.route('/uploads/<string:file_id>')
+class FileUploadDetail(Resource):
+    @jwt_required
+    @api.doc('get_upload_detail', description='Детальная информация о файле', security='BearerAuth')
+    def get(self, current_user, file_id):
+        """
+        Получает полную информацию о загруженном файле
+        """
+        try:
+            from ..models.uploads import FileUploadDB
+            
+            user_id = current_user.get('user_id')
+            
+            file_upload = db_session.query(FileUploadDB).filter(
+                FileUploadDB.id == file_id,
+                FileUploadDB.user_id == user_id
+            ).first()
+            
+            if not file_upload:
+                return {
+                    "error": "File Not Found",
+                    "message": f"Файл с ID {file_id} не найден",
+                    "status_code": 404
+                }, 404
+            
+            # Обновляем last_accessed_at
+            file_upload.last_accessed_at = datetime.utcnow()
+            db_session.commit()
+            
+            return {
+                "file": file_upload.to_dict_full()
+            }
+            
+        except Exception as e:
+            return handle_exception(e)
+    
+    @jwt_required
+    @api.doc('delete_upload', description='Удалить файл', security='BearerAuth')
+    def delete(self, current_user, file_id):
+        """
+        Удаляет загруженный файл
+        """
+        try:
+            from ..models.uploads import FileUploadDB
+            from ..services.storage_service import get_storage_service
+            
+            user_id = current_user.get('user_id')
+            
+            file_upload = db_session.query(FileUploadDB).filter(
+                FileUploadDB.id == file_id,
+                FileUploadDB.user_id == user_id
+            ).first()
+            
+            if not file_upload:
+                return {
+                    "error": "File Not Found",
+                    "message": f"Файл с ID {file_id} не найден",
+                    "status_code": 404
+                }, 404
+            
+            # Мягкое удаление
+            file_upload.is_deleted = True
+            file_upload.deleted_at = datetime.utcnow()
+            db_session.commit()
+            
+            # Опционально: удалить из GCS (раскомментировать если нужно)
+            # storage_service = get_storage_service()
+            # run_async(storage_service.delete_file(file_upload.storage_path))
+            
+            logger.info(f"File {file_id} deleted by user {user_id}")
+            
+            return {
+                "success": True,
+                "message": "Файл успешно удален"
+            }
+            
+        except Exception as e:
             return handle_exception(e)
 
 
