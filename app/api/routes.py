@@ -777,10 +777,155 @@ class ContentDetail(Resource):
 
 # ==================== FILE UPLOADS ====================
 
+@api.route('/uploads/batch')
+class FileUploadBatch(Resource):
+    @jwt_required
+    @api.doc('upload_files_batch', description='Загрузить несколько файлов за один запрос (до 20 файлов)', security='BearerAuth')
+    @api.param('files', 'Файлы для загрузки (multiple)', type='file', required=True, _in='formData')
+    @api.param('folder', 'Папка (images/documents/videos)', type='string', _in='formData')
+    @api.param('analyze', 'Анализировать через AI', type='boolean', _in='formData')
+    def post(self, current_user):
+        """
+        Загружает несколько файлов за один запрос
+        
+        Возвращает массив file_id для использования в /content/create
+        
+        Пример ответа:
+        {
+          "success": true,
+          "uploaded_files": [
+            {"file_id": "uuid1", "filename": "photo1.jpg"},
+            {"file_id": "uuid2", "filename": "doc.pdf"}
+          ]
+        }
+        """
+        try:
+            from werkzeug.datastructures import FileStorage
+            from ..services.storage_service import get_storage_service
+            from ..services.vision_service import get_vision_service
+            from ..services.document_parser import get_document_parser
+            from ..models.uploads import FileUploadDB
+            import uuid
+            
+            user_id = current_user.get('user_id')
+            
+            # Получаем все файлы из запроса
+            files = request.files.getlist('files')
+            
+            if not files or len(files) == 0:
+                return {
+                    "error": "No files provided",
+                    "message": "Файлы не предоставлены",
+                    "status_code": 400
+                }, 400
+            
+            # Лимит на количество файлов
+            if len(files) > 20:
+                return {
+                    "error": "Too many files",
+                    "message": "Максимум 20 файлов за раз",
+                    "status_code": 400
+                }, 400
+            
+            folder = request.form.get('folder', 'uploads')
+            analyze = request.form.get('analyze', 'false').lower() == 'true'
+            
+            storage_service = get_storage_service()
+            vision_service = get_vision_service() if analyze else None
+            document_parser = get_document_parser() if analyze else None
+            
+            uploaded_files = []
+            errors = []
+            
+            # Обрабатываем каждый файл
+            for file in files:
+                try:
+                    if not file.filename:
+                        errors.append({"filename": "unknown", "error": "Empty filename"})
+                        continue
+                    
+                    file_id = str(uuid.uuid4())
+                    
+                    # Загружаем в облако
+                    storage_url, file_size, mime_type = storage_service.upload_file(
+                        file=file,
+                        folder=folder,
+                        file_id=file_id
+                    )
+                    
+                    # Определяем тип файла
+                    if mime_type.startswith('image/'):
+                        file_type = 'image'
+                    elif mime_type.startswith('video/'):
+                        file_type = 'video'
+                    elif mime_type in ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']:
+                        file_type = 'document'
+                    else:
+                        file_type = 'other'
+                    
+                    # AI анализ если нужен
+                    ai_analysis = None
+                    extracted_text = None
+                    
+                    if analyze:
+                        if file_type == 'image' and vision_service:
+                            ai_analysis = vision_service.analyze_image(storage_url)
+                        elif file_type == 'document' and document_parser:
+                            extracted_text = document_parser.parse_file(file, mime_type)
+                    
+                    # Сохраняем в БД
+                    file_upload = FileUploadDB(
+                        id=file_id,
+                        user_id=user_id,
+                        filename=file.filename,
+                        original_filename=file.filename,
+                        file_type=file_type,
+                        mime_type=mime_type,
+                        file_size=file_size,
+                        storage_url=storage_url,
+                        storage_provider='gcs',
+                        folder=folder,
+                        ai_analysis=ai_analysis,
+                        extracted_text=extracted_text
+                    )
+                    
+                    db_session.add(file_upload)
+                    
+                    uploaded_files.append({
+                        "file_id": file_id,
+                        "filename": file.filename,
+                        "file_type": file_type,
+                        "file_size": file_size,
+                        "storage_url": storage_url
+                    })
+                    
+                except Exception as e:
+                    logger.error(f"Error uploading file {file.filename}: {e}")
+                    errors.append({
+                        "filename": file.filename,
+                        "error": str(e)
+                    })
+            
+            # Коммитим все успешные загрузки
+            db_session.commit()
+            
+            return {
+                "success": True,
+                "message": f"Загружено {len(uploaded_files)} из {len(files)} файлов",
+                "uploaded_files": uploaded_files,
+                "errors": errors if errors else None
+            }, 201
+            
+        except Exception as e:
+            db_session.rollback()
+            logger.error(f"Batch upload error: {e}")
+            return handle_exception(e)
+
+
 @api.route('/uploads/upload')
 class FileUpload(Resource):
     @jwt_required
-    @api.doc('upload_file', description='Загрузить медиа файл или документ', security='BearerAuth')
+    @api.doc('upload_file', description='Загрузить один файл (для простых случаев)', security='BearerAuth')
     @api.param('file', 'Файл для загрузки', type='file', required=True, _in='formData')
     @api.param('folder', 'Папка (images/documents/videos)', type='string', _in='formData')
     @api.param('analyze', 'Анализировать через AI', type='boolean', _in='formData')
