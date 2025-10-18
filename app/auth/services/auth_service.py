@@ -115,14 +115,17 @@ class AuthService:
             user = self.db.query(User).filter(User.email == email).first()
             
             if not user:
+                logger.warning(f"=== USER NOT FOUND: {email} ===")
                 return False, "Неверный email или пароль", None
             
             # Проверка пароля
             if not user.check_password(password):
+                logger.warning(f"=== INVALID PASSWORD for user: {email} ===")
                 return False, "Неверный email или пароль", None
             
             # Проверка статуса пользователя
             if not user.is_active:
+                logger.warning(f"=== USER DEACTIVATED: {email} ===")
                 return False, "Аккаунт деактивирован", None
             
             if user.status == UserStatus.SUSPENDED:
