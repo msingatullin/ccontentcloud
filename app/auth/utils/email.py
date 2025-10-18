@@ -24,9 +24,9 @@ class EmailService:
         self.smtp_port = int(os.getenv('SMTP_PORT', '587'))
         self.smtp_username = os.getenv('SMTP_USERNAME')
         self.smtp_password = os.getenv('SMTP_PASSWORD')
-        self.from_email = os.getenv('FROM_EMAIL', 'noreply@goinvesting.ai')
+        self.from_email = os.getenv('FROM_EMAIL', 'noreply@content4u.ai')
         self.from_name = os.getenv('FROM_NAME', 'AI Content Orchestrator')
-        self.base_url = os.getenv('BASE_URL', 'https://goinvesting.ai')
+        self.base_url = os.getenv('BASE_URL', 'https://content4u.ai')
         
         # Проверка конфигурации
         if not self.smtp_username or not self.smtp_password:

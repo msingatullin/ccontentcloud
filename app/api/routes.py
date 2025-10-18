@@ -1760,12 +1760,12 @@ class AuthLogin(Resource):
                 # Получаем информацию о пользователе
                 user = auth_service.get_user_by_email(email)
                 if user:
-                    return {
+            return {
                         "message": "Login successful",
                         "access_token": tokens.get('access_token'),
                         "refresh_token": tokens.get('refresh_token', ""),
                         "expires_in": tokens.get('expires_in', 86400),
-                        "user": {
+                "user": {
                             "id": user.id,
                             "email": user.email,
                             "username": user.username,
@@ -1777,8 +1777,8 @@ class AuthLogin(Resource):
                             "is_verified": user.is_verified,
                             "created_at": user.created_at.isoformat() if user.created_at else "",
                             "updated_at": user.updated_at.isoformat() if user.updated_at else ""
-                        }
-                    }, 200
+                }
+            }, 200
             
             return {
                 "error": "Authentication Failed",
@@ -2041,11 +2041,11 @@ class AuthLogout(Resource):
             
             if success:
                 logger.info(f"User {email} (ID: {user_id}) logged out successfully")
-                return {
-                    "success": True,
+            return {
+                "success": True,
                     "message": message,
-                    "timestamp": datetime.now().isoformat()
-                }, 200
+                "timestamp": datetime.now().isoformat()
+            }, 200
             else:
                 logger.error(f"Logout failed for user {email}: {message}")
                 return {
@@ -2136,7 +2136,7 @@ class AuthMe(Resource):
             
             # Возвращаем информацию о пользователе
             if user:
-                return {
+            return {
                     "id": user.id,
                     "email": user.email,
                     "username": user.username,
@@ -2148,7 +2148,7 @@ class AuthMe(Resource):
                     "is_verified": user.is_verified,
                     "created_at": user.created_at.isoformat() if user.created_at else "",
                     "updated_at": user.updated_at.isoformat() if user.updated_at else ""
-                }, 200
+            }, 200
             else:
                 logger.error(f"User not found for email: {email}")
                 return {
@@ -2294,10 +2294,10 @@ class AuthChangePassword(Resource):
                     "timestamp": datetime.now().isoformat()
                 }, 401
             
-            return {
+                return {
                 "success": True,
                 "message": "Password changed successfully",
-                "timestamp": datetime.now().isoformat()
+                    "timestamp": datetime.now().isoformat()
             }, 200
                 
         except Exception as e:
@@ -2503,10 +2503,10 @@ class BillingSubscription(Resource):
                 "updated_at": datetime.now().isoformat()
             }
             
-            return {
-                "success": True,
+                return {
+                    "success": True,
                 "subscription": subscription
-            }, 200
+                }, 200
             
         except Exception as e:
             logger.error(f"Error in get subscription: {e}")

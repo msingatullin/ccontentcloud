@@ -40,7 +40,9 @@ def create_app():
                 'http://localhost:3000',
                 'http://127.0.0.1:3000',
                 'http://localhost:5173',  # для локальной разработки
-                'https://goinvesting.ai',
+                'https://content4u.ai',
+                'https://www.content4u.ai',
+                'https://goinvesting.ai',  # старый домен для совместимости
                 'https://www.goinvesting.ai',
                 'https://content-curator-frontend-dt3n7kzpwq-uc.a.run.app',
                 'https://content-curator-frontend-1046574462613.us-central1.run.app',
