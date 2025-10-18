@@ -1756,6 +1756,8 @@ class AuthLogin(Resource):
                 user_agent=request.headers.get('User-Agent')
             )
             
+            logger.info(f"=== AUTH RESULT: success={success}, message='{message}', tokens={tokens is not None} ===")
+            
             if success and tokens:
                 # Получаем информацию о пользователе
                 user = auth_service.get_user_by_email(email)
