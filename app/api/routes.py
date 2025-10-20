@@ -3140,7 +3140,7 @@ class TokenUsageStats(Resource):
     @billing_ns.param('period', 'Период (day, week, month, year)', _in='query')
     @billing_ns.param('agent_id', 'Фильтр по агенту', _in='query')
     def get(self, current_user):
-        """Получить детальную статистику по токенам"""
+        """Получить детальную статистику по токенам (LEGACY - используйте /usage/tokens/summary)"""
         try:
             user_id = current_user.get('user_id')
             period = request.args.get('period', 'month')
@@ -3162,6 +3162,281 @@ class TokenUsageStats(Resource):
             
         except Exception as e:
             logger.error(f"Error getting token usage: {e}")
+            return handle_exception(e)
+
+
+@billing_ns.route('/usage/tokens/summary')
+class TokenUsageSummary(Resource):
+    @jwt_required
+    @billing_ns.doc('get_token_usage_summary', 
+                    description='Получить сводку по использованию токенов (сегодня, месяц, всего)', 
+                    security='BearerAuth')
+    def get(self, current_user):
+        """
+        Получить сводку расхода токенов для ЛК клиента
+        
+        Возвращает:
+        - today: статистика за сегодня
+        - this_month: статистика за текущий месяц  
+        - all_time: статистика за все время
+        
+        Каждый блок содержит: total_tokens, cost_rub, requests_count
+        """
+        try:
+            user_id = current_user.get('user_id')
+            db_session = get_db_session()
+            
+            from app.billing.services.token_usage_service import TokenUsageService
+            
+            token_service = TokenUsageService(db_session)
+            summary = token_service.get_user_token_summary(user_id)
+            
+            return {
+                "success": True,
+                "data": summary
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Error getting token usage summary: {e}")
+            return handle_exception(e)
+
+
+@billing_ns.route('/usage/tokens/history')
+class TokenUsageHistory(Resource):
+    @jwt_required
+    @billing_ns.doc('get_token_usage_history', 
+                    description='Получить историю использования токенов по дням для графиков', 
+                    security='BearerAuth')
+    @billing_ns.param('days', 'Количество дней для отображения (по умолчанию 30)', _in='query', type='integer')
+    @billing_ns.param('agent_id', 'Фильтр по конкретному агенту', _in='query')
+    def get(self, current_user):
+        """
+        Получить историю расхода токенов для построения графиков
+        
+        Параметры:
+        - days: количество дней назад (по умолчанию 30)
+        - agent_id: опционально, фильтр по агенту
+        
+        Возвращает массив с данными по каждому дню:
+        - date: дата
+        - total_tokens: всего токенов
+        - prompt_tokens: токены запроса
+        - completion_tokens: токены ответа
+        - cost_rub: стоимость в рублях
+        - requests_count: количество запросов
+        """
+        try:
+            user_id = current_user.get('user_id')
+            days = int(request.args.get('days', 30))
+            agent_id = request.args.get('agent_id')
+            
+            db_session = get_db_session()
+            from app.billing.services.token_usage_service import TokenUsageService
+            
+            token_service = TokenUsageService(db_session)
+            history = token_service.get_token_history(
+                user_id=user_id,
+                days=days,
+                agent_id=agent_id
+            )
+            
+            return {
+                "success": True,
+                "data": history,
+                "period": {
+                    "days": days,
+                    "agent_id": agent_id
+                }
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Error getting token usage history: {e}")
+            return handle_exception(e)
+
+
+@billing_ns.route('/usage/tokens/by-agent')
+class TokenUsageByAgent(Resource):
+    @jwt_required
+    @billing_ns.doc('get_token_usage_by_agent', 
+                    description='Получить статистику по агентам - какой агент сколько токенов расходует', 
+                    security='BearerAuth')
+    @billing_ns.param('period_days', 'Период в днях (по умолчанию 30)', _in='query', type='integer')
+    def get(self, current_user):
+        """
+        Получить статистику расхода токенов по агентам
+        
+        Показывает:
+        - Какой агент сколько токенов использует
+        - Стоимость работы каждого агента
+        - Среднее время выполнения
+        - Количество запросов
+        
+        Полезно для оптимизации расходов и выбора правильных агентов
+        """
+        try:
+            user_id = current_user.get('user_id')
+            period_days = int(request.args.get('period_days', 30))
+            
+            db_session = get_db_session()
+            from app.billing.services.token_usage_service import TokenUsageService
+            
+            token_service = TokenUsageService(db_session)
+            agents_stats = token_service.get_usage_by_agent(
+                user_id=user_id,
+                period_days=period_days
+            )
+            
+            # Добавляем общую статистику
+            total_tokens = sum(agent['total_tokens'] for agent in agents_stats)
+            total_cost = sum(agent['cost_rub'] for agent in agents_stats)
+            total_requests = sum(agent['requests_count'] for agent in agents_stats)
+            
+            return {
+                "success": True,
+                "data": {
+                    "agents": agents_stats,
+                    "totals": {
+                        "total_tokens": total_tokens,
+                        "total_cost_rub": total_cost,
+                        "total_requests": total_requests
+                    },
+                    "period_days": period_days
+                }
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Error getting token usage by agent: {e}")
+            return handle_exception(e)
+
+
+@billing_ns.route('/usage/tokens/by-model')
+class TokenUsageByModel(Resource):
+    @jwt_required
+    @billing_ns.doc('get_token_usage_by_model', 
+                    description='Получить статистику по AI моделям (GPT-4, GPT-3.5, Claude и т.д.)', 
+                    security='BearerAuth')
+    @billing_ns.param('period_days', 'Период в днях (по умолчанию 30)', _in='query', type='integer')
+    def get(self, current_user):
+        """
+        Получить статистику расхода токенов по AI моделям
+        
+        Показывает:
+        - Расход по провайдерам (OpenAI, Anthropic)
+        - Расход по конкретным моделям (GPT-4, GPT-3.5-turbo, Claude-3, etc)
+        - Стоимость каждой модели
+        - Количество запросов
+        
+        Полезно для понимания какие модели дороже и оптимизации
+        """
+        try:
+            user_id = current_user.get('user_id')
+            period_days = int(request.args.get('period_days', 30))
+            
+            db_session = get_db_session()
+            from app.billing.services.token_usage_service import TokenUsageService
+            
+            token_service = TokenUsageService(db_session)
+            models_stats = token_service.get_usage_by_model(
+                user_id=user_id,
+                period_days=period_days
+            )
+            
+            # Группируем по провайдерам
+            by_provider = {}
+            for model_stat in models_stats:
+                provider = model_stat['ai_provider']
+                if provider not in by_provider:
+                    by_provider[provider] = {
+                        "provider": provider,
+                        "total_tokens": 0,
+                        "total_cost_rub": 0,
+                        "total_requests": 0,
+                        "models": []
+                    }
+                by_provider[provider]["total_tokens"] += model_stat['total_tokens']
+                by_provider[provider]["total_cost_rub"] += model_stat['cost_rub']
+                by_provider[provider]["total_requests"] += model_stat['requests_count']
+                by_provider[provider]["models"].append(model_stat)
+            
+            return {
+                "success": True,
+                "data": {
+                    "by_model": models_stats,
+                    "by_provider": list(by_provider.values()),
+                    "period_days": period_days
+                }
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Error getting token usage by model: {e}")
+            return handle_exception(e)
+
+
+@billing_ns.route('/usage/tokens/detailed')
+class TokenUsageDetailed(Resource):
+    @jwt_required
+    @billing_ns.doc('get_token_usage_detailed', 
+                    description='Получить детальную историю использования токенов с пагинацией', 
+                    security='BearerAuth')
+    @billing_ns.param('limit', 'Количество записей на странице (по умолчанию 100)', _in='query', type='integer')
+    @billing_ns.param('offset', 'Смещение для пагинации (по умолчанию 0)', _in='query', type='integer')
+    @billing_ns.param('agent_id', 'Фильтр по агенту', _in='query')
+    @billing_ns.param('start_date', 'Начальная дата (ISO формат)', _in='query')
+    @billing_ns.param('end_date', 'Конечная дата (ISO формат)', _in='query')
+    def get(self, current_user):
+        """
+        Получить детальную таблицу использования токенов
+        
+        Параметры:
+        - limit: записей на странице (по умолчанию 100, макс 500)
+        - offset: смещение для пагинации
+        - agent_id: фильтр по конкретному агенту
+        - start_date: фильтр с даты (ISO формат)
+        - end_date: фильтр по дату (ISO формат)
+        
+        Возвращает:
+        - items: массив записей использования
+        - total: общее количество записей
+        - has_more: есть ли еще записи
+        
+        Каждая запись содержит полную информацию о запросе к AI
+        """
+        try:
+            user_id = current_user.get('user_id')
+            limit = min(int(request.args.get('limit', 100)), 500)  # макс 500
+            offset = int(request.args.get('offset', 0))
+            agent_id = request.args.get('agent_id')
+            
+            # Парсим даты если указаны
+            start_date = None
+            end_date = None
+            if request.args.get('start_date'):
+                from datetime import datetime
+                start_date = datetime.fromisoformat(request.args.get('start_date').replace('Z', '+00:00'))
+            if request.args.get('end_date'):
+                from datetime import datetime
+                end_date = datetime.fromisoformat(request.args.get('end_date').replace('Z', '+00:00'))
+            
+            db_session = get_db_session()
+            from app.billing.services.token_usage_service import TokenUsageService
+            
+            token_service = TokenUsageService(db_session)
+            detailed = token_service.get_detailed_usage(
+                user_id=user_id,
+                limit=limit,
+                offset=offset,
+                agent_id=agent_id,
+                start_date=start_date,
+                end_date=end_date
+            )
+            
+            return {
+                "success": True,
+                "data": detailed
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Error getting detailed token usage: {e}")
             return handle_exception(e)
 
 
