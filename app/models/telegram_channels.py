@@ -73,3 +73,4 @@ class TelegramChannel(Base):
     def __repr__(self):
         return f"<TelegramChannel(id={self.id}, user_id={self.user_id}, name='{self.channel_name}', chat_id='{self.chat_id}')>"
 
+

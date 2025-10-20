@@ -341,3 +341,4 @@ def verify_channel(channel_id):
             'error': 'Ошибка проверки канала'
         }), 500
 
+
