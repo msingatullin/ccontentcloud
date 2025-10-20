@@ -6,7 +6,7 @@ Includes OAuth 1.0a flow
 from flask import Blueprint, request, jsonify, redirect, session
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.services.twitter_account_service import TwitterAccountService
-from app.database.connection import get_db
+from app.database.connection import get_db_session
 import asyncio
 import logging
 import os
@@ -38,7 +38,7 @@ def get_oauth_url():
             base_url = os.getenv('API_BASE_URL', 'http://localhost:5000')
             callback_url = f"{base_url}/api/twitter/oauth/callback"
         
-        db = next(get_db())
+        db = next(get_db_session())
         service = TwitterAccountService(db)
         
         # Получаем OAuth URL
@@ -105,7 +105,7 @@ def oauth_callback():
                 'error': 'oauth_token_secret обязателен'
             }), 400
         
-        db = next(get_db())
+        db = next(get_db_session())
         service = TwitterAccountService(db)
         
         # Завершаем OAuth
@@ -157,7 +157,7 @@ def get_accounts():
         user_id = get_jwt_identity()
         active_only = request.args.get('active_only', 'true').lower() == 'true'
         
-        db = next(get_db())
+        db = next(get_db_session())
         service = TwitterAccountService(db)
         
         accounts = service.get_user_accounts(user_id, active_only=active_only)
@@ -183,7 +183,7 @@ def get_account(account_id):
     try:
         user_id = get_jwt_identity()
         
-        db = next(get_db())
+        db = next(get_db_session())
         service = TwitterAccountService(db)
         
         account = service.get_account_by_id(user_id, account_id)
@@ -214,7 +214,7 @@ def set_default_account(account_id):
     try:
         user_id = get_jwt_identity()
         
-        db = next(get_db())
+        db = next(get_db_session())
         service = TwitterAccountService(db)
         
         success = service.set_default_account(user_id, account_id)
@@ -245,7 +245,7 @@ def delete_account(account_id):
     try:
         user_id = get_jwt_identity()
         
-        db = next(get_db())
+        db = next(get_db_session())
         service = TwitterAccountService(db)
         
         success = service.deactivate_account(user_id, account_id)

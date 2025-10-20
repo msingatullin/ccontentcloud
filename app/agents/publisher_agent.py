@@ -381,7 +381,7 @@ class PublisherAgent(BaseAgent):
         try:
             from app.services.telegram_channel_service import TelegramChannelService
             from app.models.telegram_channels import TelegramChannel
-            from app.database.connection import get_db_session
+            from app.database.connection import get_db_session_session
             
             # Получаем сессию БД
             db = next(get_db_session())
@@ -573,13 +573,13 @@ class PublisherAgent(BaseAgent):
             return await self._publish_to_instagram_fallback(content, schedule_time)
         
         try:
-            from app.database.connection import get_db
+            from app.database.connection import get_db_session
             from app.services.instagram_account_service import InstagramAccountService
             
             logger.info(f"Публикация в Instagram для user_id={user_id}, account_id={account_id}")
             
             # Получаем сессию БД
-            db = next(get_db())
+            db = next(get_db_session())
             service = InstagramAccountService(db)
             
             # Получаем аккаунт
@@ -690,13 +690,13 @@ class PublisherAgent(BaseAgent):
             return await self._publish_to_twitter_fallback(content, schedule_time)
         
         try:
-            from app.database.connection import get_db
+            from app.database.connection import get_db_session
             from app.services.twitter_account_service import TwitterAccountService
             
             logger.info(f"Публикация в Twitter для user_id={user_id}, account_id={account_id}")
             
             # Получаем сессию БД
-            db = next(get_db())
+            db = next(get_db_session())
             service = TwitterAccountService(db)
             
             # Получаем аккаунт

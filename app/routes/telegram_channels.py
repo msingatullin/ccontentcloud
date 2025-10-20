@@ -5,7 +5,7 @@ API routes для управления Telegram каналами
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.services.telegram_channel_service import TelegramChannelService
-from app.database.connection import get_db
+from app.database.connection import get_db_session
 import asyncio
 import logging
 
@@ -24,7 +24,7 @@ def get_bot_info():
         JSON с информацией о боте
     """
     try:
-        db = next(get_db())
+        db = next(get_db_session())
         service = TelegramChannelService(db)
         
         # Вызываем async функцию
@@ -64,7 +64,7 @@ def get_channels():
         user_id = get_jwt_identity()
         active_only = request.args.get('active_only', 'true').lower() == 'true'
         
-        db = next(get_db())
+        db = next(get_db_session())
         service = TelegramChannelService(db)
         
         channels = service.get_user_channels(user_id, active_only=active_only)
@@ -124,7 +124,7 @@ def add_channel():
                 'error': 'Название канала должно быть не короче 3 символов'
             }), 400
         
-        db = next(get_db())
+        db = next(get_db_session())
         service = TelegramChannelService(db)
         
         # Добавляем канал (async операция)
@@ -169,7 +169,7 @@ def get_channel(channel_id):
     try:
         user_id = get_jwt_identity()
         
-        db = next(get_db())
+        db = next(get_db_session())
         service = TelegramChannelService(db)
         
         channel = service.get_channel_by_id(user_id, channel_id)
@@ -208,7 +208,7 @@ def set_default_channel(channel_id):
     try:
         user_id = get_jwt_identity()
         
-        db = next(get_db())
+        db = next(get_db_session())
         service = TelegramChannelService(db)
         
         success = service.set_default_channel(user_id, channel_id)
@@ -248,7 +248,7 @@ def delete_channel(channel_id):
     try:
         user_id = get_jwt_identity()
         
-        db = next(get_db())
+        db = next(get_db_session())
         service = TelegramChannelService(db)
         
         success = service.deactivate_channel(user_id, channel_id)
@@ -288,7 +288,7 @@ def verify_channel(channel_id):
     try:
         user_id = get_jwt_identity()
         
-        db = next(get_db())
+        db = next(get_db_session())
         service = TelegramChannelService(db)
         
         # Получаем канал

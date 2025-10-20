@@ -5,7 +5,7 @@ API routes для управления Instagram аккаунтами
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.services.instagram_account_service import InstagramAccountService
-from app.database.connection import get_db
+from app.database.connection import get_db_session
 import asyncio
 import logging
 
@@ -30,7 +30,7 @@ def get_accounts():
         user_id = get_jwt_identity()
         active_only = request.args.get('active_only', 'true').lower() == 'true'
         
-        db = next(get_db())
+        db = next(get_db_session())
         service = InstagramAccountService(db)
         
         accounts = service.get_user_accounts(user_id, active_only=active_only)
@@ -98,7 +98,7 @@ def add_account():
                 'error': 'Название должно быть не короче 3 символов'
             }), 400
         
-        db = next(get_db())
+        db = next(get_db_session())
         service = InstagramAccountService(db)
         
         # Добавляем аккаунт (async операция)
@@ -135,7 +135,7 @@ def get_account(account_id):
     try:
         user_id = get_jwt_identity()
         
-        db = next(get_db())
+        db = next(get_db_session())
         service = InstagramAccountService(db)
         
         account = service.get_account_by_id(user_id, account_id)
@@ -166,7 +166,7 @@ def set_default_account(account_id):
     try:
         user_id = get_jwt_identity()
         
-        db = next(get_db())
+        db = next(get_db_session())
         service = InstagramAccountService(db)
         
         success = service.set_default_account(user_id, account_id)
@@ -197,7 +197,7 @@ def delete_account(account_id):
     try:
         user_id = get_jwt_identity()
         
-        db = next(get_db())
+        db = next(get_db_session())
         service = InstagramAccountService(db)
         
         success = service.deactivate_account(user_id, account_id)
