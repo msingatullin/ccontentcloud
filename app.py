@@ -30,6 +30,7 @@ from app.agents.paid_creative_agent import PaidCreativeAgent
 from app.billing.api.billing_routes import billing_bp
 from app.billing.webhooks.yookassa_webhook import webhook_bp
 from app.billing.middleware.usage_middleware import UsageMiddleware
+from app.routes.telegram_channels import bp as telegram_channels_bp
 # from app.auth.routes.auth import init_auth_routes, auth_bp  # Не используем Flask Blueprint
 from app.auth.models.user import User, UserSession
 from app.database.connection import init_database, get_db_session
@@ -110,6 +111,7 @@ def create_app():
     # Регистрируем остальные blueprints
     app.register_blueprint(billing_bp)
     app.register_blueprint(webhook_bp)
+    app.register_blueprint(telegram_channels_bp)
     # auth_bp не регистрируем - используем Flask-RESTX endpoints
 
     # Инициализируем billing middleware

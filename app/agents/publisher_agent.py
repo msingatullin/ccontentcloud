@@ -293,9 +293,26 @@ class PublisherAgent(BaseAgent):
         return {"valid": True}
     
     async def _publish_to_telegram(self, content: ContentPiece, 
-                                 schedule_time: Optional[datetime] = None) -> PublicationResult:
-        """Публикует в Telegram через TelegramMCP"""
+                                 schedule_time: Optional[datetime] = None,
+                                 user_id: Optional[int] = None,
+                                 channel_id: Optional[int] = None) -> PublicationResult:
+        """
+        Публикует в Telegram через TelegramMCP
+        
+        Args:
+            content: Контент для публикации
+            schedule_time: Время публикации (опционально)
+            user_id: ID пользователя (для многопользовательского режима)
+            channel_id: ID конкретного канала или None для дефолтного
+        """
         try:
+            # Если указан user_id - используем канал пользователя
+            if user_id:
+                return await self._publish_to_telegram_user_channel(
+                    content, user_id, channel_id, schedule_time
+                )
+            
+            # Иначе используем старую логику (глобальный бот)
             # Проверяем доступность TelegramMCP
             if self.telegram_mcp is None:
                 logger.warning("TelegramMCP недоступен, используем fallback")
@@ -342,6 +359,121 @@ class PublisherAgent(BaseAgent):
             logger.error(f"Критическая ошибка публикации в Telegram: {e}")
             # Fallback на мок данные при критической ошибке
             return await self._publish_to_telegram_fallback(content, schedule_time)
+    
+    async def _publish_to_telegram_user_channel(self, content: ContentPiece,
+                                                user_id: int,
+                                                channel_id: Optional[int] = None,
+                                                schedule_time: Optional[datetime] = None) -> PublicationResult:
+        """
+        Публикует в Telegram канал конкретного пользователя
+        Архитектура: ОДИН БОТ - МНОГО КАНАЛОВ
+        
+        Args:
+            content: Контент для публикации
+            user_id: ID пользователя
+            channel_id: ID конкретного канала или None для дефолтного
+            schedule_time: Время публикации
+        """
+        try:
+            from app.services.telegram_channel_service import TelegramChannelService
+            from app.models.telegram_channels import TelegramChannel
+            from app.database.connection import get_db_session
+            
+            # Получаем сессию БД
+            db = next(get_db_session())
+            service = TelegramChannelService(db)
+            
+            # Получаем канал пользователя
+            if channel_id:
+                channel = db.query(TelegramChannel).filter(
+                    TelegramChannel.id == channel_id,
+                    TelegramChannel.user_id == user_id,
+                    TelegramChannel.is_active == True
+                ).first()
+            else:
+                # Используем дефолтный канал
+                channel = service.get_default_channel(user_id)
+            
+            if not channel:
+                logger.error(f"Telegram канал не найден для user_id={user_id}, channel_id={channel_id}")
+                return PublicationResult(
+                    success=False,
+                    error_message="Telegram канал не подключен. Добавьте канал в настройках."
+                )
+            
+            if not channel.is_verified:
+                logger.warning(f"Попытка публикации в неверифицированный канал {channel.id}")
+                return PublicationResult(
+                    success=False,
+                    error_message=f"Канал '{channel.channel_name}' не верифицирован. Добавьте бота @content4ubot в администраторы канала."
+                )
+            
+            # Формируем сообщение
+            message_text = self._format_telegram_message(content)
+            
+            logger.info(f"Публикация в канал '{channel.channel_name}' (user_id={user_id}, chat_id={channel.chat_id})")
+            
+            # Проверяем доступность TelegramMCP
+            if self.telegram_mcp is None:
+                logger.error("TelegramMCP недоступен")
+                service.update_channel_stats(channel.id, post_success=False, error_message="TelegramMCP недоступен")
+                return PublicationResult(
+                    success=False,
+                    error_message="Telegram сервис временно недоступен"
+                )
+            
+            # Отправляем в КОНКРЕТНЫЙ канал пользователя
+            result = await self.telegram_mcp.send_message(
+                text=message_text,
+                chat_id=channel.chat_id
+            )
+            
+            if result.success:
+                message_data = result.data
+                message_id = message_data.get('message_id')
+                
+                # Обновляем статистику канала
+                service.update_channel_stats(channel.id, post_success=True)
+                
+                # Формируем URL поста если возможно
+                post_url = None
+                if channel.channel_username:
+                    post_url = f"https://t.me/{channel.channel_username.lstrip('@')}/{message_id}"
+                
+                logger.info(f"✅ Успешно опубликовано в канал '{channel.channel_name}', message_id={message_id}")
+                
+                return PublicationResult(
+                    success=True,
+                    platform="telegram",
+                    platform_post_id=str(message_id),
+                    post_url=post_url,
+                    published_at=datetime.now(),
+                    metrics={
+                        "message_id": message_id,
+                        "channel_id": channel.id,
+                        "channel_name": channel.channel_name,
+                        "chat_id": channel.chat_id,
+                        "sent_via": "telegram_mcp_user_channel"
+                    }
+                )
+            else:
+                error_msg = result.error or "Неизвестная ошибка Telegram API"
+                logger.error(f"❌ Ошибка публикации в канал '{channel.channel_name}': {error_msg}")
+                
+                # Сохраняем ошибку в канале
+                service.update_channel_stats(channel.id, post_success=False, error_message=error_msg)
+                
+                return PublicationResult(
+                    success=False,
+                    error_message=f"Ошибка публикации: {error_msg}"
+                )
+            
+        except Exception as e:
+            logger.error(f"Критическая ошибка публикации в пользовательский канал: {e}", exc_info=True)
+            return PublicationResult(
+                success=False,
+                error_message=f"Внутренняя ошибка: {str(e)}"
+            )
     
     async def _publish_to_telegram_fallback(self, content: ContentPiece, 
                                           schedule_time: Optional[datetime] = None) -> PublicationResult:
