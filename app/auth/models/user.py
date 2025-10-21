@@ -147,6 +147,33 @@ class User(Base):
         else:
             return self.username
 
+    def _get_social_media_status(self) -> list:
+        """Получить статус социальных сетей"""
+        social_media = []
+        
+        # Telegram channels
+        if self.telegram_channels:
+            social_media.append({
+                "name": "Telegram",
+                "isActive": len(self.telegram_channels) > 0
+            })
+        
+        # Instagram accounts
+        if self.instagram_accounts:
+            social_media.append({
+                "name": "Instagram", 
+                "isActive": len(self.instagram_accounts) > 0
+            })
+        
+        # Twitter accounts
+        if self.twitter_accounts:
+            social_media.append({
+                "name": "Twitter",
+                "isActive": len(self.twitter_accounts) > 0
+            })
+        
+        return social_media
+
     def get_display_name(self) -> str:
         """Получить отображаемое имя"""
         return self.get_full_name() or self.username
@@ -233,7 +260,8 @@ class User(Base):
             'notifications_enabled': self.notifications_enabled,
             'marketing_emails': self.marketing_emails,
             'display_name': self.get_display_name(),
-            'full_name': self.get_full_name()
+            'full_name': self.get_full_name(),
+            'socialMedia': self._get_social_media_status()
         }
         
         if include_sensitive:

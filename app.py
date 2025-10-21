@@ -33,6 +33,7 @@ from app.billing.middleware.usage_middleware import UsageMiddleware
 from app.routes.telegram_channels import bp as telegram_channels_bp
 from app.routes.instagram_accounts import bp as instagram_accounts_bp
 from app.routes.twitter_accounts import bp as twitter_accounts_bp
+from app.routes.social_media_accounts import bp as social_media_accounts_bp
 # from app.auth.routes.auth import init_auth_routes, auth_bp  # Не используем Flask Blueprint
 from app.auth.models.user import User, UserSession
 from app.database.connection import init_database, get_db_session
@@ -116,6 +117,7 @@ def create_app():
     app.register_blueprint(telegram_channels_bp)
     app.register_blueprint(instagram_accounts_bp)
     app.register_blueprint(twitter_accounts_bp)
+    app.register_blueprint(social_media_accounts_bp)
     # auth_bp не регистрируем - используем Flask-RESTX endpoints
 
     # Инициализируем billing middleware
