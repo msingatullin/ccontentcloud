@@ -6,7 +6,7 @@ import secrets
 import string
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, Tuple
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import IntegrityError
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
@@ -111,8 +111,15 @@ class AuthService:
             Tuple[bool, str, Optional[Dict]]: (success, message, tokens)
         """
         try:
-            # Поиск пользователя
-            user = self.db.query(User).filter(User.email == email).first()
+            # Поиск пользователя с загрузкой социальных сетей
+            user = self.db.query(User)\
+                .options(
+                    joinedload(User.telegram_channels),
+                    joinedload(User.instagram_accounts),
+                    joinedload(User.twitter_accounts)
+                )\
+                .filter(User.email == email)\
+                .first()
             
             if not user:
                 logger.warning(f"=== USER NOT FOUND: {email} ===")

@@ -149,28 +149,21 @@ class User(Base):
 
     def _get_social_media_status(self) -> list:
         """Получить статус социальных сетей"""
-        social_media = []
-        
-        # Telegram channels
-        if self.telegram_channels:
-            social_media.append({
+        # Всегда возвращаем все социальные сети с их статусом
+        social_media = [
+            {
                 "name": "Telegram",
-                "isActive": len(self.telegram_channels) > 0
-            })
-        
-        # Instagram accounts
-        if self.instagram_accounts:
-            social_media.append({
+                "isActive": bool(self.telegram_channels and len(self.telegram_channels) > 0)
+            },
+            {
                 "name": "Instagram", 
-                "isActive": len(self.instagram_accounts) > 0
-            })
-        
-        # Twitter accounts
-        if self.twitter_accounts:
-            social_media.append({
+                "isActive": bool(self.instagram_accounts and len(self.instagram_accounts) > 0)
+            },
+            {
                 "name": "Twitter",
-                "isActive": len(self.twitter_accounts) > 0
-            })
+                "isActive": bool(self.twitter_accounts and len(self.twitter_accounts) > 0)
+            }
+        ]
         
         return social_media
 
