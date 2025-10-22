@@ -119,7 +119,8 @@ def create_swagger_api(app) -> Api:
             {'name': 'auth', 'description': 'Аутентификация и авторизация'},
             {'name': 'billing', 'description': 'Биллинг и подписки'},
             {'name': 'webhook', 'description': 'Webhooks'},
-            {'name': 'health', 'description': 'Health Check'}
+            {'name': 'health', 'description': 'Health Check'},
+            {'name': 'social-media', 'description': 'Управление социальными сетями (Telegram, Instagram, Twitter)'}
         ]
     )
     

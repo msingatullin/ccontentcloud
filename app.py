@@ -45,6 +45,7 @@ from app.api.schemas import (
     ErrorResponseSchema
 )
 from app.api.routes import api, auth_ns, billing_ns, webhook_ns, health_ns
+from app.api.social_media_ns import social_media_ns
 from app.api.swagger_config import create_swagger_api
 
 # Настройка логирования
@@ -107,6 +108,7 @@ def create_app():
     swagger_api.add_namespace(billing_ns)
     swagger_api.add_namespace(webhook_ns)
     swagger_api.add_namespace(health_ns)
+    swagger_api.add_namespace(social_media_ns)
     
     # Регистрируем swagger_api в Flask app
     # swagger_api уже зарегистрирован в Flask app через create_swagger_api(app)
