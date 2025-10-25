@@ -4,9 +4,12 @@ Flask-RESTX namespace для управления социальными сет�
 
 from flask import request
 from flask_restx import Namespace, Resource, fields
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from functools import wraps
 from app.database.connection import get_db_session
 import logging
+
+# Импортируем кастомный jwt_required декоратор из routes.py
+from app.api.routes import jwt_required
 
 logger = logging.getLogger(__name__)
 
@@ -70,11 +73,11 @@ class SocialMediaAccounts(Resource):
         }
     )
     @social_media_ns.marshal_with(social_media_list_response_model)
-    @jwt_required()
-    def get(self):
+    @jwt_required
+    def get(self, current_user):
         """Получить все социальные сети пользователя"""
         try:
-            user_id = get_jwt_identity()
+            user_id = current_user.get('user_id')
             db = next(get_db_session())
             
             social_media_accounts = []
@@ -168,11 +171,11 @@ class SocialMediaAccounts(Resource):
     )
     @social_media_ns.expect(update_request_model)
     @social_media_ns.marshal_with(update_response_model)
-    @jwt_required()
-    def put(self):
+    @jwt_required
+    def put(self, current_user):
         """Обновить настройки социальной сети"""
         try:
-            user_id = get_jwt_identity()
+            user_id = current_user.get('user_id')
             data = request.get_json()
             
             if not data:
