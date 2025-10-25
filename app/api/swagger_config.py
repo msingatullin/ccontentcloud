@@ -6,6 +6,8 @@
 from flask_restx import Api, fields
 from typing import Dict, Any, Type
 from pydantic import BaseModel
+from flask_jwt_extended.exceptions import NoAuthorizationError, InvalidHeaderError, JWTDecodeError
+from flask import jsonify
 import inspect
 
 
@@ -123,6 +125,34 @@ def create_swagger_api(app) -> Api:
             {'name': 'social-media', 'description': 'Управление социальными сетями (Telegram, Instagram, Twitter)'}
         ]
     )
+    
+    # Обработчик ошибок JWT для Flask-RESTX
+    @api.errorhandler(NoAuthorizationError)
+    def handle_no_authorization_error(error):
+        """Обработчик отсутствия токена авторизации"""
+        return {
+            'error': 'Unauthorized',
+            'message': 'Требуется авторизация. Нажмите кнопку "Authorize" в Swagger UI и введите токен',
+            'details': str(error)
+        }, 401
+    
+    @api.errorhandler(InvalidHeaderError)
+    def handle_invalid_header_error(error):
+        """Обработчик невалидного заголовка авторизации"""
+        return {
+            'error': 'Invalid Authorization Header',
+            'message': 'Неверный формат заголовка авторизации. Используйте: Bearer <token>',
+            'details': str(error)
+        }, 401
+    
+    @api.errorhandler(JWTDecodeError)
+    def handle_jwt_decode_error(error):
+        """Обработчик ошибки декодирования JWT"""
+        return {
+            'error': 'Invalid Token',
+            'message': 'Недействительный токен авторизации',
+            'details': str(error)
+        }, 401
     
     return api
 
