@@ -193,6 +193,8 @@ class SocialMediaAccounts(Resource):
             # Обновление в зависимости от типа социальной сети
             if social_media_name.lower() == 'telegram':
                 account_id = metadata.get('accountId')
+                if not account_id:
+                    return {'error': 'accountId обязателен для обновления'}, 400
                 if account_id:
                     try:
                         from app.models.telegram_channels import TelegramChannel
@@ -216,6 +218,8 @@ class SocialMediaAccounts(Resource):
             
             elif social_media_name.lower() == 'instagram':
                 account_id = metadata.get('accountId')
+                if not account_id:
+                    return {'error': 'accountId обязателен для обновления'}, 400
                 if account_id:
                     try:
                         from app.models.instagram_accounts import InstagramAccount
@@ -240,6 +244,8 @@ class SocialMediaAccounts(Resource):
             
             elif social_media_name.lower() == 'twitter':
                 account_id = metadata.get('accountId')
+                if not account_id:
+                    return {'error': 'accountId обязателен для обновления'}, 400
                 if account_id:
                     try:
                         from app.models.twitter_accounts import TwitterAccount
