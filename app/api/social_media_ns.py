@@ -74,8 +74,8 @@ class SocialMediaAccounts(Resource):
     def get(self):
         """Получить все социальные сети пользователя"""
         try:
-            user_id = get_jwt_identity()['user_id']
-            db = get_db_session()
+            user_id = get_jwt_identity()
+            db = next(get_db_session())
             
             social_media_accounts = []
             
@@ -143,8 +143,6 @@ class SocialMediaAccounts(Resource):
             except ImportError:
                 logger.warning("TwitterAccount model not found")
             
-            db.close()
-            
             return {
                 'success': True,
                 'data': social_media_accounts
@@ -174,7 +172,7 @@ class SocialMediaAccounts(Resource):
     def put(self):
         """Обновить настройки социальной сети"""
         try:
-            user_id = get_jwt_identity()['user_id']
+            user_id = get_jwt_identity()
             data = request.get_json()
             
             if not data:
@@ -187,7 +185,7 @@ class SocialMediaAccounts(Resource):
             if not social_media_name:
                 return {'error': 'Название социальной сети не указано'}, 400
             
-            db = get_db_session()
+            db = next(get_db_session())
             
             # Обновление в зависимости от типа социальной сети
             if social_media_name.lower() == 'telegram':
@@ -203,17 +201,14 @@ class SocialMediaAccounts(Resource):
                         if channel:
                             channel.is_default = metadata.get('isDefault', channel.is_default)
                             db.commit()
-                            db.close()
                             
                             return {
                                 'success': True,
                                 'message': 'Telegram канал обновлен'
                             }, 200
                         else:
-                            db.close()
                             return {'error': 'Канал не найден'}, 404
                     except ImportError:
-                        db.close()
                         return {'error': 'Telegram не поддерживается'}, 400
             
             elif social_media_name.lower() == 'instagram':
@@ -230,17 +225,14 @@ class SocialMediaAccounts(Resource):
                             account.is_default = metadata.get('isDefault', account.is_default)
                             account.is_active = is_active
                             db.commit()
-                            db.close()
                             
                             return {
                                 'success': True,
                                 'message': 'Instagram аккаунт обновлен'
                             }, 200
                         else:
-                            db.close()
                             return {'error': 'Аккаунт не найден'}, 404
                     except ImportError:
-                        db.close()
                         return {'error': 'Instagram не поддерживается'}, 400
             
             elif social_media_name.lower() == 'twitter':
@@ -257,29 +249,18 @@ class SocialMediaAccounts(Resource):
                             account.is_default = metadata.get('isDefault', account.is_default)
                             account.is_active = is_active
                             db.commit()
-                            db.close()
                             
                             return {
                                 'success': True,
                                 'message': 'Twitter аккаунт обновлен'
                             }, 200
                         else:
-                            db.close()
                             return {'error': 'Аккаунт не найден'}, 404
                     except ImportError:
-                        db.close()
                         return {'error': 'Twitter не поддерживается'}, 400
             
             else:
-                db.close()
                 return {'error': 'Неподдерживаемая социальная сеть'}, 400
-            
-            db.close()
-            
-            return {
-                'success': True,
-                'message': 'Настройки обновлены'
-            }, 200
             
         except Exception as e:
             logger.error(f"Error updating social media account: {e}")
@@ -287,4 +268,5 @@ class SocialMediaAccounts(Resource):
                 'success': False,
                 'error': 'Ошибка обновления настроек'
             }, 500
+
 
