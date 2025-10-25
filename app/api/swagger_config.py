@@ -75,10 +75,10 @@ def create_swagger_api(app) -> Api:
     # Настройка JWT авторизации для Swagger UI
     authorizations = {
         'BearerAuth': {
-            'type': 'apiKey',
-            'in': 'header',
-            'name': 'Authorization',
-            'description': 'JWT Authorization header using the Bearer scheme. Example: "Bearer {token}"'
+            'type': 'http',
+            'scheme': 'bearer',
+            'bearerFormat': 'JWT',
+            'description': 'Введите JWT токен (БЕЗ слова Bearer). Swagger автоматически добавит Bearer префикс.'
         }
     }
     
