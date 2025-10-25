@@ -90,6 +90,33 @@ def create_app():
         # Наша JWT система сохраняет user_id в payload
         return jwt_data.get('user_id')
     
+    # Обработчики ошибок JWT
+    @jwt_manager.unauthorized_loader
+    def unauthorized_callback(error):
+        """Обработчик отсутствия токена"""
+        return jsonify({
+            'error': 'Unauthorized',
+            'message': 'Требуется авторизация. Используйте кнопку Authorize в Swagger UI',
+            'details': str(error)
+        }), 401
+    
+    @jwt_manager.invalid_token_loader
+    def invalid_token_callback(error):
+        """Обработчик невалидного токена"""
+        return jsonify({
+            'error': 'Invalid token',
+            'message': 'Недействительный токен авторизации',
+            'details': str(error)
+        }), 401
+    
+    @jwt_manager.expired_token_loader
+    def expired_token_callback(_jwt_header, jwt_data):
+        """Обработчик истекшего токена"""
+        return jsonify({
+            'error': 'Token expired',
+            'message': 'Токен авторизации истек. Пожалуйста, войдите снова'
+        }), 401
+    
     # CORS для фронтенда
     CORS(app, resources={
         r"/*": {
