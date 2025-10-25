@@ -10,6 +10,7 @@ import logging
 from datetime import datetime
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from flask_jwt_extended import JWTManager
 from dotenv import load_dotenv
 
 # Загружаем переменные окружения
@@ -64,8 +65,30 @@ def create_app():
         'SECRET_KEY': os.getenv('APP_SECRET_KEY', 'dev-secret-key'),
         'DEBUG': os.getenv('DEBUG_MODE', 'False').lower() == 'true',
         'JSON_SORT_KEYS': False,
-        'JSONIFY_PRETTYPRINT_REGULAR': True
+        'JSONIFY_PRETTYPRINT_REGULAR': True,
+        # Flask-JWT-Extended конфигурация
+        'JWT_SECRET_KEY': os.getenv('JWT_SECRET_KEY', os.getenv('APP_SECRET_KEY', 'dev-secret-key')),
+        'JWT_TOKEN_LOCATION': ['headers'],
+        'JWT_HEADER_NAME': 'Authorization',
+        'JWT_HEADER_TYPE': 'Bearer',
+        'JWT_ALGORITHM': 'HS256',
+        'JWT_IDENTITY_CLAIM': 'user_id'
     })
+    
+    # Инициализируем JWT Manager
+    jwt_manager = JWTManager(app)
+    
+    # Настраиваем identity loader для совместимости с нашей JWT системой
+    @jwt_manager.user_identity_loader
+    def user_identity_lookup(user):
+        """Извлекаем identity из токена"""
+        return user
+    
+    @jwt_manager.user_lookup_loader
+    def user_lookup_callback(_jwt_header, jwt_data):
+        """Загружаем пользователя по данным из токена"""
+        # Наша JWT система сохраняет user_id в payload
+        return jwt_data.get('user_id')
     
     # CORS для фронтенда
     CORS(app, resources={
