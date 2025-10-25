@@ -2,6 +2,9 @@
 
 ## ✅ Реализованные API Endpoints
 
+**Важно:** Social Media endpoints используют обычные Flask Blueprint (не в Swagger UI).
+Авторизация работает **автоматически** - просто добавьте `Authorization: Bearer <token>` в заголовок запроса.
+
 ### 1. Универсальные Social Media API
 
 #### `GET /api/social-media/accounts`
