@@ -71,13 +71,14 @@ def create_swagger_api(app) -> Api:
     Returns:
         Настроенный Api объект
     """
-    # Настройка JWT авторизации для Swagger UI (OpenAPI 3.0 стандарт)
+    # Настройка JWT авторизации для Swagger UI (Swagger 2.0 / OpenAPI 2.0)
+    # Flask-RESTX использует Swagger 2.0, поэтому тип 'apiKey'
     authorizations = {
         'BearerAuth': {
-            'type': 'http',
-            'scheme': 'bearer',
-            'bearerFormat': 'JWT',
-            'description': 'JWT токен (префикс Bearer добавится автоматически)'
+            'type': 'apiKey',
+            'in': 'header',
+            'name': 'Authorization',
+            'description': 'JWT токен. Можно вводить БЕЗ префикса Bearer (например: eyJhbG...) или с префиксом (Bearer eyJhbG...)'
         }
     }
     
@@ -102,7 +103,7 @@ def create_swagger_api(app) -> Api:
         1. Зарегистрируйтесь через `/auth/register`
         2. Войдите через `/auth/login` и получите `access_token`
         3. Нажмите кнопку "Authorize" вверху страницы
-        4. Вставьте только сам токен (БЕЗ слова "Bearer")
+        4. Вставьте токен - можно БЕЗ слова "Bearer" (просто: eyJhbG...) или с ним (Bearer eyJhbG...)
         5. Нажмите "Authorize" и "Close"
         
         ## Примеры использования:
