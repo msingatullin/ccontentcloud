@@ -71,13 +71,13 @@ def create_swagger_api(app) -> Api:
     Returns:
         Настроенный Api объект
     """
-    # Настройка JWT авторизации для Swagger UI (OpenAPI 2.0 / Swagger 2.0)
+    # Настройка JWT авторизации для Swagger UI (OpenAPI 3.0 стандарт)
     authorizations = {
         'BearerAuth': {
-            'type': 'apiKey',
-            'in': 'header',
-            'name': 'Authorization',
-            'description': 'JWT токен с префиксом Bearer. Формат: "Bearer {ваш_токен}"'
+            'type': 'http',
+            'scheme': 'bearer',
+            'bearerFormat': 'JWT',
+            'description': 'JWT токен (префикс Bearer добавится автоматически)'
         }
     }
     
@@ -102,7 +102,7 @@ def create_swagger_api(app) -> Api:
         1. Зарегистрируйтесь через `/auth/register`
         2. Войдите через `/auth/login` и получите `access_token`
         3. Нажмите кнопку "Authorize" вверху страницы
-        4. Введите токен в формате: `Bearer <ваш_токен>`
+        4. Вставьте только сам токен (БЕЗ слова "Bearer")
         5. Нажмите "Authorize" и "Close"
         
         ## Примеры использования:
