@@ -33,7 +33,7 @@ def get_social_media_accounts():
         ]
     """
     try:
-        user_id = get_jwt_identity()['user_id']
+        user_id = get_jwt_identity()
         db = get_db_session()
         
         social_media_accounts = []
@@ -134,7 +134,7 @@ def update_social_media_account():
     }
     """
     try:
-        user_id = get_jwt_identity()['user_id']
+        user_id = get_jwt_identity()
         data = request.get_json()
         
         if not data:
