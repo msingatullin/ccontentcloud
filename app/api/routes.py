@@ -530,7 +530,7 @@ class ContentCreate(Resource):
             logger.info(f"Request data prepared: {request_data}")
             
             # Получаем персональный оркестратор пользователя
-            from ...orchestrator.user_orchestrator_factory import UserOrchestratorFactory
+            from app.orchestrator.user_orchestrator_factory import UserOrchestratorFactory
             db_session = get_db_session()
             
             logger.info(f"Получаем оркестратор для пользователя {user_id}")
@@ -2395,7 +2395,7 @@ class BillingPlans(Resource):
     def get(self):
         """Получить все доступные тарифные планы"""
         try:
-            from ...billing.models.subscription import get_all_plans
+            from app.billing.models.subscription import get_all_plans
             
             plans = get_all_plans()
             
@@ -2440,7 +2440,7 @@ class BillingPlan(Resource):
     def get(self, plan_id):
         """Получить конкретный тарифный план"""
         try:
-            from ...billing.models.subscription import get_plan_by_id
+            from app.billing.models.subscription import get_plan_by_id
             
             plan = get_plan_by_id(plan_id)
             if not plan:
@@ -2528,8 +2528,8 @@ class BillingSubscription(Resource):
     def post(self):
         """Создать подписку"""
         try:
-            from ...billing.models.subscription import get_plan_by_id
-            from ...billing.services.yookassa_service import YooKassaService, PaymentRequest
+            from app.billing.models.subscription import get_plan_by_id
+            from app.billing.services.yookassa_service import YooKassaService, PaymentRequest
             
             data = request.get_json()
             user_id = request.headers.get('X-User-ID')
@@ -2919,7 +2919,7 @@ class AvailableAgents(Resource):
     def get(self):
         """Получить все доступные агенты с ценами"""
         try:
-            from ...billing.models.agent_pricing import AGENT_PRICING, AGENT_BUNDLES, AGENT_CATEGORIES
+            from app.billing.models.agent_pricing import AGENT_PRICING, AGENT_BUNDLES, AGENT_CATEGORIES
             
             # Формируем список агентов
             agents = []
@@ -2939,7 +2939,7 @@ class AvailableAgents(Resource):
             # Формируем список bundles
             bundles = []
             for bundle_id, bundle_data in AGENT_BUNDLES.items():
-                from ...billing.models.agent_pricing import get_bundle_agents
+                from app.billing.models.agent_pricing import get_bundle_agents
                 
                 bundles.append({
                     'id': bundle_id,
@@ -2982,7 +2982,7 @@ class MyAgentSubscriptions(Resource):
             user_id = current_user.get('user_id')
             db_session = get_db_session()
             
-            from ...billing.middleware.agent_access_middleware import AgentAccessMiddleware
+            from app.billing.middleware.agent_access_middleware import AgentAccessMiddleware
             
             subscriptions = AgentAccessMiddleware.get_user_subscriptions(user_id, db_session)
             
@@ -3025,8 +3025,8 @@ class SubscribeToAgent(Resource):
             bundle_id = data.get('bundle_id')
             
             db_session = get_db_session()
-            from ...billing.models.agent_subscription import AgentSubscription
-            from ...billing.models.agent_pricing import AGENT_PRICING, get_bundle_agents, get_bundle_price
+            from app.billing.models.agent_subscription import AgentSubscription
+            from app.billing.models.agent_pricing import AGENT_PRICING, get_bundle_agents, get_bundle_price
             
             # Проверяем существует ли агент
             if agent_id not in AGENT_PRICING:
@@ -3065,7 +3065,7 @@ class SubscribeToAgent(Resource):
             db_session.commit()
             
             # Обновляем оркестратор пользователя
-            from ...orchestrator.user_orchestrator_factory import UserOrchestratorFactory
+            from app.orchestrator.user_orchestrator_factory import UserOrchestratorFactory
             UserOrchestratorFactory.refresh_user_agents(user_id, db_session)
             
             logger.info(f"User {user_id} subscribed to agent {agent_id}")
@@ -3097,7 +3097,7 @@ class UnsubscribeFromAgent(Resource):
             agent_id = data.get('agent_id')
             
             db_session = get_db_session()
-            from ...billing.models.agent_subscription import AgentSubscription
+            from app.billing.models.agent_subscription import AgentSubscription
             
             # Находим подписку
             subscription = db_session.query(AgentSubscription).filter(
@@ -3117,7 +3117,7 @@ class UnsubscribeFromAgent(Resource):
             db_session.commit()
             
             # Обновляем оркестратор пользователя
-            from ...orchestrator.user_orchestrator_factory import UserOrchestratorFactory
+            from app.orchestrator.user_orchestrator_factory import UserOrchestratorFactory
             UserOrchestratorFactory.refresh_user_agents(user_id, db_session)
             
             logger.info(f"User {user_id} unsubscribed from agent {agent_id}")
@@ -3147,7 +3147,7 @@ class TokenUsageStats(Resource):
             agent_id_filter = request.args.get('agent_id')
             
             db_session = get_db_session()
-            from ...billing.middleware.agent_access_middleware import AgentAccessMiddleware
+            from app.billing.middleware.agent_access_middleware import AgentAccessMiddleware
             
             usage_stats = AgentAccessMiddleware.get_usage_stats(user_id, db_session)
             
@@ -3450,7 +3450,7 @@ class AgentRecommendations(Resource):
             user_id = current_user.get('user_id')
             db_session = get_db_session()
             
-            from ...billing.middleware.agent_access_middleware import AgentAccessMiddleware
+            from app.billing.middleware.agent_access_middleware import AgentAccessMiddleware
             
             recommendations = AgentAccessMiddleware.recommend_agents(user_id, db_session)
             
@@ -3473,7 +3473,7 @@ class WebhookYooKassa(Resource):
     def post(self):
         """Обработчик webhook от ЮКассы"""
         try:
-            from ...billing.services.yookassa_service import YooKassaService
+            from app.billing.services.yookassa_service import YooKassaService
             
             # Получаем данные запроса
             request_body = request.get_data(as_text=True)
