@@ -131,7 +131,8 @@ def create_app():
                 "https://content-curator-frontend-dt3n7kzpwq-uc.a.run.app",
                 "https://content-curator-frontend-1046574462613.us-central1.run.app",
                 "https://content-curator-dt3n7kzpwq-uc.a.run.app",
-                "https://content-curator-web-1046574462613.europe-west1.run.app"
+                "https://content-curator-web-1046574462613.europe-west1.run.app",
+                "https://content-curator-1046574462613.us-central1.run.app"  # текущий бэкенд URL для Swagger UI
             ],
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"],
