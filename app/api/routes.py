@@ -850,12 +850,28 @@ class FileUploadBatch(Resource):
                     
                     file_id = str(uuid.uuid4())
                     
-                    # Загружаем в облако
-                    storage_url, file_size, mime_type = storage_service.upload_file(
-                        file=file,
-                        folder=folder,
-                        file_id=file_id
-                    )
+                    # Читаем содержимое файла
+                    file_content = file.read()
+                    file.seek(0)  # Возвращаем указатель
+                    
+                    # Загружаем в облако через async метод
+                    upload_result = run_async(storage_service.upload_file(
+                        file_content=file_content,
+                        filename=file.filename,
+                        user_id=str(user_id),
+                        folder=folder
+                    ))
+                    
+                    if not upload_result.get('success'):
+                        errors.append({
+                            "filename": file.filename,
+                            "error": upload_result.get('error', 'Upload failed')
+                        })
+                        continue
+                    
+                    storage_url = upload_result['url']
+                    file_size = upload_result['size_bytes']
+                    mime_type = upload_result['content_type']
                     
                     # Определяем тип файла
                     if mime_type.startswith('image/'):
@@ -875,6 +891,7 @@ class FileUploadBatch(Resource):
                         if file_type == 'image' and vision_service:
                             ai_analysis = vision_service.analyze_image(storage_url)
                         elif file_type == 'document' and document_parser:
+                            file.seek(0)  # Возвращаем указатель в начало
                             extracted_text = document_parser.parse_file(file, mime_type)
                     
                     # Сохраняем в БД

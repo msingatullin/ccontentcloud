@@ -110,10 +110,11 @@ def get_social_media_accounts():
         }), 200
         
     except Exception as e:
-        logger.error(f"Error getting social media accounts: {e}")
+        logger.error(f"Error getting social media accounts: {e}", exc_info=True)
         return jsonify({
             'success': False,
-            'error': 'Ошибка получения социальных сетей'
+            'error': 'Ошибка получения социальных сетей',
+            'details': str(e)
         }), 500
 
 
@@ -235,8 +236,9 @@ def update_social_media_account():
         }), 200
         
     except Exception as e:
-        logger.error(f"Error updating social media account: {e}")
+        logger.error(f"Error updating social media account: {e}", exc_info=True)
         return jsonify({
             'success': False,
-            'error': 'Ошибка обновления настроек'
+            'error': 'Ошибка обновления настроек',
+            'details': str(e)
         }), 500
