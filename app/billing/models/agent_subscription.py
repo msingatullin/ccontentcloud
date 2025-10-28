@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 
-from ...database.connection import Base
+from app.database.connection import Base
 
 
 class AgentSubscription(Base):

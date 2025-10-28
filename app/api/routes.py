@@ -17,7 +17,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from app.auth.services.auth_service import AuthService
 from app.auth.utils.email import EmailService
 from app.database.connection import get_db_session
-from ..orchestrator.main_orchestrator import orchestrator
+from app.orchestrator.main_orchestrator import orchestrator
 from .schemas import (
     ContentRequestSchema,
     ContentResponseSchema,
@@ -596,7 +596,7 @@ class ContentHistory(Resource):
         Получает историю созданного контента пользователя
         """
         try:
-            from ..models.content import ContentPieceDB
+            from app.models.content import ContentPieceDB
             from sqlalchemy import desc
             
             user_id = current_user.get('user_id')
@@ -667,7 +667,7 @@ class ContentDetail(Resource):
         Получает конкретный контент со всеми деталями
         """
         try:
-            from ..models.content import ContentPieceDB, TokenUsageDB
+            from app.models.content import ContentPieceDB, TokenUsageDB
             
             user_id = current_user.get('user_id')
             
@@ -739,7 +739,7 @@ class ContentDetail(Resource):
         Удаляет контент из истории
         """
         try:
-            from ..models.content import ContentPieceDB
+            from app.models.content import ContentPieceDB
             
             user_id = current_user.get('user_id')
             
@@ -801,10 +801,10 @@ class FileUploadBatch(Resource):
         """
         try:
             from werkzeug.datastructures import FileStorage
-            from ..services.storage_service import get_storage_service
-            from ..services.vision_service import get_vision_service
-            from ..services.document_parser import get_document_parser
-            from ..models.uploads import FileUploadDB
+            from app.services.storage_service import get_storage_service
+            from app.services.vision_service import get_vision_service
+            from app.services.document_parser import get_document_parser
+            from app.models.uploads import FileUploadDB
             import uuid
             
             user_id = current_user.get('user_id')
@@ -940,10 +940,10 @@ class FileUpload(Resource):
         """
         try:
             from werkzeug.datastructures import FileStorage
-            from ..services.storage_service import get_storage_service
-            from ..services.vision_service import get_vision_service
-            from ..services.document_parser import get_document_parser
-            from ..models.uploads import FileUploadDB
+            from app.services.storage_service import get_storage_service
+            from app.services.vision_service import get_vision_service
+            from app.services.document_parser import get_document_parser
+            from app.models.uploads import FileUploadDB
             import uuid
             
             user_id = current_user.get('user_id')
@@ -1100,7 +1100,7 @@ class FileUploadList(Resource):
         Получает список загруженных файлов пользователя
         """
         try:
-            from ..models.uploads import FileUploadDB
+            from app.models.uploads import FileUploadDB
             from sqlalchemy import desc, func
             
             user_id = current_user.get('user_id')
@@ -1161,7 +1161,7 @@ class FileUploadDetail(Resource):
         Получает полную информацию о загруженном файле
         """
         try:
-            from ..models.uploads import FileUploadDB
+            from app.models.uploads import FileUploadDB
             
             user_id = current_user.get('user_id')
             
@@ -1195,8 +1195,8 @@ class FileUploadDetail(Resource):
         Удаляет загруженный файл
         """
         try:
-            from ..models.uploads import FileUploadDB
-            from ..services.storage_service import get_storage_service
+            from app.models.uploads import FileUploadDB
+            from app.services.storage_service import get_storage_service
             
             user_id = current_user.get('user_id')
             

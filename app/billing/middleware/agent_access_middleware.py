@@ -26,7 +26,7 @@ class AgentAccessMiddleware:
         Returns:
             True - доступ разрешен, False - доступ запрещен
         """
-        from ..models.agent_subscription import AgentSubscription
+        from app.billing.models.agent_subscription import AgentSubscription
         
         subscription = db_session.query(AgentSubscription).filter(
             AgentSubscription.user_id == user_id,
@@ -59,7 +59,7 @@ class AgentAccessMiddleware:
         Returns:
             Список agent_id доступных агентов
         """
-        from ..models.agent_subscription import AgentSubscription
+        from app.billing.models.agent_subscription import AgentSubscription
         
         subscriptions = db_session.query(AgentSubscription).filter(
             AgentSubscription.user_id == user_id,
@@ -87,7 +87,7 @@ class AgentAccessMiddleware:
         Returns:
             Список словарей с информацией о подписках
         """
-        from ..models.agent_subscription import AgentSubscription
+        from app.billing.models.agent_subscription import AgentSubscription
         
         subscriptions = db_session.query(AgentSubscription).filter(
             AgentSubscription.user_id == user_id
@@ -126,7 +126,7 @@ class AgentAccessMiddleware:
         # Формируем информацию о недостающих подписках
         missing_subscriptions = []
         if blocked:
-            from ..models.agent_pricing import AGENT_PRICING
+            from app.billing.models.agent_pricing import AGENT_PRICING
             
             for agent_id in blocked:
                 agent_info = AGENT_PRICING.get(agent_id, {})
@@ -169,7 +169,7 @@ class AgentAccessMiddleware:
             cost_kopeks: Стоимость в копейках
             db_session: Сессия БД
         """
-        from ..models.agent_subscription import AgentSubscription
+        from app.billing.models.agent_subscription import AgentSubscription
         
         subscription = db_session.query(AgentSubscription).filter(
             AgentSubscription.user_id == user_id,
@@ -202,7 +202,7 @@ class AgentAccessMiddleware:
         Returns:
             Dict со статистикой использования
         """
-        from ..models.agent_subscription import AgentSubscription
+        from app.billing.models.agent_subscription import AgentSubscription
         
         subscriptions = db_session.query(AgentSubscription).filter(
             AgentSubscription.user_id == user_id,
@@ -252,7 +252,7 @@ class AgentAccessMiddleware:
         Returns:
             Dict с рекомендациями
         """
-        from ..models.agent_pricing import AGENT_PRICING, recommend_bundle
+        from app.billing.models.agent_pricing import AGENT_PRICING, recommend_bundle
         
         # Получаем текущие подписки
         current_agents = AgentAccessMiddleware.get_user_agents(user_id, db_session)
