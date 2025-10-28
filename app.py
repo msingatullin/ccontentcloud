@@ -118,6 +118,7 @@ def create_app():
         }), 401
     
     # CORS для фронтенда
+    # Swagger UI работает на том же домене (same-origin) и не требует CORS
     CORS(app, resources={
         r"/*": {
             "origins": [
@@ -131,8 +132,7 @@ def create_app():
                 "https://content-curator-frontend-dt3n7kzpwq-uc.a.run.app",
                 "https://content-curator-frontend-1046574462613.us-central1.run.app",
                 "https://content-curator-dt3n7kzpwq-uc.a.run.app",
-                "https://content-curator-web-1046574462613.europe-west1.run.app",
-                "https://content-curator-1046574462613.us-central1.run.app"  # текущий бэкенд URL для Swagger UI
+                "https://content-curator-web-1046574462613.europe-west1.run.app"
             ],
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"],
