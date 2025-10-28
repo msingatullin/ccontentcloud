@@ -600,6 +600,7 @@ class ContentHistory(Resource):
             from sqlalchemy import desc
             
             user_id = current_user.get('user_id')
+            db_session = get_db_session()
             
             # Параметры пагинации
             page = request.args.get('page', 1, type=int)
@@ -670,6 +671,7 @@ class ContentDetail(Resource):
             from app.models.content import ContentPieceDB, TokenUsageDB
             
             user_id = current_user.get('user_id')
+            db_session = get_db_session()
             
             # Находим контент
             content = db_session.query(ContentPieceDB).filter(
@@ -742,6 +744,7 @@ class ContentDetail(Resource):
             from app.models.content import ContentPieceDB
             
             user_id = current_user.get('user_id')
+            db_session = get_db_session()
             
             # Находим контент
             content = db_session.query(ContentPieceDB).filter(
@@ -808,6 +811,7 @@ class FileUploadBatch(Resource):
             import uuid
             
             user_id = current_user.get('user_id')
+            db_session = get_db_session()
             
             # Получаем все файлы из запроса
             files = request.files.getlist('files')
@@ -947,6 +951,7 @@ class FileUpload(Resource):
             import uuid
             
             user_id = current_user.get('user_id')
+            db_session = get_db_session()
             
             # Проверяем наличие файла
             if 'file' not in request.files:
@@ -1104,6 +1109,7 @@ class FileUploadList(Resource):
             from sqlalchemy import desc, func
             
             user_id = current_user.get('user_id')
+            db_session = get_db_session()
             
             # Параметры пагинации
             page = int(request.args.get('page', 1))
@@ -1164,6 +1170,7 @@ class FileUploadDetail(Resource):
             from app.models.uploads import FileUploadDB
             
             user_id = current_user.get('user_id')
+            db_session = get_db_session()
             
             file_upload = db_session.query(FileUploadDB).filter(
                 FileUploadDB.id == file_id,
@@ -1199,6 +1206,7 @@ class FileUploadDetail(Resource):
             from app.services.storage_service import get_storage_service
             
             user_id = current_user.get('user_id')
+            db_session = get_db_session()
             
             file_upload = db_session.query(FileUploadDB).filter(
                 FileUploadDB.id == file_id,
