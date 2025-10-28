@@ -5,7 +5,7 @@
 
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, BinaryIO
 from pathlib import Path
 import mimetypes
@@ -134,12 +134,21 @@ class StorageService:
                 content_type=content_type
             )
             
-            # Делаем файл публично доступным
-            blob.make_public()
-            
-            # Получаем URL
-            file_url = blob.public_url
-            
+            file_url = f"https://storage.googleapis.com/{self.bucket_name}/{file_path}"
+            is_public = True
+
+            try:
+                blob.make_public()
+                logger.info(f"File made public: {file_path}")
+            except Exception as public_error:
+                is_public = False
+                logger.warning(f"Failed to make file public (will use signed URL): {public_error}")
+                try:
+                    expiration_hours = int(os.getenv('GCS_SIGNED_URL_EXPIRATION_HOURS', '24'))
+                except ValueError:
+                    expiration_hours = 24
+                file_url = blob.generate_signed_url(expiration=timedelta(hours=expiration_hours))
+
             logger.info(f"File uploaded successfully: {file_path}")
             
             return {
@@ -150,7 +159,8 @@ class StorageService:
                 "original_filename": filename,
                 "size_bytes": len(file_content),
                 "content_type": content_type,
-                "bucket": self.bucket_name
+                "bucket": self.bucket_name,
+                "is_public": is_public
             }
             
         except Exception as e:

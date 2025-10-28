@@ -76,9 +76,10 @@ class SocialMediaAccounts(Resource):
     @jwt_required
     def get(self, current_user):
         """Получить все социальные сети пользователя"""
+        db = None
         try:
             user_id = current_user.get('user_id')
-            db = next(get_db_session())
+            db = get_db_session()
             
             social_media_accounts = []
             
@@ -152,11 +153,15 @@ class SocialMediaAccounts(Resource):
             }, 200
             
         except Exception as e:
-            logger.error(f"Error getting social media accounts: {e}")
+            logger.error(f"Error getting social media accounts: {e}", exc_info=True)
             return {
                 'success': False,
-                'error': 'Ошибка получения социальных сетей'
+                'error': 'Ошибка получения социальных сетей',
+                'details': str(e)
             }, 500
+        finally:
+            if db:
+                db.close()
     
     @social_media_ns.doc('update_social_media_account',
         security='BearerAuth',
@@ -174,6 +179,7 @@ class SocialMediaAccounts(Resource):
     @jwt_required
     def put(self, current_user):
         """Обновить настройки социальной сети"""
+        db = None
         try:
             user_id = current_user.get('user_id')
             data = request.get_json()
@@ -188,7 +194,7 @@ class SocialMediaAccounts(Resource):
             if not social_media_name:
                 return {'error': 'Название социальной сети не указано'}, 400
             
-            db = next(get_db_session())
+            db = get_db_session()
             
             # Обновление в зависимости от типа социальной сети
             if social_media_name.lower() == 'telegram':
