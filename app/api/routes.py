@@ -155,7 +155,7 @@ content_request_model = api.model('ContentRequest', {
     'call_to_action': fields.List(fields.String, description='Призывы к действию (текст, ссылки, действия)', max_items=10),
     'tone': fields.String(description='Тон контента', enum=['professional', 'casual', 'friendly', 'authoritative'], default='professional'),
     'keywords': fields.List(fields.String, description='Ключевые слова', max_items=20),
-    'platforms': fields.List(fields.String, required=True, min_items=1, max_items=5, description='Платформы для публикации'),
+    'platforms': fields.List(fields.String, max_items=5, description='Платформы для публикации (опционально)', default=[]),
     'content_types': fields.List(fields.String, description='Типы контента', default=['post']),
     'constraints': fields.Raw(description='Дополнительные ограничения'),
     'test_mode': fields.Boolean(description='Тестовый режим', default=True),

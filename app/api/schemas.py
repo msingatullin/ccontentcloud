@@ -88,7 +88,7 @@ class ContentRequestSchema(BaseModel):
     call_to_action: List[str] = Field(default=[], max_items=10, description="Призывы к действию (текст, ссылки, действия)")
     tone: ToneEnum = Field(default=ToneEnum.PROFESSIONAL, description="Тон контента")
     keywords: List[str] = Field(default=[], max_items=20, description="Ключевые слова")
-    platforms: List[PlatformEnum] = Field(..., min_items=1, max_items=5, description="Платформы для публикации")
+    platforms: List[PlatformEnum] = Field(default=[], max_items=5, description="Платформы для публикации (опционально)")
     content_types: List[ContentTypeEnum] = Field(default=[ContentTypeEnum.POST], description="Типы контента")
     constraints: Dict[str, Any] = Field(default={}, description="Дополнительные ограничения")
     test_mode: bool = Field(default=True, description="Тестовый режим (без реальной публикации)")
