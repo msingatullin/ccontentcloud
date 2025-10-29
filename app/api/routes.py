@@ -902,7 +902,6 @@ class FileUploadBatch(Resource):
                         original_filename=file.filename,
                         file_type=file_type,
                         mime_type=mime_type,
-                        file_size=file_size,
                         storage_url=storage_url,
                         storage_provider='gcs',
                         folder=folder,
