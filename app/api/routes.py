@@ -259,6 +259,28 @@ viral_trends_response_model = api.model('ViralTrendsResponse', {
     'timestamp': fields.String(description='Время получения')
 })
 
+# ==================== UPLOAD MODELS ====================
+
+uploaded_file_model = api.model('UploadedFile', {
+    'file_id': fields.String(required=True, description='ID загруженного файла'),
+    'filename': fields.String(required=True, description='Имя файла'),
+    'file_type': fields.String(required=True, description='Тип файла (image, video, document)'),
+    'file_size': fields.Integer(required=True, description='Размер файла в байтах'),
+    'storage_url': fields.String(required=True, description='URL файла в хранилище')
+})
+
+upload_error_model = api.model('UploadError', {
+    'filename': fields.String(required=True, description='Имя файла'),
+    'error': fields.String(required=True, description='Описание ошибки')
+})
+
+batch_upload_response_model = api.model('BatchUploadResponse', {
+    'success': fields.Boolean(required=True, description='Успешность операции'),
+    'message': fields.String(required=True, description='Сообщение о результате'),
+    'uploaded_files': fields.List(fields.Nested(uploaded_file_model), description='Успешно загруженные файлы'),
+    'errors': fields.List(fields.Nested(upload_error_model), description='Ошибки загрузки')
+})
+
 # ==================== AUTH MODELS ====================
 
 register_model = auth_ns.model('RegisterRequest', {
@@ -787,6 +809,9 @@ class FileUploadBatch(Resource):
     @api.param('files', 'Файлы для загрузки (multiple)', type='file', required=True, _in='formData')
     @api.param('folder', 'Папка (images/documents/videos)', type='string', _in='formData')
     @api.param('analyze', 'Анализировать через AI', type='boolean', _in='formData')
+    @api.response(201, 'Файлы успешно загружены', batch_upload_response_model)
+    @api.response(400, 'Ошибка валидации')
+    @api.response(500, 'Внутренняя ошибка сервера')
     def post(self, current_user):
         """
         Загружает несколько файлов за один запрос
