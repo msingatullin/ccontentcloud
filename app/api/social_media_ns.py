@@ -76,7 +76,6 @@ class SocialMediaAccounts(Resource):
     @jwt_required
     def get(self, current_user):
         """Получить все социальные сети пользователя"""
-        db = None
         try:
             user_id = current_user.get('user_id')
             db = get_db_session()
@@ -179,7 +178,6 @@ class SocialMediaAccounts(Resource):
     @jwt_required
     def put(self, current_user):
         """Обновить настройки социальной сети"""
-        db = None
         try:
             user_id = current_user.get('user_id')
             data = request.get_json()

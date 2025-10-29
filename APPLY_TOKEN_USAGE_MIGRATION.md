@@ -161,3 +161,5 @@ curl -H "Authorization: eyJ..." \
 
 3. **Миграция уже применена** - проверить наличие таблицы: `\d token_usage` в psql
 
+
+

@@ -83,3 +83,5 @@ COMMENT ON COLUMN token_usage.cost_rub IS 'Стоимость в рублях';
 -- Права доступа (опционально)
 -- GRANT SELECT, INSERT ON token_usage TO your_app_user;
 
+
+
