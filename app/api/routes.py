@@ -898,14 +898,15 @@ class FileUploadBatch(Resource):
                     file_upload = FileUploadDB(
                         id=file_id,
                         user_id=user_id,
-                        filename=file.filename,
-                        original_filename=file.filename,
+                        filename=upload_result['filename'],
+                        original_filename=upload_result['original_filename'],
                         file_type=file_type,
                         mime_type=mime_type,
-                        storage_url=storage_url,
-                        storage_provider='gcs',
-                        folder=folder,
-                        ai_analysis=ai_analysis,
+                        size_bytes=upload_result['size_bytes'],
+                        storage_url=upload_result['url'],
+                        storage_bucket=upload_result['bucket'],
+                        storage_path=upload_result['path'],
+                        ai_description=ai_analysis if isinstance(ai_analysis, str) else None,
                         extracted_text=extracted_text
                     )
                     
