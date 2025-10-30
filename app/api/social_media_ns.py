@@ -63,6 +63,7 @@ error_model = social_media_ns.model('ErrorResponse', {
 @social_media_ns.route('/accounts')
 class SocialMediaAccounts(Resource):
     
+    @jwt_required
     @social_media_ns.doc('get_social_media_accounts',
         security='BearerAuth',
         description='Получить все подключенные социальные сети пользователя с их настройками',
@@ -72,8 +73,6 @@ class SocialMediaAccounts(Resource):
             500: ('Internal Server Error', error_model)
         }
     )
-    @social_media_ns.marshal_with(social_media_list_response_model)
-    @jwt_required
     def get(self, current_user):
         """Получить все социальные сети пользователя"""
         try:
@@ -162,6 +161,7 @@ class SocialMediaAccounts(Resource):
             if db:
                 db.close()
     
+    @jwt_required
     @social_media_ns.doc('update_social_media_account',
         security='BearerAuth',
         description='Обновить настройки конкретной социальной сети',
@@ -174,8 +174,6 @@ class SocialMediaAccounts(Resource):
         }
     )
     @social_media_ns.expect(update_request_model)
-    @social_media_ns.marshal_with(update_response_model)
-    @jwt_required
     def put(self, current_user):
         """Обновить настройки социальной сети"""
         try:
