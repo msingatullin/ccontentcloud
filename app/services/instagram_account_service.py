@@ -120,13 +120,21 @@ class InstagramAccountService:
             encrypted_password = self._encrypt(password)
             
             # Создаем запись в БД
+            # profile_pic_url из instagrapi может быть типом Url (pydantic),
+            # приводим к строке, чтобы psycopg2 мог сохранить в TEXT
+            safe_profile_pic_url = None
+            try:
+                safe_profile_pic_url = str(user_info.profile_pic_url) if getattr(user_info, "profile_pic_url", None) else None
+            except Exception:
+                safe_profile_pic_url = None
+
             account = InstagramAccount(
                 user_id=user_id,
                 instagram_username=username,
                 encrypted_password=encrypted_password,
                 account_name=account_name,
                 instagram_user_id=str(user_info.pk),
-                profile_pic_url=user_info.profile_pic_url,
+                profile_pic_url=safe_profile_pic_url,
                 followers_count=user_info.follower_count,
                 following_count=user_info.following_count,
                 biography=user_info.biography,
