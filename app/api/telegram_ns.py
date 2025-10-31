@@ -208,6 +208,43 @@ class TelegramChannelDefault(Resource):
                 db.close()
 
 
+activate_telegram_request = telegram_ns.model('ActivateTelegramRequest', {
+    'is_active': fields.Boolean(required=True, description='Статус активации (true/false)')
+})
+
+
+@telegram_ns.route('/channels/<int:channel_id>/activate')
+class TelegramChannelActivate(Resource):
+    @jwt_required
+    @telegram_ns.doc('toggle_telegram_activation', security='BearerAuth')
+    @telegram_ns.expect(activate_telegram_request, validate=True)
+    def put(self, current_user, channel_id: int):
+        try:
+            user_id = current_user.get('user_id')
+            data = request.get_json() or {}
+            is_active = data.get('is_active')
+            if is_active is None:
+                return {'success': False, 'error': 'Укажите is_active (true/false)'}, 400
+            
+            db = get_db_session()
+            service = TelegramChannelService(db)
+            success = service.toggle_activation(user_id, channel_id, bool(is_active))
+            if success:
+                status_text = "активирован" if is_active else "деактивирован"
+                return {
+                    'success': True,
+                    'message': f'Канал успешно {status_text}',
+                    'is_active': is_active
+                }, 200
+            return {'success': False, 'error': 'Канал не найден'}, 404
+        except Exception as e:
+            logger.error(f"Ошибка переключения активации Telegram: {e}")
+            return {'success': False, 'error': 'Внутренняя ошибка сервера'}, 500
+        finally:
+            if 'db' in locals() and db:
+                db.close()
+
+
 @telegram_ns.route('/channels/<int:channel_id>/verify')
 class TelegramChannelVerify(Resource):
     @jwt_required
@@ -251,5 +288,7 @@ class TelegramChannelVerify(Resource):
         finally:
             if 'db' in locals() and db:
                 db.close()
+
+
 
 

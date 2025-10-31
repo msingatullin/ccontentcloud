@@ -196,3 +196,42 @@ class TwitterAccountDefault(Resource):
                 db.close()
 
 
+activate_twitter_request = twitter_ns.model('ActivateTwitterRequest', {
+    'is_active': fields.Boolean(required=True, description='Статус активации (true/false)')
+})
+
+
+@twitter_ns.route('/accounts/<int:account_id>/activate')
+class TwitterAccountActivate(Resource):
+    @jwt_required
+    @twitter_ns.doc('toggle_twitter_activation', security='BearerAuth')
+    @twitter_ns.expect(activate_twitter_request, validate=True)
+    def put(self, current_user, account_id: int):
+        try:
+            user_id = current_user.get('user_id')
+            data = request.get_json() or {}
+            is_active = data.get('is_active')
+            if is_active is None:
+                return {'success': False, 'error': 'Укажите is_active (true/false)'}, 400
+            
+            db = get_db_session()
+            service = TwitterAccountService(db)
+            success = service.toggle_activation(user_id, account_id, bool(is_active))
+            if success:
+                status_text = "активирован" if is_active else "деактивирован"
+                return {
+                    'success': True,
+                    'message': f'Аккаунт успешно {status_text}',
+                    'is_active': is_active
+                }, 200
+            return {'success': False, 'error': 'Аккаунт не найден'}, 404
+        except Exception as e:
+            logger.error(f"Ошибка переключения активации Twitter: {e}")
+            return {'success': False, 'error': 'Внутренняя ошибка сервера'}, 500
+        finally:
+            if 'db' in locals() and db:
+                db.close()
+
+
+
+

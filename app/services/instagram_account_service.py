@@ -255,6 +255,41 @@ class InstagramAccountService:
         
         return False
     
+    def toggle_activation(self, user_id: int, account_id: int, is_active: bool) -> bool:
+        """
+        Переключить статус активации аккаунта
+        
+        Args:
+            user_id: ID пользователя
+            account_id: ID аккаунта
+            is_active: Новый статус активации (True/False)
+            
+        Returns:
+            True если успешно, False если аккаунт не найден
+        """
+        account = self.db.query(InstagramAccount).filter(
+            InstagramAccount.id == account_id,
+            InstagramAccount.user_id == user_id
+        ).first()
+        
+        if account:
+            account.is_active = is_active
+            # Если деактивируем - снимаем дефолт
+            if not is_active:
+                account.is_default = False
+            account.updated_at = datetime.utcnow()
+            self.db.commit()
+            
+            # Если деактивируем - удаляем из кеша
+            if not is_active and account_id in self.clients:
+                del self.clients[account_id]
+            
+            status = "активирован" if is_active else "деактивирован"
+            logger.info(f"Instagram аккаунт {account_id} {status} для user_id={user_id}")
+            return True
+        
+        return False
+    
     def _check_daily_limit(self, account: InstagramAccount) -> bool:
         """Проверка дневного лимита постов (защита от бана)"""
         today = date.today()

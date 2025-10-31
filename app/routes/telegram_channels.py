@@ -273,6 +273,58 @@ def delete_channel(channel_id):
         }), 500
 
 
+@bp.route('/channels/<int:channel_id>/activate', methods=['PUT'])
+@jwt_required()
+def toggle_activation(channel_id):
+    """
+    Переключить статус активации канала
+    
+    Body:
+        {
+            "is_active": true/false
+        }
+    
+    Returns:
+        JSON с результатом
+    """
+    try:
+        user_id = get_jwt_identity()
+        data = request.get_json() or {}
+        
+        is_active = data.get('is_active')
+        if is_active is None:
+            return jsonify({
+                'success': False,
+                'error': 'Укажите is_active (true/false)'
+            }), 400
+        
+        db = next(get_db_session())
+        service = TelegramChannelService(db)
+        
+        success = service.toggle_activation(user_id, channel_id, bool(is_active))
+        
+        if success:
+            status_text = "активирован" if is_active else "деактивирован"
+            logger.info(f"✅ Канал {channel_id} {status_text} для user_id={user_id}")
+            return jsonify({
+                'success': True,
+                'message': f'Канал успешно {status_text}',
+                'is_active': is_active
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Канал не найден'
+            }), 404
+            
+    except Exception as e:
+        logger.error(f"Ошибка переключения активации: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'Внутренняя ошибка сервера'
+        }), 500
+
+
 @bp.route('/channels/<int:channel_id>/verify', methods=['POST'])
 @jwt_required()
 def verify_channel(channel_id):

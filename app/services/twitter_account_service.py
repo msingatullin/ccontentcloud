@@ -272,6 +272,41 @@ class TwitterAccountService:
         
         return False
     
+    def toggle_activation(self, user_id: int, account_id: int, is_active: bool) -> bool:
+        """
+        Переключить статус активации аккаунта
+        
+        Args:
+            user_id: ID пользователя
+            account_id: ID аккаунта
+            is_active: Новый статус активации (True/False)
+            
+        Returns:
+            True если успешно, False если аккаунт не найден
+        """
+        account = self.db.query(TwitterAccount).filter(
+            TwitterAccount.id == account_id,
+            TwitterAccount.user_id == user_id
+        ).first()
+        
+        if account:
+            account.is_active = is_active
+            # Если деактивируем - снимаем дефолт
+            if not is_active:
+                account.is_default = False
+            account.updated_at = datetime.utcnow()
+            self.db.commit()
+            
+            # Если деактивируем - удаляем из кеша
+            if not is_active and account_id in self.api_clients:
+                del self.api_clients[account_id]
+            
+            status = "активирован" if is_active else "деактивирован"
+            logger.info(f"Twitter аккаунт {account_id} {status} для user_id={user_id}")
+            return True
+        
+        return False
+    
     def _get_api_client(self, account: TwitterAccount) -> tweepy.API:
         """
         Получить или создать Twitter API клиент

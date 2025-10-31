@@ -269,6 +269,57 @@ def delete_account(account_id):
         }), 500
 
 
+@bp.route('/accounts/<int:account_id>/activate', methods=['PUT'])
+@jwt_required()
+def toggle_activation(account_id):
+    """
+    Переключить статус активации аккаунта
+    
+    Body:
+        {
+            "is_active": true/false
+        }
+    
+    Returns:
+        JSON с результатом
+    """
+    try:
+        user_id = get_jwt_identity()
+        data = request.get_json() or {}
+        
+        is_active = data.get('is_active')
+        if is_active is None:
+            return jsonify({
+                'success': False,
+                'error': 'Укажите is_active (true/false)'
+            }), 400
+        
+        db = next(get_db_session())
+        service = TwitterAccountService(db)
+        
+        success = service.toggle_activation(user_id, account_id, bool(is_active))
+        
+        if success:
+            status_text = "активирован" if is_active else "деактивирован"
+            return jsonify({
+                'success': True,
+                'message': f'Аккаунт успешно {status_text}',
+                'is_active': is_active
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Аккаунт не найден'
+            }), 404
+            
+    except Exception as e:
+        logger.error(f"Ошибка переключения активации: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'Внутренняя ошибка сервера'
+        }), 500
+
+
 @bp.route('/info', methods=['GET'])
 @jwt_required()
 def get_info():

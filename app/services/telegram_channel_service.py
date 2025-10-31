@@ -369,6 +369,38 @@ class TelegramChannelService:
         logger.warning(f"Канал {channel_id} не найден для user_id={user_id}")
         return False
     
+    def toggle_activation(self, user_id: int, channel_id: int, is_active: bool) -> bool:
+        """
+        Переключить статус активации канала
+        
+        Args:
+            user_id: ID пользователя
+            channel_id: ID канала
+            is_active: Новый статус активации (True/False)
+            
+        Returns:
+            True если успешно, False если канал не найден
+        """
+        channel = self.db.query(TelegramChannel).filter(
+            TelegramChannel.id == channel_id,
+            TelegramChannel.user_id == user_id
+        ).first()
+        
+        if channel:
+            channel.is_active = is_active
+            # Если деактивируем - снимаем дефолт
+            if not is_active:
+                channel.is_default = False
+            channel.updated_at = datetime.utcnow()
+            self.db.commit()
+            
+            status = "активирован" if is_active else "деактивирован"
+            logger.info(f"Telegram канал {channel_id} {status} для user_id={user_id}")
+            return True
+        
+        logger.warning(f"Канал {channel_id} не найден для user_id={user_id}")
+        return False
+    
     def update_channel_stats(self, channel_id: int, post_success: bool = True, 
                            error_message: Optional[str] = None) -> None:
         """

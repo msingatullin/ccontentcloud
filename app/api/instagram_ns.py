@@ -152,3 +152,42 @@ class InstagramAccountDefault(Resource):
                 db.close()
 
 
+activate_request = instagram_ns.model('ActivateInstagramRequest', {
+    'is_active': fields.Boolean(required=True, description='Статус активации (true/false)')
+})
+
+
+@instagram_ns.route('/accounts/<int:account_id>/activate')
+class InstagramAccountActivate(Resource):
+    @jwt_required
+    @instagram_ns.doc('toggle_instagram_activation', security='BearerAuth')
+    @instagram_ns.expect(activate_request, validate=True)
+    def put(self, current_user, account_id: int):
+        try:
+            user_id = current_user.get('user_id')
+            data = request.get_json() or {}
+            is_active = data.get('is_active')
+            if is_active is None:
+                return {'success': False, 'error': 'Укажите is_active (true/false)'}, 400
+            
+            db = get_db_session()
+            service = InstagramAccountService(db)
+            success = service.toggle_activation(user_id, account_id, bool(is_active))
+            if success:
+                status_text = "активирован" if is_active else "деактивирован"
+                return {
+                    'success': True,
+                    'message': f'Аккаунт успешно {status_text}',
+                    'is_active': is_active
+                }, 200
+            return {'success': False, 'error': 'Аккаунт не найден'}, 404
+        except Exception as e:
+            logger.error(f"Ошибка переключения активации Instagram: {e}")
+            return {'success': False, 'error': 'Внутренняя ошибка сервера'}, 500
+        finally:
+            if 'db' in locals() and db:
+                db.close()
+
+
+
+
