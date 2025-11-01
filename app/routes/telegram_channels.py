@@ -501,3 +501,66 @@ def verify_channel(channel_id):
         }), 500
 
 
+# ===== УПРОЩЕННЫЕ ЭНДПОИНТЫ ДЛЯ ЕДИНСТВЕННОГО КАНАЛА =====
+
+@bp.route('/channel/activate', methods=['PUT'])
+@jwt_required()
+def activate_single_channel():
+    """
+    Упрощенный эндпоинт для единственного канала пользователя.
+    Клиент предоставляет только ссылку - все остальное делается автоматически:
+    - Находит существующий канал или создает новый
+    - Автоматически получает название из Telegram API
+    - Верифицирует канал
+    - Активирует его
+    
+    Body:
+        {
+            "channel_link": "https://t.me/mychannel"
+        }
+    
+    Returns:
+        JSON с результатом и данными канала
+    """
+    try:
+        user_id = get_jwt_identity()
+        data = request.get_json() or {}
+        
+        channel_link = data.get('channel_link', '').strip()
+        
+        if not channel_link:
+            return jsonify({
+                'success': False,
+                'error': 'Укажите ссылку на канал'
+            }), 400
+        
+        db = next(get_db_session())
+        service = TelegramChannelService(db)
+        
+        # Вызываем упрощенный метод (async операция)
+        success, message, channel = asyncio.run(
+            service.upsert_and_activate_single_channel(user_id, channel_link)
+        )
+        
+        if success:
+            logger.info(f"✅ Канал активирован (упрощенный режим): user_id={user_id}, channel_id={channel.id if channel else None}")
+            return jsonify({
+                'success': True,
+                'message': message,
+                'channel': channel.to_dict() if channel else None
+            }), 200
+        else:
+            logger.warning(f"❌ Не удалось активировать канал: {message}")
+            return jsonify({
+                'success': False,
+                'error': message
+            }), 400
+            
+    except Exception as e:
+        logger.error(f"Критическая ошибка активации канала: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'Внутренняя ошибка сервера при активации канала'
+        }), 500
+
+

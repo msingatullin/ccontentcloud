@@ -372,5 +372,55 @@ class TelegramChannelVerify(Resource):
                 db.close()
 
 
+# ===== УПРОЩЕННЫЕ ЭНДПОИНТЫ ДЛЯ ЕДИНСТВЕННОГО КАНАЛА =====
+
+simple_activate_request = telegram_ns.model('SimpleActivateChannelRequest', {
+    'channel_link': fields.String(required=True, description='Ссылка на канал (https://t.me/channel или @channel)')
+})
+
+
+@telegram_ns.route('/channel/activate')
+class TelegramSingleChannelActivate(Resource):
+    @jwt_required
+    @telegram_ns.doc('activate_single_channel', 
+                     description='''Упрощенный эндпоинт для единственного канала пользователя.
+                     Клиент предоставляет только ссылку - все остальное делается автоматически:
+                     - Находит существующий канал или создает новый
+                     - Автоматически получает название из Telegram API
+                     - Верифицирует канал
+                     - Активирует его''',
+                     security='BearerAuth')
+    @telegram_ns.expect(simple_activate_request, validate=True)
+    def put(self, current_user):
+        try:
+            user_id = current_user.get('user_id')
+            data = request.get_json() or {}
+            channel_link = data.get('channel_link', '').strip()
+            
+            if not channel_link:
+                return {'success': False, 'error': 'Укажите ссылку на канал'}, 400
+            
+            db = get_db_session()
+            service = TelegramChannelService(db)
+            
+            success, message, channel = asyncio.run(
+                service.upsert_and_activate_single_channel(user_id, channel_link)
+            )
+            
+            if success:
+                return {
+                    'success': True,
+                    'message': message,
+                    'channel': channel.to_dict() if channel else None
+                }, 200
+            return {'success': False, 'error': message}, 400
+        except Exception as e:
+            logger.error(f"Критическая ошибка активации канала: {e}")
+            return {'success': False, 'error': 'Внутренняя ошибка сервера'}, 500
+        finally:
+            if 'db' in locals() and db:
+                db.close()
+
+
 
 

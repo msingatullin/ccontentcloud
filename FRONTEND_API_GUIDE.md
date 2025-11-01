@@ -133,6 +133,81 @@
 - `PUT /api/twitter/accounts/{id}/default` - установить по умолчанию
 - `DELETE /api/twitter/accounts/{id}` - удалить аккаунт
 
+### 4. Frontend: Подключение Twitter (OAuth 1.0a)
+
+Важно: пользователю НИЧЕГО не нужно вводить (никакие ключи). Ключи приложения находятся на сервере. Фронт выполняет двухшаговый OAuth.
+
+1) Инициация OAuth
+```javascript
+// 1. Запрашиваем URL авторизации
+const r = await fetch(`/api/twitter/oauth/url?callback_url=${encodeURIComponent(window.location.origin + '/twitter/callback')}`, {
+  headers: { Authorization: `Bearer ${accessToken}` }
+});
+const { success, auth_url, oauth_token_secret } = await r.json();
+if (!success) throw new Error('OAuth URL error');
+
+// 2. Сохраняем secret до возврата из Twitter
+sessionStorage.setItem('tw_oauth_secret', oauth_token_secret);
+
+// 3. Редиректим пользователя в Twitter для авторизации
+window.location.href = auth_url;
+```
+
+2) Callback страница (после возврата из Twitter)
+```javascript
+// Пример на странице /twitter/callback
+const params = new URLSearchParams(window.location.search);
+const oauth_token = params.get('oauth_token');
+const oauth_verifier = params.get('oauth_verifier');
+const oauth_token_secret = sessionStorage.getItem('tw_oauth_secret');
+
+if (!oauth_token || !oauth_verifier || !oauth_token_secret) {
+  // показать ошибку пользователю
+}
+
+const resp = await fetch(`/api/twitter/oauth/callback?oauth_token=${encodeURIComponent(oauth_token)}&oauth_verifier=${encodeURIComponent(oauth_verifier)}`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${accessToken}`
+  },
+  body: JSON.stringify({ oauth_token_secret, account_name: 'Мой Twitter' })
+});
+const data = await resp.json();
+if (data.success) {
+  // Аккаунт подключен, можно обновить список
+  sessionStorage.removeItem('tw_oauth_secret');
+} else {
+  // показать data.error
+}
+```
+
+3) Проверка подключения и управление аккаунтами
+```javascript
+// Получить аккаунты
+const accountsRes = await fetch('/api/twitter/accounts', {
+  headers: { Authorization: `Bearer ${accessToken}` }
+});
+const { accounts } = await accountsRes.json();
+
+// Установить по умолчанию
+await fetch(`/api/twitter/accounts/${accounts[0].id}/default`, {
+  method: 'PUT',
+  headers: { Authorization: `Bearer ${accessToken}` }
+});
+
+// Удалить аккаунт
+await fetch(`/api/twitter/accounts/${accounts[0].id}`, {
+  method: 'DELETE',
+  headers: { Authorization: `Bearer ${accessToken}` }
+});
+```
+
+Ошибки и особые случаи:
+- Если не передан `callback_url` в шаге 1, будет использован дефолт `API_BASE_URL/api/twitter/oauth/callback` (бэкенд).
+- При `400` в callback: проверьте, что передаёте `oauth_token_secret` из шага 1 и что query содержит `oauth_token` и `oauth_verifier`.
+- Всегда отправляйте Bearer JWT в заголовках.
+
 ## 🔧 Исправления по вашим заметкам
 
 ### ✅ Metadata как объект (не массив)
@@ -178,5 +253,3 @@ const response = await fetch('/api/social-media/accounts', {
 
 ## 🎯 Готово к использованию!
 
-Все API endpoints работают и соответствуют вашим требованиям. Сервис развернут и доступен по адресу:
-`https://content-curator-dt3n7kzpwq-uc.a.run.app`

@@ -494,6 +494,96 @@ class TelegramChannelService:
         logger.warning(f"Канал {channel_id} не найден для user_id={user_id}")
         return False
     
+    async def upsert_and_activate_single_channel(self, user_id: int, 
+                                                channel_link: str) -> Tuple[bool, str, Optional[TelegramChannel]]:
+        """
+        Упрощенный метод для единственного канала пользователя.
+        Находит существующий канал или создает новый, обновляет ссылку, 
+        автоматически получает название из Telegram API, верифицирует и активирует.
+        
+        Args:
+            user_id: ID пользователя
+            channel_link: Ссылка на канал (единственное что нужно от клиента)
+            
+        Returns:
+            Tuple (success, message, channel)
+        """
+        # Парсим ссылку
+        chat_id = self.parse_channel_link(channel_link.strip())
+        if not chat_id:
+            return False, "Неверный формат ссылки на канал. Используйте: https://t.me/channel или @channel", None
+        
+        # Ищем существующий канал пользователя (должен быть только один)
+        existing_channel = self.db.query(TelegramChannel).filter(
+            TelegramChannel.user_id == user_id
+        ).first()
+        
+        # Верифицируем канал и получаем информацию
+        is_verified, chat_info = await self.verify_bot_in_channel(chat_id)
+        
+        if not chat_info:
+            return False, f"Канал не найден. Убедитесь что:\n1. Вы добавили бота @content4ubot в канал\n2. Ссылка на канал указана верно", None
+        
+        # Получаем название из API или генерируем дефолтное
+        auto_channel_name = chat_info.get('title') or f"Telegram Channel ({chat_id})"
+        final_chat_id = str(chat_info.get('id', chat_id))
+        
+        if existing_channel:
+            # Обновляем существующий канал
+            existing_channel.chat_id = final_chat_id
+            existing_channel.channel_username = chat_id if chat_id.startswith('@') else None
+            existing_channel.channel_name = auto_channel_name
+            existing_channel.channel_title = chat_info.get('title')
+            existing_channel.channel_type = chat_info.get('type')
+            existing_channel.members_count = chat_info.get('members_count')
+            existing_channel.is_verified = is_verified
+            existing_channel.is_active = True
+            existing_channel.is_default = True
+            
+            if not is_verified:
+                existing_channel.last_error = 'Бот не является администратором или без прав публикации'
+            else:
+                existing_channel.last_error = None
+            
+            existing_channel.updated_at = datetime.utcnow()
+            self.db.commit()
+            self.db.refresh(existing_channel)
+            
+            logger.info(f"✅ Канал обновлен и активирован: user_id={user_id}, channel_id={existing_channel.id}")
+            
+            if not is_verified:
+                return True, f"⚠️ Канал '{auto_channel_name}' обновлен, но бот не является администратором. Добавьте бота @content4ubot в администраторы канала с правами 'Публикация сообщений'", existing_channel
+            
+            return True, f"✅ Канал '{auto_channel_name}' успешно обновлен и активирован!", existing_channel
+        else:
+            # Создаем новый канал
+            new_channel = TelegramChannel(
+                user_id=user_id,
+                channel_name=auto_channel_name,
+                channel_username=chat_id if chat_id.startswith('@') else None,
+                chat_id=final_chat_id,
+                is_verified=is_verified,
+                channel_title=chat_info.get('title'),
+                channel_type=chat_info.get('type'),
+                members_count=chat_info.get('members_count'),
+                is_active=True,
+                is_default=True
+            )
+            
+            if not is_verified:
+                new_channel.last_error = 'Бот не является администратором или без прав публикации'
+            
+            self.db.add(new_channel)
+            self.db.commit()
+            self.db.refresh(new_channel)
+            
+            logger.info(f"✅ Новый канал создан и активирован: user_id={user_id}, channel_id={new_channel.id}")
+            
+            if not is_verified:
+                return True, f"⚠️ Канал '{auto_channel_name}' добавлен, но бот не является администратором. Добавьте бота @content4ubot в администраторы канала с правами 'Публикация сообщений'", new_channel
+            
+            return True, f"✅ Канал '{auto_channel_name}' успешно подключен и активирован!", new_channel
+    
     def update_channel_stats(self, channel_id: int, post_success: bool = True, 
                            error_message: Optional[str] = None) -> None:
         """

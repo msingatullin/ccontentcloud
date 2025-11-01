@@ -85,3 +85,8 @@ COMMENT ON COLUMN token_usage.cost_rub IS 'Стоимость в рублях';
 
 
 
+
+
+
+
+
