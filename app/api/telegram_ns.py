@@ -44,8 +44,7 @@ channel_model = telegram_ns.model('TelegramChannel', {
 })
 
 add_channel_request = telegram_ns.model('AddTelegramChannelRequest', {
-    'channel_link': fields.String(required=True, description='Ссылка на канал https://t.me/...'),
-    'channel_name': fields.String(required=True, description='Название канала для UI')
+    'channel_link': fields.String(required=True, description='Ссылка на канал (название получается автоматически из Telegram API)')
 })
 
 list_response = telegram_ns.model('TelegramChannelsList', {
@@ -121,17 +120,16 @@ class TelegramChannels(Resource):
             user_id = current_user.get('user_id')
             data = request.get_json() or {}
             channel_link = data.get('channel_link', '').strip()
-            channel_name = data.get('channel_name', '').strip()
 
             if not channel_link:
                 return {'success': False, 'error': 'Укажите ссылку на канал'}, 400
-            if not channel_name or len(channel_name) < 3:
-                return {'success': False, 'error': 'Название канала должно быть не короче 3 символов'}, 400
 
             db = get_db_session()
             service = TelegramChannelService(db)
+            
+            # Используем упрощенный метод (автоматическое получение названия из Telegram API)
             success, message, channel = asyncio.run(
-                service.add_channel(user_id, channel_link, channel_name)
+                service.upsert_and_activate_single_channel(user_id, channel_link)
             )
             if success:
                 return {

@@ -91,8 +91,7 @@ def add_channel():
     
     Body:
         {
-            "channel_link": "https://t.me/mychannel",
-            "channel_name": "Мой канал о финансах"
+            "channel_link": "https://t.me/mychannel"
         }
     
     Returns:
@@ -104,7 +103,6 @@ def add_channel():
         
         # Валидация входных данных
         channel_link = data.get('channel_link', '').strip()
-        channel_name = data.get('channel_name', '').strip()
         
         if not channel_link:
             return jsonify({
@@ -112,24 +110,12 @@ def add_channel():
                 'error': 'Укажите ссылку на канал'
             }), 400
         
-        if not channel_name:
-            return jsonify({
-                'success': False,
-                'error': 'Укажите название канала'
-            }), 400
-        
-        if len(channel_name) < 3:
-            return jsonify({
-                'success': False,
-                'error': 'Название канала должно быть не короче 3 символов'
-            }), 400
-        
         db = next(get_db_session())
         service = TelegramChannelService(db)
         
-        # Добавляем канал (async операция)
+        # Используем упрощенный метод (автоматическое получение названия из Telegram API)
         success, message, channel = asyncio.run(
-            service.add_channel(user_id, channel_link, channel_name)
+            service.upsert_and_activate_single_channel(user_id, channel_link)
         )
         
         if success:
