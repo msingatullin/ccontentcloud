@@ -369,6 +369,99 @@ class TelegramChannelService:
         logger.warning(f"Канал {channel_id} не найден для user_id={user_id}")
         return False
     
+    async def update_channel(self, user_id: int, channel_id: int, 
+                           channel_link: Optional[str] = None,
+                           channel_name: Optional[str] = None,
+                           is_active: Optional[bool] = None) -> Tuple[bool, str, Optional[TelegramChannel]]:
+        """
+        Обновить информацию о канале
+        
+        Args:
+            user_id: ID пользователя
+            channel_id: ID канала
+            channel_link: Новая ссылка на канал (опционально)
+            channel_name: Новое название канала (опционально)
+            is_active: Новый статус активации (опционально)
+            
+        Returns:
+            Tuple (success, message, channel)
+        """
+        channel = self.db.query(TelegramChannel).filter(
+            TelegramChannel.id == channel_id,
+            TelegramChannel.user_id == user_id
+        ).first()
+        
+        if not channel:
+            return False, "Канал не найден", None
+        
+        updated_fields = []
+        needs_verification = False
+        
+        # Обновляем ссылку на канал, если указана
+        if channel_link:
+            new_chat_id = self.parse_channel_link(channel_link.strip())
+            if not new_chat_id:
+                return False, "Неверный формат ссылки на канал. Используйте: https://t.me/channel или @channel", None
+            
+            # Если ссылка изменилась - нужно переверифицировать
+            if channel.chat_id != new_chat_id and channel.chat_id != channel_link.strip():
+                needs_verification = True
+                channel.chat_id = new_chat_id
+                channel.channel_username = new_chat_id if new_chat_id.startswith('@') else None
+                updated_fields.append("ссылка на канал")
+                
+                # Верифицируем новый канал
+                is_verified, chat_info = await self.verify_bot_in_channel(new_chat_id)
+                channel.is_verified = is_verified
+                
+                if chat_info:
+                    channel.channel_title = chat_info.get('title')
+                    channel.channel_type = chat_info.get('type')
+                    channel.members_count = chat_info.get('members_count')
+                    
+                    if not is_verified:
+                        channel.last_error = 'Бот не является администратором или без прав публикации'
+                    else:
+                        channel.last_error = None
+                else:
+                    channel.last_error = 'Не удалось получить информацию о канале'
+                    logger.warning(f"Не удалось получить информацию о новом канале {new_chat_id}")
+        
+        # Обновляем название канала, если указано
+        if channel_name:
+            channel_name = channel_name.strip()
+            if len(channel_name) < 3:
+                return False, "Название канала должно быть не короче 3 символов", None
+            if channel.channel_name != channel_name:
+                channel.channel_name = channel_name
+                updated_fields.append("название канала")
+        
+        # Обновляем статус активации, если указан
+        if is_active is not None:
+            if channel.is_active != is_active:
+                channel.is_active = is_active
+                updated_fields.append("статус активации")
+                # Если деактивируем - снимаем дефолт
+                if not is_active:
+                    channel.is_default = False
+        
+        if not updated_fields:
+            return True, "Изменений не обнаружено", channel
+        
+        channel.updated_at = datetime.utcnow()
+        self.db.commit()
+        self.db.refresh(channel)
+        
+        fields_text = ", ".join(updated_fields)
+        logger.info(f"✅ Канал {channel_id} обновлен: {fields_text} для user_id={user_id}")
+        
+        if needs_verification and not channel.is_verified:
+            message = f"Канал обновлен. ⚠️ Добавьте бота @content4ubot в администраторы нового канала с правами 'Публикация сообщений'"
+        else:
+            message = f"✅ Канал успешно обновлен: {fields_text}"
+        
+        return True, message, channel
+    
     def toggle_activation(self, user_id: int, channel_id: int, is_active: bool) -> bool:
         """
         Переключить статус активации канала

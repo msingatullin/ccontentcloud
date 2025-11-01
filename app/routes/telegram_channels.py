@@ -193,6 +193,74 @@ def get_channel(channel_id):
         }), 500
 
 
+@bp.route('/channels/<int:channel_id>', methods=['PUT'])
+@jwt_required()
+def update_channel(channel_id):
+    """
+    Обновить информацию о канале
+    
+    Body (все поля опциональны):
+        {
+            "channel_link": "https://t.me/newchannel",  // Новая ссылка на канал
+            "channel_name": "Новое название",           // Новое название канала
+            "is_active": true                           // Статус активации
+        }
+    
+    Returns:
+        JSON с результатом и обновленными данными канала
+    """
+    try:
+        user_id = get_jwt_identity()
+        data = request.get_json() or {}
+        
+        # Получаем опциональные поля
+        channel_link = data.get('channel_link', '').strip() if data.get('channel_link') else None
+        channel_name = data.get('channel_name', '').strip() if data.get('channel_name') else None
+        is_active = data.get('is_active') if 'is_active' in data else None
+        
+        # Проверяем что хотя бы одно поле указано
+        if not any([channel_link, channel_name, is_active is not None]):
+            return jsonify({
+                'success': False,
+                'error': 'Укажите хотя бы одно поле для обновления: channel_link, channel_name или is_active'
+            }), 400
+        
+        db = next(get_db_session())
+        service = TelegramChannelService(db)
+        
+        # Обновляем канал (async операция)
+        success, message, channel = asyncio.run(
+            service.update_channel(
+                user_id=user_id,
+                channel_id=channel_id,
+                channel_link=channel_link,
+                channel_name=channel_name,
+                is_active=is_active
+            )
+        )
+        
+        if success:
+            logger.info(f"✅ Канал {channel_id} обновлен для user_id={user_id}")
+            return jsonify({
+                'success': True,
+                'message': message,
+                'channel': channel.to_dict() if channel else None
+            }), 200
+        else:
+            logger.warning(f"❌ Не удалось обновить канал {channel_id}: {message}")
+            return jsonify({
+                'success': False,
+                'error': message
+            }), 400
+            
+    except Exception as e:
+        logger.error(f"Критическая ошибка обновления канала: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'Внутренняя ошибка сервера'
+        }), 500
+
+
 @bp.route('/channels/<int:channel_id>/default', methods=['PUT'])
 @jwt_required()
 def set_default_channel(channel_id):
@@ -279,9 +347,14 @@ def toggle_activation(channel_id):
     """
     Переключить статус активации канала
     
+    Поддерживает автоматическое обновление канала перед активацией.
+    Если указаны channel_link или channel_name - канал сначала обновится, затем активируется.
+    
     Body:
         {
-            "is_active": true/false
+            "is_active": true/false,
+            "channel_link": "https://t.me/newchannel",  // опционально - обновить ссылку
+            "channel_name": "Новое название"            // опционально - обновить название
         }
     
     Returns:
@@ -298,24 +371,58 @@ def toggle_activation(channel_id):
                 'error': 'Укажите is_active (true/false)'
             }), 400
         
+        # Опциональные поля для обновления канала
+        channel_link = data.get('channel_link', '').strip() if data.get('channel_link') else None
+        channel_name = data.get('channel_name', '').strip() if data.get('channel_name') else None
+        
         db = next(get_db_session())
         service = TelegramChannelService(db)
         
-        success = service.toggle_activation(user_id, channel_id, bool(is_active))
-        
-        if success:
-            status_text = "активирован" if is_active else "деактивирован"
-            logger.info(f"✅ Канал {channel_id} {status_text} для user_id={user_id}")
-            return jsonify({
-                'success': True,
-                'message': f'Канал успешно {status_text}',
-                'is_active': is_active
-            }), 200
+        # Если указаны изменения канала - обновляем канал с активацией
+        if channel_link or channel_name:
+            logger.info(f"Обновление канала {channel_id} с последующей активацией для user_id={user_id}")
+            success, message, channel = asyncio.run(
+                service.update_channel(
+                    user_id=user_id,
+                    channel_id=channel_id,
+                    channel_link=channel_link,
+                    channel_name=channel_name,
+                    is_active=bool(is_active)  # активируем одновременно с обновлением
+                )
+            )
+            
+            if success:
+                status_text = "активирован" if is_active else "деактивирован"
+                logger.info(f"✅ Канал {channel_id} обновлен и {status_text} для user_id={user_id}")
+                return jsonify({
+                    'success': True,
+                    'message': message,
+                    'is_active': is_active,
+                    'channel': channel.to_dict() if channel else None
+                }), 200
+            else:
+                logger.warning(f"❌ Не удалось обновить канал {channel_id}: {message}")
+                return jsonify({
+                    'success': False,
+                    'error': message
+                }), 400
         else:
-            return jsonify({
-                'success': False,
-                'error': 'Канал не найден'
-            }), 404
+            # Просто переключаем активацию без изменений
+            success = service.toggle_activation(user_id, channel_id, bool(is_active))
+            
+            if success:
+                status_text = "активирован" if is_active else "деактивирован"
+                logger.info(f"✅ Канал {channel_id} {status_text} для user_id={user_id}")
+                return jsonify({
+                    'success': True,
+                    'message': f'Канал успешно {status_text}',
+                    'is_active': is_active
+                }), 200
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': 'Канал не найден'
+                }), 404
             
     except Exception as e:
         logger.error(f"Ошибка переключения активации: {e}")

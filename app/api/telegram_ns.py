@@ -148,6 +148,13 @@ class TelegramChannels(Resource):
                 db.close()
 
 
+update_channel_request = telegram_ns.model('UpdateTelegramChannelRequest', {
+    'channel_link': fields.String(description='Новая ссылка на канал (https://t.me/channel или @channel)', required=False),
+    'channel_name': fields.String(description='Новое название канала', required=False),
+    'is_active': fields.Boolean(description='Статус активации', required=False)
+})
+
+
 @telegram_ns.route('/channels/<int:channel_id>')
 class TelegramChannelItem(Resource):
     @jwt_required
@@ -164,6 +171,49 @@ class TelegramChannelItem(Resource):
         except Exception as e:
             logger.error(f"Ошибка получения канала {channel_id}: {e}")
             return {'success': False, 'error': 'Ошибка получения информации о канале'}, 500
+        finally:
+            if 'db' in locals() and db:
+                db.close()
+
+    @jwt_required
+    @telegram_ns.doc('update_channel', security='BearerAuth')
+    @telegram_ns.expect(update_channel_request, validate=False)
+    def put(self, current_user, channel_id: int):
+        try:
+            user_id = current_user.get('user_id')
+            data = request.get_json() or {}
+            
+            channel_link = data.get('channel_link', '').strip() if data.get('channel_link') else None
+            channel_name = data.get('channel_name', '').strip() if data.get('channel_name') else None
+            is_active = data.get('is_active') if 'is_active' in data else None
+            
+            if not any([channel_link, channel_name, is_active is not None]):
+                return {'success': False, 'error': 'Укажите хотя бы одно поле для обновления: channel_link, channel_name или is_active'}, 400
+            
+            db = get_db_session()
+            service = TelegramChannelService(db)
+            
+            import asyncio
+            success, message, channel = asyncio.run(
+                service.update_channel(
+                    user_id=user_id,
+                    channel_id=channel_id,
+                    channel_link=channel_link,
+                    channel_name=channel_name,
+                    is_active=is_active
+                )
+            )
+            
+            if success:
+                return {
+                    'success': True,
+                    'message': message,
+                    'channel': channel.to_dict() if channel else None
+                }, 200
+            return {'success': False, 'error': message}, 400
+        except Exception as e:
+            logger.error(f"Ошибка обновления канала {channel_id}: {e}")
+            return {'success': False, 'error': 'Внутренняя ошибка сервера'}, 500
         finally:
             if 'db' in locals() and db:
                 db.close()
@@ -209,15 +259,19 @@ class TelegramChannelDefault(Resource):
 
 
 activate_telegram_request = telegram_ns.model('ActivateTelegramRequest', {
-    'is_active': fields.Boolean(required=True, description='Статус активации (true/false)')
+    'is_active': fields.Boolean(required=True, description='Статус активации (true/false)'),
+    'channel_link': fields.String(description='Новая ссылка на канал (опционально - для автоматического обновления)', required=False),
+    'channel_name': fields.String(description='Новое название канала (опционально - для автоматического обновления)', required=False)
 })
 
 
 @telegram_ns.route('/channels/<int:channel_id>/activate')
 class TelegramChannelActivate(Resource):
     @jwt_required
-    @telegram_ns.doc('toggle_telegram_activation', security='BearerAuth')
-    @telegram_ns.expect(activate_telegram_request, validate=True)
+    @telegram_ns.doc('toggle_telegram_activation', 
+                     description='Активировать/деактивировать канал. Если указаны channel_link или channel_name - канал сначала обновится, затем активируется.',
+                     security='BearerAuth')
+    @telegram_ns.expect(activate_telegram_request, validate=False)
     def put(self, current_user, channel_id: int):
         try:
             user_id = current_user.get('user_id')
@@ -226,17 +280,45 @@ class TelegramChannelActivate(Resource):
             if is_active is None:
                 return {'success': False, 'error': 'Укажите is_active (true/false)'}, 400
             
+            # Опциональные поля для обновления канала
+            channel_link = data.get('channel_link', '').strip() if data.get('channel_link') else None
+            channel_name = data.get('channel_name', '').strip() if data.get('channel_name') else None
+            
             db = get_db_session()
             service = TelegramChannelService(db)
-            success = service.toggle_activation(user_id, channel_id, bool(is_active))
-            if success:
-                status_text = "активирован" if is_active else "деактивирован"
-                return {
-                    'success': True,
-                    'message': f'Канал успешно {status_text}',
-                    'is_active': is_active
-                }, 200
-            return {'success': False, 'error': 'Канал не найден'}, 404
+            
+            # Если указаны изменения канала - обновляем канал с активацией
+            if channel_link or channel_name:
+                import asyncio
+                success, message, channel = asyncio.run(
+                    service.update_channel(
+                        user_id=user_id,
+                        channel_id=channel_id,
+                        channel_link=channel_link,
+                        channel_name=channel_name,
+                        is_active=bool(is_active)  # активируем одновременно с обновлением
+                    )
+                )
+                
+                if success:
+                    return {
+                        'success': True,
+                        'message': message,
+                        'is_active': is_active,
+                        'channel': channel.to_dict() if channel else None
+                    }, 200
+                return {'success': False, 'error': message}, 400
+            else:
+                # Просто переключаем активацию без изменений
+                success = service.toggle_activation(user_id, channel_id, bool(is_active))
+                if success:
+                    status_text = "активирован" if is_active else "деактивирован"
+                    return {
+                        'success': True,
+                        'message': f'Канал успешно {status_text}',
+                        'is_active': is_active
+                    }, 200
+                return {'success': False, 'error': 'Канал не найден'}, 404
         except Exception as e:
             logger.error(f"Ошибка переключения активации Telegram: {e}")
             return {'success': False, 'error': 'Внутренняя ошибка сервера'}, 500
