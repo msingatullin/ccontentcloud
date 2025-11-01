@@ -44,7 +44,8 @@ channel_model = telegram_ns.model('TelegramChannel', {
 })
 
 add_channel_request = telegram_ns.model('AddTelegramChannelRequest', {
-    'channel_link': fields.String(required=True, description='Ссылка на канал (название получается автоматически из Telegram API)')
+    'channel_link': fields.String(required=True, description='Ссылка на канал (название получается автоматически из Telegram API)'),
+    'is_active': fields.Boolean(required=False, description='Статус активации (true - активен, false - деактивирован). По умолчанию true')
 })
 
 list_response = telegram_ns.model('TelegramChannelsList', {
@@ -120,6 +121,7 @@ class TelegramChannels(Resource):
             user_id = current_user.get('user_id')
             data = request.get_json() or {}
             channel_link = data.get('channel_link', '').strip()
+            is_active = data.get('is_active', True)
 
             if not channel_link:
                 return {'success': False, 'error': 'Укажите ссылку на канал'}, 400
@@ -129,7 +131,7 @@ class TelegramChannels(Resource):
             
             # Используем упрощенный метод (автоматическое получение названия из Telegram API)
             success, message, channel = asyncio.run(
-                service.upsert_and_activate_single_channel(user_id, channel_link)
+                service.upsert_single_channel(user_id, channel_link, is_active=bool(is_active))
             )
             if success:
                 return {
@@ -373,7 +375,8 @@ class TelegramChannelVerify(Resource):
 # ===== УПРОЩЕННЫЕ ЭНДПОИНТЫ ДЛЯ ЕДИНСТВЕННОГО КАНАЛА =====
 
 simple_activate_request = telegram_ns.model('SimpleActivateChannelRequest', {
-    'channel_link': fields.String(required=True, description='Ссылка на канал (https://t.me/channel или @channel)')
+    'channel_link': fields.String(required=True, description='Ссылка на канал (https://t.me/channel или @channel)'),
+    'is_active': fields.Boolean(required=False, description='Статус активации (true - активен, false - деактивирован). По умолчанию true')
 })
 
 
@@ -382,11 +385,11 @@ class TelegramSingleChannelActivate(Resource):
     @jwt_required
     @telegram_ns.doc('activate_single_channel', 
                      description='''Упрощенный эндпоинт для единственного канала пользователя.
-                     Клиент предоставляет только ссылку - все остальное делается автоматически:
+                     Клиент предоставляет ссылку и статус - все остальное делается автоматически:
                      - Находит существующий канал или создает новый
                      - Автоматически получает название из Telegram API
                      - Верифицирует канал
-                     - Активирует его''',
+                     - Устанавливает статус активации''',
                      security='BearerAuth')
     @telegram_ns.expect(simple_activate_request, validate=True)
     def put(self, current_user):
@@ -394,6 +397,7 @@ class TelegramSingleChannelActivate(Resource):
             user_id = current_user.get('user_id')
             data = request.get_json() or {}
             channel_link = data.get('channel_link', '').strip()
+            is_active = data.get('is_active', True)
             
             if not channel_link:
                 return {'success': False, 'error': 'Укажите ссылку на канал'}, 400
@@ -402,7 +406,7 @@ class TelegramSingleChannelActivate(Resource):
             service = TelegramChannelService(db)
             
             success, message, channel = asyncio.run(
-                service.upsert_and_activate_single_channel(user_id, channel_link)
+                service.upsert_single_channel(user_id, channel_link, is_active=bool(is_active))
             )
             
             if success:

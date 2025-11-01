@@ -87,11 +87,12 @@ def get_channels():
 @jwt_required()
 def add_channel():
     """
-    Добавить новый Telegram канал
+    Добавить/обновить Telegram канал
     
     Body:
         {
-            "channel_link": "https://t.me/mychannel"
+            "channel_link": "https://t.me/mychannel",
+            "is_active": true  // опционально, по умолчанию true
         }
     
     Returns:
@@ -103,6 +104,7 @@ def add_channel():
         
         # Валидация входных данных
         channel_link = data.get('channel_link', '').strip()
+        is_active = data.get('is_active', True)  # по умолчанию активен
         
         if not channel_link:
             return jsonify({
@@ -115,18 +117,19 @@ def add_channel():
         
         # Используем упрощенный метод (автоматическое получение названия из Telegram API)
         success, message, channel = asyncio.run(
-            service.upsert_and_activate_single_channel(user_id, channel_link)
+            service.upsert_single_channel(user_id, channel_link, is_active=bool(is_active))
         )
         
         if success:
-            logger.info(f"✅ Канал добавлен: user_id={user_id}, channel_id={channel.id if channel else None}")
+            status_text = "активирован" if is_active else "деактивирован"
+            logger.info(f"✅ Канал {status_text}: user_id={user_id}, channel_id={channel.id if channel else None}")
             return jsonify({
                 'success': True,
                 'message': message,
                 'channel': channel.to_dict() if channel else None
             }), 201
         else:
-            logger.warning(f"❌ Не удалось добавить канал: {message}")
+            logger.warning(f"❌ Не удалось обработать канал: {message}")
             return jsonify({
                 'success': False,
                 'error': message
@@ -494,15 +497,16 @@ def verify_channel(channel_id):
 def activate_single_channel():
     """
     Упрощенный эндпоинт для единственного канала пользователя.
-    Клиент предоставляет только ссылку - все остальное делается автоматически:
+    Клиент предоставляет ссылку и статус активации - все остальное делается автоматически:
     - Находит существующий канал или создает новый
     - Автоматически получает название из Telegram API
     - Верифицирует канал
-    - Активирует его
+    - Устанавливает статус активации
     
     Body:
         {
-            "channel_link": "https://t.me/mychannel"
+            "channel_link": "https://t.me/mychannel",
+            "is_active": true  // опционально, по умолчанию true
         }
     
     Returns:
@@ -513,6 +517,7 @@ def activate_single_channel():
         data = request.get_json() or {}
         
         channel_link = data.get('channel_link', '').strip()
+        is_active = data.get('is_active', True)  # по умолчанию активен
         
         if not channel_link:
             return jsonify({
@@ -525,18 +530,19 @@ def activate_single_channel():
         
         # Вызываем упрощенный метод (async операция)
         success, message, channel = asyncio.run(
-            service.upsert_and_activate_single_channel(user_id, channel_link)
+            service.upsert_single_channel(user_id, channel_link, is_active=bool(is_active))
         )
         
         if success:
-            logger.info(f"✅ Канал активирован (упрощенный режим): user_id={user_id}, channel_id={channel.id if channel else None}")
+            status_text = "активирован" if is_active else "деактивирован"
+            logger.info(f"✅ Канал {status_text} (упрощенный режим): user_id={user_id}, channel_id={channel.id if channel else None}")
             return jsonify({
                 'success': True,
                 'message': message,
                 'channel': channel.to_dict() if channel else None
             }), 200
         else:
-            logger.warning(f"❌ Не удалось активировать канал: {message}")
+            logger.warning(f"❌ Не удалось обработать канал: {message}")
             return jsonify({
                 'success': False,
                 'error': message
