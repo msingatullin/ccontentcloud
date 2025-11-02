@@ -52,10 +52,18 @@ class TelegramChannel(Base):
     
     def to_dict(self) -> dict:
         """Преобразование в словарь для API ответов"""
+        # Формируем ссылку на канал
+        channel_link = None
+        if self.channel_username:
+            # Убираем @ если есть
+            username = self.channel_username.lstrip('@')
+            channel_link = f"https://t.me/{username}"
+        
         return {
             'id': self.id,
             'channel_name': self.channel_name,
             'channel_username': self.channel_username,
+            'channel_link': channel_link,
             'chat_id': self.chat_id,
             'is_active': self.is_active,
             'is_verified': self.is_verified,
