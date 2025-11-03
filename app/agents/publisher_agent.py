@@ -396,7 +396,7 @@ class PublisherAgent(BaseAgent):
         try:
             from app.services.telegram_channel_service import TelegramChannelService
             from app.models.telegram_channels import TelegramChannel
-            from app.database.connection import get_db_session_session
+            from app.database.connection import get_db_session
             
             # Получаем сессию БД
             db = next(get_db_session())
