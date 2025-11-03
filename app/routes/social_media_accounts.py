@@ -46,15 +46,22 @@ def get_social_media_accounts():
             ).all()
             
             for channel in telegram_channels:
+                # Формируем ссылку на канал
+                channel_link = None
+                if channel.channel_username:
+                    username = channel.channel_username.lstrip('@')
+                    channel_link = f"https://t.me/{username}"
+                
                 social_media_accounts.append({
                     "name": "Telegram",
-                    "isActive": True,
+                    "isActive": channel.is_active,
                     "metadata": {
-                        "channelLink": channel.channel_link,
+                        "channelLink": channel_link,
                         "accountId": channel.id,
                         "isDefault": channel.is_default,
-                        "channelId": channel.channel_id,
-                        "channelName": channel.channel_name
+                        "chatId": channel.chat_id,
+                        "channelName": channel.channel_name,
+                        "channelUsername": channel.channel_username
                     }
                 })
         except ImportError:
