@@ -185,15 +185,22 @@ class AgentManager:
             logger.warning(f"Нет доступных агентов для задачи {task.id}")
             return None
         
-        # Выбираем лучшего агента
-        best_agent = available_agents[0]
+        # Фильтруем агентов которые могут обработать эту конкретную задачу
+        capable_agents = [agent for agent in available_agents if agent.can_handle_task(task)]
+        
+        if not capable_agents:
+            logger.warning(f"Нет агентов способных обработать задачу {task.id} ({task.name})")
+            return None
+        
+        # Выбираем лучшего агента из способных
+        best_agent = capable_agents[0]
         
         # Назначаем задачу
         if best_agent.assign_task(task.id):
             self.task_assignments[task.id] = best_agent.agent_id
             self.workflow_engine.assign_task(task.id, best_agent.agent_id)
             
-            logger.info(f"Задача {task.id} назначена агенту {best_agent.name}")
+            logger.info(f"Задача {task.id} ({task.name}) назначена агенту {best_agent.name}")
             return best_agent.agent_id
         
         return None
