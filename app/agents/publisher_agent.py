@@ -417,23 +417,16 @@ class PublisherAgent(BaseAgent):
             
             logger.info(f"Публикация в канал '{channel.channel_name}' (user_id={user_id}, chat_id={channel.chat_id})")
             
-            # Проверяем доступность TelegramMCP
-            if self.telegram_mcp is None:
-                logger.error("TelegramMCP недоступен")
-                service.update_channel_stats(channel.id, post_success=False, error_message="TelegramMCP недоступен")
-                return PublicationResult(
-                    success=False,
-                    error_message="Telegram сервис временно недоступен"
-                )
-            
-            # Отправляем в КОНКРЕТНЫЙ канал пользователя
-            result = await self.telegram_mcp.send_message(
+            # Отправляем через TelegramChannelService (прямо через Bot API)
+            result = await service.send_message(
+                chat_id=channel.chat_id,
                 text=message_text,
-                chat_id=channel.chat_id
+                parse_mode="HTML",
+                disable_web_page_preview=False
             )
             
-            if result.success:
-                message_data = result.data
+            if result["success"]:
+                message_data = result["data"]
                 message_id = message_data.get('message_id')
                 
                 # Обновляем статистику канала
@@ -457,11 +450,11 @@ class PublisherAgent(BaseAgent):
                         "channel_id": channel.id,
                         "channel_name": channel.channel_name,
                         "chat_id": channel.chat_id,
-                        "sent_via": "telegram_mcp_user_channel"
+                        "sent_via": "telegram_bot_api"
                     }
                 )
             else:
-                error_msg = result.error or "Неизвестная ошибка Telegram API"
+                error_msg = result["error"] or "Неизвестная ошибка Telegram API"
                 logger.error(f"❌ Ошибка публикации в канал '{channel.channel_name}': {error_msg}")
                 
                 # Сохраняем ошибку в канале
