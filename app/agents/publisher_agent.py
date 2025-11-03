@@ -399,7 +399,7 @@ class PublisherAgent(BaseAgent):
             from app.database.connection import get_db_session
             
             # Получаем сессию БД
-            db = next(get_db_session())
+            db = get_db_session()
             service = TelegramChannelService(db)
             
             # Получаем канал пользователя
