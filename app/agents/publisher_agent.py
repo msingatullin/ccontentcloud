@@ -114,6 +114,21 @@ class PublisherAgent(BaseAgent):
             logger.error(f"Ошибка инициализации MCP интеграций: {e}")
             self.telegram_mcp = None
     
+    def can_handle_task(self, task: Task) -> bool:
+        """
+        Проверяет, может ли PublisherAgent выполнить задачу
+        Обрабатывает только задачи публикации (с 'Publish' в названии)
+        """
+        # Сначала проверяем базовые условия
+        if not super().can_handle_task(task):
+            return False
+        
+        # PublisherAgent обрабатывает только задачи публикации
+        if "Publish" in task.name or "publish" in task.name.lower():
+            return True
+        
+        return False
+    
     async def execute_task(self, task: Task) -> Dict[str, Any]:
         """Выполняет задачу публикации контента"""
         try:
