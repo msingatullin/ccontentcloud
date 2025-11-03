@@ -23,7 +23,9 @@ logger = logging.getLogger(__name__)
 class PublicationResult:
     """Результат публикации"""
     success: bool
+    platform: Optional[str] = None
     platform_post_id: Optional[str] = None
+    post_url: Optional[str] = None
     published_at: Optional[datetime] = None
     error_message: Optional[str] = None
     metrics: Optional[Dict[str, Any]] = None
