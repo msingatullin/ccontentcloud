@@ -120,9 +120,9 @@ class SocialMediaAccounts(Resource):
                 for account in instagram_accounts:
                     social_media_accounts.append({
                         "name": "Instagram",
-                        "isActive": True,
+                        "isActive": account.is_active,
                         "metadata": {
-                            "username": account.username,
+                            "username": account.instagram_username,
                             "accountId": account.id,
                             "isDefault": account.is_default,
                             "isActive": account.is_active
@@ -141,9 +141,9 @@ class SocialMediaAccounts(Resource):
                 for account in twitter_accounts:
                     social_media_accounts.append({
                         "name": "Twitter",
-                        "isActive": True,
+                        "isActive": account.is_active,
                         "metadata": {
-                            "username": account.username,
+                            "username": account.twitter_username,
                             "accountId": account.id,
                             "isDefault": account.is_default,
                             "userId": account.twitter_user_id
