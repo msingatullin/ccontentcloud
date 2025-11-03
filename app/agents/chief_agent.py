@@ -148,6 +148,21 @@ class ChiefContentAgent(BaseAgent):
             logger.error(f"Ошибка инициализации News интеграций: {e}")
             self.news_mcp = None
     
+    def can_handle_task(self, task: Task) -> bool:
+        """
+        Проверяет, может ли ChiefContentAgent выполнить задачу
+        НЕ обрабатывает задачи публикации (с 'Publish' в названии)
+        """
+        # Сначала проверяем базовые условия
+        if not super().can_handle_task(task):
+            return False
+        
+        # ChiefContentAgent НЕ обрабатывает задачи публикации
+        if "Publish" in task.name or "publish" in task.name.lower():
+            return False
+        
+        return True
+    
     async def execute_task(self, task: Task) -> Dict[str, Any]:
         """Выполняет задачу создания контент-стратегии"""
         try:
