@@ -48,7 +48,7 @@ class PublisherAgent(BaseAgent):
             task_types=[TaskType.PLANNED, TaskType.REAL_TIME],
             max_concurrent_tasks=3,
             specializations=["publishing", "social_media", "analytics", "scheduling"],
-            performance_score=1.0
+            performance_score=10.0  # Высокий приоритет для задач публикации
         )
         super().__init__(agent_id, "Publisher Agent", capability)
         
