@@ -71,7 +71,8 @@ class ContentOrchestrator:
                                     platforms: List[Platform] = None,
                                     content_types: List[ContentType] = None,
                                     user_id: Optional[int] = None,
-                                    test_mode: bool = False) -> str:
+                                    test_mode: bool = False,
+                                    channel_id: Optional[int] = None) -> str:
         """Создает workflow для создания контента"""
         platforms = platforms or [Platform.TELEGRAM, Platform.VK]
         content_types = content_types or [ContentType.POST]
@@ -85,7 +86,8 @@ class ContentOrchestrator:
                 "platforms": [p.value for p in platforms],
                 "content_types": [ct.value for ct in content_types],
                 "user_id": user_id,  # Добавляем user_id для сохранения в БД
-                "test_mode": test_mode  # Добавляем test_mode для передачи в задачи
+                "test_mode": test_mode,  # Добавляем test_mode для передачи в задачи
+                "channel_id": channel_id  # ID конкретного канала для публикации
             }
         )
         
@@ -112,19 +114,26 @@ class ContentOrchestrator:
                 # Задача публикации контента
                 publish_task_name = f"Publish {content_type.value} to {platform.value}"
                 
+                # Формируем контекст публикации с account_id
+                publish_context = {
+                    "brief_id": brief.id,
+                    "platform": platform.value,
+                    "content_type": content_type.value,
+                    "user_id": user_id,
+                    "test_mode": test_mode,
+                    # content будет добавлен после создания контента
+                }
+                
+                # Добавляем account_id если указан channel_id
+                if channel_id:
+                    publish_context["account_id"] = channel_id
+                
                 self.workflow_engine.add_task(
                     workflow_id=workflow.id,
                     task_name=publish_task_name,
                     task_type=TaskType.PLANNED,
                     priority=TaskPriority.HIGH,
-                    context={
-                        "brief_id": brief.id,
-                        "platform": platform.value,
-                        "content_type": content_type.value,
-                        "user_id": user_id,
-                        "test_mode": test_mode,
-                        # content будет добавлен после создания контента
-                    }
+                    context=publish_context
                 )
         
         logger.info(f"Создан workflow {workflow.id} для бриф {brief.id} с задачами создания и публикации")
@@ -436,12 +445,13 @@ class ContentOrchestrator:
             platforms = [Platform(p) for p in request.get("platforms", ["telegram", "vk"])]
             content_types = [ContentType(ct) for ct in request.get("content_types", ["post"])]
             
-            # Получаем user_id и test_mode из запроса
+            # Получаем user_id, test_mode и channel_id из запроса
             user_id = request.get("user_id")
             test_mode = request.get("test_mode", False)
+            channel_id = request.get("channel_id")  # ID конкретного канала для публикации
             
-            # Создаем workflow с передачей test_mode
-            workflow_id = await self.create_content_workflow(brief, platforms, content_types, user_id, test_mode)
+            # Создаем workflow с передачей test_mode и channel_id
+            workflow_id = await self.create_content_workflow(brief, platforms, content_types, user_id, test_mode, channel_id)
             
             # Проверяем нужен ли фактчекинг
             constraints = request.get("constraints", {})

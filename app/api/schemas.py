@@ -92,6 +92,7 @@ class ContentRequestSchema(BaseModel):
     content_types: List[ContentTypeEnum] = Field(default=[ContentTypeEnum.POST], description="Типы контента")
     constraints: Dict[str, Any] = Field(default={}, description="Дополнительные ограничения")
     test_mode: bool = Field(default=True, description="Тестовый режим (без реальной публикации)")
+    channel_id: Optional[int] = Field(default=None, description="ID конкретного канала/аккаунта для публикации (если не указан - используется дефолтный)")
     
     # Медиа и документы
     uploaded_files: List[str] = Field(default=[], max_items=10, description="IDs загруженных файлов для использования в контенте")
