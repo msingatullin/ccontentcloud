@@ -137,6 +137,21 @@ class RepurposeAgent(BaseAgent):
         
         logger.info(f"RepurposeAgent {agent_id} инициализирован")
     
+    def can_handle_task(self, task: Task) -> bool:
+        """
+        Проверяет, может ли RepurposeAgent выполнить задачу
+        НЕ обрабатывает задачи публикации (с 'Publish' в названии)
+        """
+        # Сначала проверяем базовые условия
+        if not super().can_handle_task(task):
+            return False
+        
+        # RepurposeAgent НЕ обрабатывает задачи публикации
+        if "Publish" in task.name or "publish" in task.name.lower():
+            return False
+        
+        return True
+    
     def _load_adaptation_templates(self) -> Dict[ContentFormat, Dict[str, Any]]:
         """Загружает шаблоны адаптации для разных форматов"""
         return {
