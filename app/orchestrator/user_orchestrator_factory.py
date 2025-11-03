@@ -79,7 +79,7 @@ class UserOrchestratorFactory:
     @classmethod
     def _create_user_orchestrator(cls, user_id: int, db_session) -> ContentOrchestrator:
         """
-        Создает оркестратор и регистрирует только купленных агентов
+        Создает оркестратор и регистрирует агентов
         
         Args:
             user_id: ID пользователя
@@ -88,46 +88,62 @@ class UserOrchestratorFactory:
         Returns:
             ContentOrchestrator с зарегистрированными агентами
         """
-        from ..billing.models.agent_subscription import AgentSubscription
-        
         # Создаем новый оркестратор
         orchestrator = ContentOrchestrator()
-        
-        # Получаем активные подписки пользователя на агентов
-        subscriptions = db_session.query(AgentSubscription).filter(
-            AgentSubscription.user_id == user_id,
-            AgentSubscription.status == 'active',
-            AgentSubscription.expires_at > datetime.utcnow()
-        ).all()
-        
-        logger.info(f"Found {len(subscriptions)} active agent subscriptions for user {user_id}")
         
         # Получаем маппинг агентов
         agent_classes = cls._get_agent_classes()
         
-        # Регистрируем только купленных агентов
-        registered_count = 0
-        for subscription in subscriptions:
-            agent_class = agent_classes.get(subscription.agent_id)
+        # Пытаемся загрузить подписки если таблица существует
+        subscriptions = []
+        try:
+            from ..billing.models.agent_subscription import AgentSubscription
+            subscriptions = db_session.query(AgentSubscription).filter(
+                AgentSubscription.user_id == user_id,
+                AgentSubscription.status == 'active',
+                AgentSubscription.expires_at > datetime.utcnow()
+            ).all()
+            logger.info(f"Found {len(subscriptions)} active agent subscriptions for user {user_id}")
+        except Exception as e:
+            logger.warning(f"Agent subscriptions not available: {e}. Registering all agents.")
+        
+        # Если есть подписки - регистрируем только купленных агентов
+        # Если нет подписок - регистрируем всех агентов (для разработки/тестирования)
+        if subscriptions:
+            # Регистрируем только купленных агентов
+            registered_count = 0
+            for subscription in subscriptions:
+                agent_class = agent_classes.get(subscription.agent_id)
+                
+                if agent_class:
+                    try:
+                        agent = agent_class()
+                        if orchestrator.register_agent(agent):
+                            registered_count += 1
+                            logger.info(f"Registered {subscription.agent_id} for user {user_id}")
+                        else:
+                            logger.warning(f"Failed to register {subscription.agent_id} for user {user_id}")
+                    except Exception as e:
+                        logger.error(f"Error creating agent {subscription.agent_id}: {e}")
+                else:
+                    logger.warning(f"Unknown agent_id: {subscription.agent_id}")
             
-            if agent_class:
+            logger.info(f"Successfully registered {registered_count} agents for user {user_id}")
+        else:
+            # Регистрируем всех агентов
+            registered_count = 0
+            for agent_id, agent_class in agent_classes.items():
                 try:
-                    # Создаем экземпляр агента
                     agent = agent_class()
-                    
-                    # Регистрируем в оркестраторе
                     if orchestrator.register_agent(agent):
                         registered_count += 1
-                        logger.info(f"Registered {subscription.agent_id} for user {user_id}")
+                        logger.info(f"Registered {agent_id} (no subscription check)")
                     else:
-                        logger.warning(f"Failed to register {subscription.agent_id} for user {user_id}")
-                        
+                        logger.warning(f"Failed to register {agent_id}")
                 except Exception as e:
-                    logger.error(f"Error creating agent {subscription.agent_id}: {e}")
-            else:
-                logger.warning(f"Unknown agent_id: {subscription.agent_id}")
-        
-        logger.info(f"Successfully registered {registered_count} agents for user {user_id}")
+                    logger.error(f"Error creating agent {agent_id}: {e}")
+            
+            logger.info(f"Successfully registered {registered_count} agents (all available)")
         
         return orchestrator
     

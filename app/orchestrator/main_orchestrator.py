@@ -70,7 +70,8 @@ class ContentOrchestrator:
     async def create_content_workflow(self, brief: ContentBrief, 
                                     platforms: List[Platform] = None,
                                     content_types: List[ContentType] = None,
-                                    user_id: Optional[int] = None) -> str:
+                                    user_id: Optional[int] = None,
+                                    test_mode: bool = False) -> str:
         """Создает workflow для создания контента"""
         platforms = platforms or [Platform.TELEGRAM, Platform.VK]
         content_types = content_types or [ContentType.POST]
@@ -83,13 +84,15 @@ class ContentOrchestrator:
                 "brief_id": brief.id,
                 "platforms": [p.value for p in platforms],
                 "content_types": [ct.value for ct in content_types],
-                "user_id": user_id  # Добавляем user_id для сохранения в БД
+                "user_id": user_id,  # Добавляем user_id для сохранения в БД
+                "test_mode": test_mode  # Добавляем test_mode для передачи в задачи
             }
         )
         
         # Добавляем задачи для каждого платформы и типа контента
         for platform in platforms:
             for content_type in content_types:
+                # Задача создания контента
                 task_name = f"Create {content_type.value} for {platform.value}"
                 
                 self.workflow_engine.add_task(
@@ -100,11 +103,31 @@ class ContentOrchestrator:
                     context={
                         "brief_id": brief.id,
                         "platform": platform.value,
-                        "content_type": content_type.value
+                        "content_type": content_type.value,
+                        "user_id": user_id,
+                        "test_mode": test_mode  # Передаем test_mode в каждую задачу
+                    }
+                )
+                
+                # Задача публикации контента
+                publish_task_name = f"Publish {content_type.value} to {platform.value}"
+                
+                self.workflow_engine.add_task(
+                    workflow_id=workflow.id,
+                    task_name=publish_task_name,
+                    task_type=TaskType.PLANNED,
+                    priority=TaskPriority.HIGH,
+                    context={
+                        "brief_id": brief.id,
+                        "platform": platform.value,
+                        "content_type": content_type.value,
+                        "user_id": user_id,
+                        "test_mode": test_mode,
+                        # content будет добавлен после создания контента
                     }
                 )
         
-        logger.info(f"Создан workflow {workflow.id} для бриф {brief.id}")
+        logger.info(f"Создан workflow {workflow.id} для бриф {brief.id} с задачами создания и публикации")
         return workflow.id
     
     async def execute_workflow(self, workflow_id: str) -> Dict[str, Any]:
@@ -134,6 +157,21 @@ class ContentOrchestrator:
                         # Сохраняем результат в БД если это контент
                         if user_id and 'content' in result:
                             await self._save_task_result_to_db(result, user_id, workflow_id, agent_id, task)
+                        
+                        # Если это задача создания контента, передаем результат в задачу публикации
+                        if 'content' in result and 'Create' in task.name:
+                            platform = task.context.get('platform')
+                            content_type = task.context.get('content_type')
+                            # Ищем соответствующую задачу публикации
+                            for pub_task in workflow.tasks:
+                                if (pub_task.status == TaskStatus.PENDING and 
+                                    'Publish' in pub_task.name and 
+                                    pub_task.context.get('platform') == platform and
+                                    pub_task.context.get('content_type') == content_type):
+                                    # Добавляем контент в контекст задачи публикации
+                                    pub_task.context['content'] = result.get('content', {})
+                                    logger.info(f"Передан контент из задачи {task.id} в задачу публикации {pub_task.id}")
+                                    break
                     else:
                         logger.warning(f"Не удалось назначить задачу {task.id}")
                         task.status = TaskStatus.FAILED
@@ -147,6 +185,21 @@ class ContentOrchestrator:
                     agent_id = self.agent_manager.task_assignments.get(task.id)
                     if user_id and agent_id and 'content' in result:
                         await self._save_task_result_to_db(result, user_id, workflow_id, agent_id, task)
+                    
+                    # Если это задача создания контента, передаем результат в задачу публикации
+                    if 'content' in result and 'Create' in task.name:
+                        platform = task.context.get('platform')
+                        content_type = task.context.get('content_type')
+                        # Ищем соответствующую задачу публикации
+                        for pub_task in workflow.tasks:
+                            if (pub_task.status == TaskStatus.PENDING and 
+                                'Publish' in pub_task.name and 
+                                pub_task.context.get('platform') == platform and
+                                pub_task.context.get('content_type') == content_type):
+                                # Добавляем контент в контекст задачи публикации
+                                pub_task.context['content'] = result.get('content', {})
+                                logger.info(f"Передан контент из задачи {task.id} в задачу публикации {pub_task.id}")
+                                break
             
             # Проверяем статус workflow
             completed_tasks = sum(1 for t in workflow.tasks if t.status == TaskStatus.COMPLETED)
@@ -383,11 +436,12 @@ class ContentOrchestrator:
             platforms = [Platform(p) for p in request.get("platforms", ["telegram", "vk"])]
             content_types = [ContentType(ct) for ct in request.get("content_types", ["post"])]
             
-            # Получаем user_id из запроса
+            # Получаем user_id и test_mode из запроса
             user_id = request.get("user_id")
+            test_mode = request.get("test_mode", False)
             
-            # Создаем workflow
-            workflow_id = await self.create_content_workflow(brief, platforms, content_types, user_id)
+            # Создаем workflow с передачей test_mode
+            workflow_id = await self.create_content_workflow(brief, platforms, content_types, user_id, test_mode)
             
             # Проверяем нужен ли фактчекинг
             constraints = request.get("constraints", {})
