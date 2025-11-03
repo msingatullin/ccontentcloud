@@ -148,22 +148,66 @@ class User(Base):
             return self.username
 
     def _get_social_media_status(self) -> list:
-        """Получить статус социальных сетей"""
-        # Всегда возвращаем все социальные сети с их статусом
-        social_media = [
-            {
-                "name": "Telegram",
-                "isActive": bool(self.telegram_channels and len(self.telegram_channels) > 0)
-            },
-            {
-                "name": "Instagram", 
-                "isActive": bool(self.instagram_accounts and len(self.instagram_accounts) > 0)
-            },
-            {
-                "name": "Twitter",
-                "isActive": bool(self.twitter_accounts and len(self.twitter_accounts) > 0)
-            }
-        ]
+        """Получить статус социальных сетей с детальной информацией"""
+        social_media = []
+        
+        # Telegram channels
+        if self.telegram_channels:
+            for channel in self.telegram_channels:
+                # Формируем ссылку на канал
+                channel_link = None
+                if channel.channel_username:
+                    username = channel.channel_username.lstrip('@')
+                    channel_link = f"https://t.me/{username}"
+                
+                social_media.append({
+                    "name": "Telegram",
+                    "isActive": channel.is_active,
+                    "metadata": {
+                        "channelLink": channel_link,
+                        "accountId": channel.id,
+                        "isDefault": channel.is_default,
+                        "chatId": channel.chat_id,
+                        "channelName": channel.channel_name,
+                        "channelUsername": channel.channel_username
+                    }
+                })
+        
+        # Instagram accounts
+        if self.instagram_accounts:
+            for account in self.instagram_accounts:
+                social_media.append({
+                    "name": "Instagram",
+                    "isActive": account.is_active,
+                    "metadata": {
+                        "username": account.instagram_username,
+                        "accountId": account.id,
+                        "isDefault": account.is_default,
+                        "isActive": account.is_active
+                    }
+                })
+        
+        # Twitter accounts
+        if self.twitter_accounts:
+            for account in self.twitter_accounts:
+                social_media.append({
+                    "name": "Twitter",
+                    "isActive": account.is_active,
+                    "metadata": {
+                        "username": account.twitter_username,
+                        "accountId": account.id,
+                        "isDefault": account.is_default,
+                        "userId": account.twitter_user_id
+                    }
+                })
+        
+        # Если нет аккаунтов - возвращаем базовый статус
+        if not social_media:
+            return [
+                {"name": "Telegram", "isActive": False},
+                {"name": "Instagram", "isActive": False},
+                {"name": "Twitter", "isActive": False}
+            ]
         
         return social_media
 

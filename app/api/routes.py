@@ -2188,19 +2188,7 @@ class AuthMe(Resource):
             
             # Возвращаем информацию о пользователе
             if user:
-                return {
-                    "id": user.id,
-                    "email": user.email,
-                    "username": user.username,
-                    "first_name": user.first_name or "",
-                    "last_name": user.last_name or "",
-                    "company": user.company or "",
-                    "phone": user.phone or "",
-                    "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
-                    "is_verified": user.is_verified,
-                    "created_at": user.created_at.isoformat() if user.created_at else "",
-                    "updated_at": user.updated_at.isoformat() if user.updated_at else ""
-            }, 200
+                return user.to_dict(), 200
             else:
                 logger.error(f"User not found for email: {email}")
                 return {
