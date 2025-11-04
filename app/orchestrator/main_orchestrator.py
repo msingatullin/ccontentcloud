@@ -421,15 +421,16 @@ class ContentOrchestrator:
                 estimated_prompt_tokens = len(content_piece.title + content_piece.text) // 4  # примерно 4 символа = 1 токен
                 estimated_completion_tokens = len(content_piece.text) // 4
                 
-                # Расчет стоимости для gpt-3.5-turbo
-                cost_usd = (estimated_prompt_tokens / 1000 * 0.0015) + (estimated_completion_tokens / 1000 * 0.002)
+                # Расчет стоимости для gpt-5-mini
+                # GPT-5-mini: Input $0.00025/1K, Output $0.002/1K
+                cost_usd = (estimated_prompt_tokens / 1000 * 0.00025) + (estimated_completion_tokens / 1000 * 0.002)
                 
                 self.save_token_usage(
                     user_id=user_id,
                     agent_id=agent_id,
                     workflow_id=workflow_id,
                     content_id=content_piece.id,
-                    ai_model='gpt-3.5-turbo',
+                    ai_model='gpt-5-mini',
                     prompt_tokens=estimated_prompt_tokens,
                     completion_tokens=estimated_completion_tokens,
                     cost_usd=cost_usd,

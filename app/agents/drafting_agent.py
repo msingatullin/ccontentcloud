@@ -594,7 +594,7 @@ class DraftingAgent(BaseAgent):
             try:
                 client = openai.OpenAI(api_key=api_key)
                 response = client.chat.completions.create(
-                    model="gpt-3.5-turbo",
+                    model="gpt-5-mini",  # Обновлено на GPT-5-mini для лучшего качества при той же цене
                     messages=[
                         {"role": "system", "content": prompt.system_message},
                         {"role": "user", "content": final_prompt}
@@ -606,7 +606,14 @@ class DraftingAgent(BaseAgent):
                 
                 if response.choices and len(response.choices) > 0:
                     generated_text = response.choices[0].message.content.strip()
-                    logger.info(f"✅ Контент успешно сгенерирован через OpenAI для {platform}")
+                    
+                    # Логируем использование токенов если доступно
+                    if response.usage:
+                        logger.info(f"✅ Контент сгенерирован через GPT-5-mini для {platform}: "
+                                  f"prompt={response.usage.prompt_tokens}, "
+                                  f"completion={response.usage.completion_tokens}, "
+                                  f"total={response.usage.total_tokens}")
+                    
                     return generated_text
                 
             except openai.APIError as e:

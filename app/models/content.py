@@ -302,7 +302,7 @@ class TokenUsageDB(Base):
     
     # AI Модель
     ai_provider = Column(String(50), nullable=False)  # openai, anthropic, huggingface
-    ai_model = Column(String(100), nullable=False)  # gpt-3.5-turbo, gpt-4, dall-e-3
+    ai_model = Column(String(100), nullable=False)  # gpt-5-mini, gpt-5, gpt-4, dall-e-3
     
     # Токены
     prompt_tokens = Column(Integer, nullable=False, default=0)

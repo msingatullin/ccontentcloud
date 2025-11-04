@@ -67,7 +67,7 @@ class MCPConfigManager:
             fallback_enabled=True,
             test_mode=os.getenv('TEST_MODE', 'True').lower() == 'true',
             custom_params={
-                'model': 'gpt-4',
+                'model': 'gpt-5-mini',  # Обновлено на GPT-5-mini
                 'temperature': 0.7,
                 'max_tokens': 2000
             }
