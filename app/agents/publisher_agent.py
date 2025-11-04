@@ -140,9 +140,29 @@ class PublisherAgent(BaseAgent):
             content_data = task.context.get("content", {})
             platform = task.context.get("platform", "telegram")
             schedule_time = task.context.get("schedule_time")
-            test_mode = task.context.get("test_mode", True)
+            # ВАЖНО: по умолчанию False, чтобы публиковать реально если не указано иное
+            test_mode = task.context.get("test_mode", False)
             user_id = task.context.get("user_id")  # ID пользователя для мультипользовательского режима
             account_id = task.context.get("account_id")  # ID конкретного аккаунта (telegram_channel_id, instagram_account_id, twitter_account_id)
+            
+            logger.info(f"PublisherAgent: test_mode={test_mode}, user_id={user_id}, account_id={account_id}, platform={platform}")
+            logger.info(f"PublisherAgent: content_data keys={list(content_data.keys())}")
+            
+            # Проверяем наличие контента
+            if not content_data or not content_data.get("text"):
+                logger.error(f"PublisherAgent: контент пуст или отсутствует text в content_data")
+                return {
+                    "task_id": task.id,
+                    "agent_id": self.agent_id,
+                    "publication": {
+                        "success": False,
+                        "platform_post_id": None,
+                        "published_at": None,
+                        "error_message": "Контент пуст или отсутствует текст"
+                    },
+                    "status": "failed",
+                    "timestamp": datetime.now().isoformat()
+                }
             
             # Создаем контент-пис
             content_piece = ContentPiece(
@@ -156,10 +176,14 @@ class PublisherAgent(BaseAgent):
                 created_by_agent=self.agent_id
             )
             
+            logger.info(f"PublisherAgent: публикация контента (test_mode={test_mode}): {content_piece.text[:100]}...")
+            
             # Публикуем контент
             if test_mode:
+                logger.info("PublisherAgent: режим тестирования - только валидация")
                 result = await self._publish_test_content(content_piece, platform)
             else:
+                logger.info("PublisherAgent: реальная публикация")
                 result = await self._publish_content(content_piece, platform, schedule_time, user_id, account_id)
             
             # Создаем расписание публикации

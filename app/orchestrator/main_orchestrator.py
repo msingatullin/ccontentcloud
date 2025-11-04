@@ -91,6 +91,19 @@ class ContentOrchestrator:
             }
         )
         
+        # Преобразуем brief в словарь для передачи в контекст задачи
+        brief_data = {
+            "brief_id": brief.id,
+            "title": brief.title,
+            "description": brief.description,
+            "target_audience": brief.target_audience,
+            "business_goals": brief.business_goals,
+            "call_to_action": brief.call_to_action,
+            "tone": brief.tone,
+            "keywords": brief.keywords,
+            "constraints": brief.constraints
+        }
+        
         # Добавляем задачи для каждого платформы и типа контента
         for platform in platforms:
             for content_type in content_types:
@@ -104,6 +117,7 @@ class ContentOrchestrator:
                     priority=TaskPriority.MEDIUM,
                     context={
                         "brief_id": brief.id,
+                        "brief_data": brief_data,  # Передаем полные данные брифа
                         "platform": platform.value,
                         "content_type": content_type.value,
                         "user_id": user_id,

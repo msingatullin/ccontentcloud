@@ -202,17 +202,20 @@ class DraftingAgent(BaseAgent):
 Тон: {tone}
 Ключевые слова: {keywords}
 
+ВАЖНО: Используй информацию из детального описания темы (если оно предоставлено) для создания содержательного и релевантного контента. НЕ используй шаблонные фразы типа "Ваш ключ к лучшему контенту", "Узнайте секрет" и т.д. Создавай уникальный контент на основе предоставленной информации.
+
 Требования:
-- Захватывающая зацепка в начале
-- Информативный основной контент
+- Захватывающая зацепка в начале, основанная на реальной теме
+- Информативный основной контент, раскрывающий суть темы из описания
 - Призыв к действию в конце
-- Используй эмодзи для привлечения внимания
+- Используй эмодзи для привлечения внимания (умеренно, 2-3 эмодзи)
 - Длина: до 500 символов
 - НЕ добавляй блоки "Похожие события", "Similar events", исторические данные или события за последние годы
+- НЕ используй шаблонные фразы - создавай уникальный контент
 
 Структура:
-1. Зацепка (1-2 предложения)
-2. Основной контент (2-3 предложения)
+1. Зацепка (1-2 предложения) - на основе реальной темы
+2. Основной контент (2-3 предложения) - раскрой тему из описания
 3. Призыв к действию (1 предложение)""",
                 max_tokens=200,
                 temperature=0.7,
@@ -550,18 +553,35 @@ class DraftingAgent(BaseAgent):
                 return None
             
             # Подготавливаем данные для промпта
-            topic = brief_data.get("title", brief_data.get("description", "контент"))
+            title = brief_data.get("title", "")
+            description = brief_data.get("description", "")
             target_audience = brief_data.get("target_audience", "пользователи")
             tone = brief_data.get("tone", "professional")
             keywords = ", ".join(brief_data.get("keywords", []))
+            business_goals = brief_data.get("business_goals", [])
             
-            # Формируем финальный промпт
+            # Формируем тему: используем title если есть, иначе description
+            topic = title if title else description[:200] if description else "контент"
+            
+            # Формируем финальный промпт с полным описанием
+            # Если description длинный, используем его как основу для генерации
+            full_description = description if description else title
+            
             final_prompt = prompt.prompt_template.format(
                 topic=topic,
                 target_audience=target_audience,
                 tone=tone,
                 keywords=keywords
             )
+            
+            # Добавляем полное описание в промпт если оно есть
+            if description and len(description) > 50:
+                final_prompt += f"\n\nДетальное описание темы:\n{description}"
+            
+            # Добавляем бизнес-цели если есть
+            if business_goals:
+                goals_text = ", ".join(business_goals)
+                final_prompt += f"\n\nБизнес-цели: {goals_text}"
             
             # Вызываем OpenAI API напрямую
             try:
