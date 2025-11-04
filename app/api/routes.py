@@ -158,7 +158,7 @@ content_request_model = api.model('ContentRequest', {
     'platforms': fields.List(fields.String, max_items=5, description='Платформы для публикации (опционально)', default=[]),
     'content_types': fields.List(fields.String, description='Типы контента', default=['post']),
     'constraints': fields.Raw(description='Дополнительные ограничения'),
-    'test_mode': fields.Boolean(description='Тестовый режим', default=True),
+    'test_mode': fields.Boolean(description='Тестовый режим (по умолчанию False - реальная публикация)', default=False),
     'uploaded_files': fields.List(fields.String, description='IDs загруженных файлов', max_items=10),
     'reference_urls': fields.List(fields.String, description='URLs референсных материалов', max_items=5)
 })
