@@ -84,6 +84,8 @@ class User(Base):
     twitter_accounts = relationship("TwitterAccount", back_populates="user", cascade="all, delete-orphan")
     scheduled_posts = relationship("ScheduledPostDB", back_populates="user", cascade="all, delete-orphan")
     auto_posting_rules = relationship("AutoPostingRuleDB", back_populates="user", cascade="all, delete-orphan")
+    content_sources = relationship("ContentSource", back_populates="user", cascade="all, delete-orphan")
+    monitored_items = relationship("MonitoredItem", back_populates="user", cascade="all, delete-orphan")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

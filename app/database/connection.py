@@ -88,6 +88,7 @@ def init_database():
         from app.models.uploads import FileUploadDB
         from app.models.scheduled_posts import ScheduledPostDB
         from app.models.auto_posting_rules import AutoPostingRuleDB
+        from app.models.content_sources import ContentSource, MonitoredItem, SourceCheckHistory
         
         # Create all tables
         Base.metadata.create_all(bind=engine)

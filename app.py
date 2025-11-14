@@ -52,8 +52,10 @@ from app.api.instagram_ns import instagram_ns
 from app.api.twitter_ns import twitter_ns
 from app.api.scheduled_posts_ns import scheduled_posts_ns
 from app.api.auto_posting_ns import auto_posting_ns
+from app.api.content_sources_ns import content_sources_ns
 from app.api.swagger_config import create_swagger_api
 from app.workers import ScheduledPostsWorker, AutoPostingWorker
+from app.workers.web_crawler_worker import WebCrawlerWorker
 
 # Настройка логирования
 logging.basicConfig(
@@ -171,6 +173,7 @@ def create_app():
     swagger_api.add_namespace(twitter_ns)
     swagger_api.add_namespace(scheduled_posts_ns, path='/api/v1/scheduled-posts')
     swagger_api.add_namespace(auto_posting_ns, path='/api/v1/auto-posting')
+    swagger_api.add_namespace(content_sources_ns, path='/api/v1/content-sources')
     
     # Регистрируем swagger_api в Flask app
     # swagger_api уже зарегистрирован в Flask app через create_swagger_api(app)
@@ -306,10 +309,11 @@ DISABLE_WORKERS = os.getenv('DISABLE_WORKERS', 'false').lower() == 'true'
 # Глобальные workers
 scheduled_posts_worker = None
 auto_posting_worker = None
+web_crawler_worker = None
 
 def start_workers():
     """Запуск background workers"""
-    global scheduled_posts_worker, auto_posting_worker
+    global scheduled_posts_worker, auto_posting_worker, web_crawler_worker
     
     if DISABLE_WORKERS:
         logger.warning("⚠️ WORKERS DISABLED: Background workers отключены (DISABLE_WORKERS=true)")
@@ -328,6 +332,11 @@ def start_workers():
         auto_posting_worker = AutoPostingWorker(check_interval=300, api_base_url=api_base_url)
         auto_posting_worker.start()
         logger.info("✅ AutoPostingWorker запущен (интервал: 300s)")
+        
+        # Web Crawler Worker - проверяет каждую минуту
+        web_crawler_worker = WebCrawlerWorker(check_interval=60)
+        web_crawler_worker.start()
+        logger.info("✅ WebCrawlerWorker запущен (интервал: 60s)")
         
         logger.info("🚀 Все background workers успешно запущены")
         
