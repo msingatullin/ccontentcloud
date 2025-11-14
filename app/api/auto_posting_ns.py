@@ -36,7 +36,6 @@ auto_posting_rule_model = auto_posting_ns.model('AutoPostingRule', {
 class AutoPostingRulesList(Resource):
     @jwt_required
     @auto_posting_ns.doc('list_auto_posting_rules', security='BearerAuth')
-    @auto_posting_ns.marshal_list_with(auto_posting_rule_model)
     def get(self, current_user):
         """Получить список правил автопостинга"""
         try:

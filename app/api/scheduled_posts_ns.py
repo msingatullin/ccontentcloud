@@ -38,7 +38,6 @@ scheduled_post_model = scheduled_posts_ns.model('ScheduledPost', {
 class ScheduledPostsList(Resource):
     @jwt_required
     @scheduled_posts_ns.doc('list_scheduled_posts', security='BearerAuth')
-    @scheduled_posts_ns.marshal_list_with(scheduled_post_model)
     def get(self, current_user):
         """Получить список запланированных постов"""
         try:
