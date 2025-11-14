@@ -37,7 +37,7 @@ scheduled_post_model = scheduled_posts_ns.model('ScheduledPost', {
 @scheduled_posts_ns.route('')
 class ScheduledPostsList(Resource):
     @jwt_required
-    @scheduled_posts_ns.doc('list_scheduled_posts', security='Bearer')
+    @scheduled_posts_ns.doc('list_scheduled_posts', security='BearerAuth')
     @scheduled_posts_ns.marshal_list_with(scheduled_post_model)
     def get(self, current_user):
         """Получить список запланированных постов"""
@@ -78,7 +78,7 @@ class ScheduledPostsList(Resource):
             }, 500
     
     @jwt_required
-    @scheduled_posts_ns.doc('create_scheduled_post', security='Bearer')
+    @scheduled_posts_ns.doc('create_scheduled_post', security='BearerAuth')
     @scheduled_posts_ns.expect(scheduled_post_model)
     def post(self, current_user):
         """Создать запланированный пост"""
@@ -142,7 +142,7 @@ class ScheduledPostsList(Resource):
 @scheduled_posts_ns.route('/<int:post_id>')
 class ScheduledPostDetail(Resource):
     @jwt_required
-    @scheduled_posts_ns.doc('get_scheduled_post', security='Bearer')
+    @scheduled_posts_ns.doc('get_scheduled_post', security='BearerAuth')
     def get(self, current_user, post_id):
         """Получить запланированный пост"""
         try:
@@ -180,7 +180,7 @@ class ScheduledPostDetail(Resource):
             }, 500
     
     @jwt_required
-    @scheduled_posts_ns.doc('update_scheduled_post', security='Bearer')
+    @scheduled_posts_ns.doc('update_scheduled_post', security='BearerAuth')
     def put(self, current_user, post_id):
         """Обновить запланированный пост"""
         try:
@@ -249,7 +249,7 @@ class ScheduledPostDetail(Resource):
             }, 500
     
     @jwt_required
-    @scheduled_posts_ns.doc('delete_scheduled_post', security='Bearer')
+    @scheduled_posts_ns.doc('delete_scheduled_post', security='BearerAuth')
     def delete(self, current_user, post_id):
         """Удалить запланированный пост"""
         try:
@@ -301,7 +301,7 @@ class ScheduledPostDetail(Resource):
 @scheduled_posts_ns.route('/<int:post_id>/cancel')
 class ScheduledPostCancel(Resource):
     @jwt_required
-    @scheduled_posts_ns.doc('cancel_scheduled_post', security='Bearer')
+    @scheduled_posts_ns.doc('cancel_scheduled_post', security='BearerAuth')
     def post(self, current_user, post_id):
         """Отменить запланированный пост"""
         try:

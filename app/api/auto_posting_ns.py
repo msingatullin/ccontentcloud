@@ -35,7 +35,7 @@ auto_posting_rule_model = auto_posting_ns.model('AutoPostingRule', {
 @auto_posting_ns.route('/rules')
 class AutoPostingRulesList(Resource):
     @jwt_required
-    @auto_posting_ns.doc('list_auto_posting_rules', security='Bearer')
+    @auto_posting_ns.doc('list_auto_posting_rules', security='BearerAuth')
     @auto_posting_ns.marshal_list_with(auto_posting_rule_model)
     def get(self, current_user):
         """Получить список правил автопостинга"""
@@ -77,7 +77,7 @@ class AutoPostingRulesList(Resource):
             }, 500
     
     @jwt_required
-    @auto_posting_ns.doc('create_auto_posting_rule', security='Bearer')
+    @auto_posting_ns.doc('create_auto_posting_rule', security='BearerAuth')
     @auto_posting_ns.expect(auto_posting_rule_model)
     def post(self, current_user):
         """Создать правило автопостинга"""
@@ -136,7 +136,7 @@ class AutoPostingRulesList(Resource):
 @auto_posting_ns.route('/rules/<int:rule_id>')
 class AutoPostingRuleDetail(Resource):
     @jwt_required
-    @auto_posting_ns.doc('get_auto_posting_rule', security='Bearer')
+    @auto_posting_ns.doc('get_auto_posting_rule', security='BearerAuth')
     def get(self, current_user, rule_id):
         """Получить правило автопостинга"""
         try:
@@ -174,7 +174,7 @@ class AutoPostingRuleDetail(Resource):
             }, 500
     
     @jwt_required
-    @auto_posting_ns.doc('update_auto_posting_rule', security='Bearer')
+    @auto_posting_ns.doc('update_auto_posting_rule', security='BearerAuth')
     def put(self, current_user, rule_id):
         """Обновить правило автопостинга"""
         try:
@@ -251,7 +251,7 @@ class AutoPostingRuleDetail(Resource):
             }, 500
     
     @jwt_required
-    @auto_posting_ns.doc('delete_auto_posting_rule', security='Bearer')
+    @auto_posting_ns.doc('delete_auto_posting_rule', security='BearerAuth')
     def delete(self, current_user, rule_id):
         """Удалить правило автопостинга"""
         try:
@@ -292,7 +292,7 @@ class AutoPostingRuleDetail(Resource):
 @auto_posting_ns.route('/rules/<int:rule_id>/toggle')
 class AutoPostingRuleToggle(Resource):
     @jwt_required
-    @auto_posting_ns.doc('toggle_auto_posting_rule', security='Bearer')
+    @auto_posting_ns.doc('toggle_auto_posting_rule', security='BearerAuth')
     def post(self, current_user, rule_id):
         """Включить/выключить правило"""
         try:
