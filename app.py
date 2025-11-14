@@ -53,6 +53,7 @@ from app.api.twitter_ns import twitter_ns
 from app.api.scheduled_posts_ns import scheduled_posts_ns
 from app.api.auto_posting_ns import auto_posting_ns
 from app.api.swagger_config import create_swagger_api
+from app.workers import ScheduledPostsWorker, AutoPostingWorker
 
 # Настройка логирования
 logging.basicConfig(
@@ -299,6 +300,40 @@ def run_initialization():
 # Feature flag для отключения агентов в тестовом режиме
 DISABLE_AGENTS = os.getenv('DISABLE_AGENTS', 'false').lower() == 'true'
 
+# Feature flag для отключения workers в тестовом режиме
+DISABLE_WORKERS = os.getenv('DISABLE_WORKERS', 'false').lower() == 'true'
+
+# Глобальные workers
+scheduled_posts_worker = None
+auto_posting_worker = None
+
+def start_workers():
+    """Запуск background workers"""
+    global scheduled_posts_worker, auto_posting_worker
+    
+    if DISABLE_WORKERS:
+        logger.warning("⚠️ WORKERS DISABLED: Background workers отключены (DISABLE_WORKERS=true)")
+        return
+    
+    try:
+        logger.info("Запуск background workers...")
+        
+        # Scheduled Posts Worker - проверяет каждую минуту
+        scheduled_posts_worker = ScheduledPostsWorker(check_interval=60)
+        scheduled_posts_worker.start()
+        logger.info("✅ ScheduledPostsWorker запущен (интервал: 60s)")
+        
+        # Auto Posting Worker - проверяет каждые 5 минут
+        api_base_url = os.getenv('API_BASE_URL', 'http://localhost:8080')
+        auto_posting_worker = AutoPostingWorker(check_interval=300, api_base_url=api_base_url)
+        auto_posting_worker.start()
+        logger.info("✅ AutoPostingWorker запущен (интервал: 300s)")
+        
+        logger.info("🚀 Все background workers успешно запущены")
+        
+    except Exception as e:
+        logger.error(f"❌ Ошибка запуска workers: {e}", exc_info=True)
+
 # Создаем приложение
 app = create_app()
 
@@ -310,6 +345,9 @@ if __name__ == '__main__':
         run_initialization()
     else:
         logger.warning("⚠️ AGENTS DISABLED: Система работает БЕЗ агентов (DISABLE_AGENTS=true)")
+    
+    # Запускаем background workers
+    start_workers()
     
     # Запускаем Flask приложение
     port = int(os.environ.get('PORT', 8080))
@@ -324,3 +362,6 @@ else:
         run_initialization()
     else:
         logger.warning("⚠️ AGENTS DISABLED: Система работает БЕЗ агентов (DISABLE_AGENTS=true)")
+    
+    # Запускаем background workers
+    start_workers()

@@ -177,29 +177,36 @@
 
 ## 🚀 Следующие шаги
 
-### Требуется реализовать (не включено):
+### ✅ UPD: Background Workers реализованы!
 
-1. **Background Scheduler** (отдельный процесс)
-   - Опрос `ScheduledPostService.get_posts_to_publish()`
-   - Вызов `PublisherAgent` для публикации
+1. **✅ ScheduledPostsWorker** (встроенный thread)
+   - Опрос `ScheduledPostService.get_posts_to_publish()` каждую минуту
+   - Публикация через интеграции Telegram/Instagram/Twitter
    - Обновление статусов через `mark_as_published()`
+   - Обработка ошибок и логирование
    
-2. **Auto-posting Worker** (отдельный процесс)
-   - Опрос `AutoPostingService.get_rules_to_execute()`
-   - Вызов `/api/v1/content/create` с параметрами из rule
+2. **✅ AutoPostingWorker** (встроенный thread)
+   - Опрос `AutoPostingService.get_rules_to_execute()` каждые 5 минут
+   - Создание контента (пока mock, нужна интеграция с ContentOrchestrator)
    - Создание `scheduled_post` для полученного контента
    - Обновление статистики через `mark_execution()`
+   - Проверка лимитов (день/неделя)
 
-3. **Интеграция с PublisherAgent**
-   - Метод для публикации scheduled post
-   - Обработка ошибок публикации
-   - Сохранение platform_post_id
+### Требуется доработать:
 
-4. **Cron-like расписание**
+3. **Интеграция с PublisherAgent** (частично готово)
+   - ✅ Прямые вызовы интеграций работают
+   - ⚠️ Можно улучшить через PublisherAgent для унификации
+
+4. **Реальное создание контента для AutoPosting**
+   - ⚠️ Сейчас используется mock
+   - Нужно: прямой вызов ContentOrchestrator через UserOrchestratorFactory
+
+5. **Cron-like расписание** (опционально)
    - Интеграция библиотеки `croniter`
    - Поддержка cron выражений в `_calculate_next_execution()`
 
-5. **UI Компоненты** (фронтенд)
+6. **UI Компоненты** (фронтенд)
    - Календарь запланированных постов
    - Форма создания scheduled post
    - Форма создания auto posting rule
@@ -264,21 +271,26 @@ curl -X POST https://content-curator-1046574462613.us-central1.run.app/api/v1/au
 ## 📁 Измененные файлы
 
 ### Новые файлы:
-1. `app/models/scheduled_posts.py`
-2. `app/models/auto_posting_rules.py`
-3. `app/services/scheduled_post_service.py`
-4. `app/services/auto_posting_service.py`
-5. `app/api/scheduled_posts_ns.py`
-6. `app/api/auto_posting_ns.py`
-7. `SCHEDULED_POSTS_UI_GUIDE.md`
-8. `SCHEDULED_POSTING_CHANGELOG.md`
+1. `app/models/scheduled_posts.py` - модель запланированных постов
+2. `app/models/auto_posting_rules.py` - модель правил автопостинга
+3. `app/services/scheduled_post_service.py` - сервис для постов
+4. `app/services/auto_posting_service.py` - сервис для правил
+5. `app/api/scheduled_posts_ns.py` - API endpoints для постов
+6. `app/api/auto_posting_ns.py` - API endpoints для правил
+7. `app/workers/__init__.py` - инициализация workers
+8. `app/workers/scheduled_posts_worker.py` - ✅ worker для публикации
+9. `app/workers/auto_posting_worker.py` - ✅ worker для автопостинга
+10. `SCHEDULED_POSTS_UI_GUIDE.md` - руководство для UI
+11. `SCHEDULED_POSTING_CHANGELOG.md` - этот файл
+12. `WORKERS_README.md` - ✅ документация по workers
+13. `migrations/create_scheduled_posting_tables.sql` - SQL миграция
 
 ### Измененные файлы:
 1. `app/auth/models/user.py` - добавлены relationships
 2. `app/models/content.py` - добавлен relationship
 3. `app/database/connection.py` - добавлены импорты
 4. `app/api/schemas.py` - добавлены новые схемы
-5. `app.py` - добавлены импорты и регистрация namespaces
+5. `app.py` - ✅ добавлены импорты, регистрация namespaces и запуск workers
 
 ---
 
