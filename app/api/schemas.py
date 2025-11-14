@@ -409,3 +409,114 @@ class ExampleData:
             "issue": "Поле обязательно для заполнения"
         }
     }
+
+
+# ==================== SCHEDULED POSTS SCHEMAS ====================
+
+class ScheduledPostCreateSchema(BaseModel):
+    """Схема создания запланированного поста"""
+    content_id: str = Field(..., description="ID готового контента")
+    platform: PlatformEnum = Field(..., description="Платформа для публикации")
+    account_id: Optional[int] = Field(None, description="ID аккаунта (если не указан - используется дефолтный)")
+    scheduled_time: str = Field(..., description="Время публикации (ISO 8601)")
+    publish_options: Optional[Dict[str, Any]] = Field(default={}, description="Дополнительные опции публикации")
+
+
+class ScheduledPostUpdateSchema(BaseModel):
+    """Схема обновления запланированного поста"""
+    scheduled_time: Optional[str] = Field(None, description="Новое время публикации")
+    status: Optional[str] = Field(None, description="Статус: scheduled, cancelled")
+    publish_options: Optional[Dict[str, Any]] = Field(None, description="Опции публикации")
+
+
+class ScheduledPostResponseSchema(BaseModel):
+    """Схема ответа запланированного поста"""
+    id: int
+    content_id: str
+    platform: str
+    account_id: Optional[int]
+    scheduled_time: str
+    published_at: Optional[str]
+    status: str
+    platform_post_id: Optional[str]
+    error_message: Optional[str]
+    publish_options: Dict[str, Any]
+    created_at: str
+    updated_at: str
+
+
+# ==================== AUTO POSTING RULES SCHEMAS ====================
+
+class ScheduleConfigSchema(BaseModel):
+    """Схема конфигурации расписания"""
+    # Для daily
+    times: Optional[List[str]] = Field(None, description="Времена публикации: ['09:00', '18:00']")
+    days_of_week: Optional[List[int]] = Field(None, description="Дни недели: [1,2,3,4,5] (1=Пн, 7=Вс)")
+    
+    # Для weekly
+    day_of_week: Optional[int] = Field(None, description="День недели: 1-7")
+    time: Optional[str] = Field(None, description="Время: '10:00'")
+    
+    # Для cron
+    cron_expression: Optional[str] = Field(None, description="Cron выражение: '0 9 * * 1-5'")
+    
+    # Для custom
+    dates: Optional[List[str]] = Field(None, description="Конкретные даты: ['2025-01-15T10:00', '2025-01-20T15:00']")
+
+
+class AutoPostingRuleCreateSchema(BaseModel):
+    """Схема создания правила автопостинга"""
+    name: str = Field(..., min_length=1, max_length=255, description="Название правила")
+    description: Optional[str] = Field(None, description="Описание")
+    schedule_type: str = Field(..., description="Тип расписания: daily, weekly, custom, cron")
+    schedule_config: ScheduleConfigSchema = Field(..., description="Конфигурация расписания")
+    
+    # Параметры создания контента
+    content_config: Dict[str, Any] = Field(..., description="Параметры для создания контента")
+    
+    platforms: List[PlatformEnum] = Field(..., min_items=1, description="Платформы для публикации")
+    accounts: Optional[Dict[str, List[int]]] = Field(None, description="ID аккаунтов: {'telegram': [1, 2], 'instagram': [3]}")
+    content_types: Optional[List[ContentTypeEnum]] = Field(None, description="Типы контента")
+    
+    max_posts_per_day: Optional[int] = Field(None, ge=1, description="Максимум постов в день")
+    max_posts_per_week: Optional[int] = Field(None, ge=1, description="Максимум постов в неделю")
+
+
+class AutoPostingRuleUpdateSchema(BaseModel):
+    """Схема обновления правила автопостинга"""
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    description: Optional[str] = None
+    schedule_type: Optional[str] = None
+    schedule_config: Optional[ScheduleConfigSchema] = None
+    content_config: Optional[Dict[str, Any]] = None
+    platforms: Optional[List[PlatformEnum]] = None
+    accounts: Optional[Dict[str, List[int]]] = None
+    content_types: Optional[List[ContentTypeEnum]] = None
+    is_active: Optional[bool] = None
+    is_paused: Optional[bool] = None
+    max_posts_per_day: Optional[int] = Field(None, ge=1)
+    max_posts_per_week: Optional[int] = Field(None, ge=1)
+
+
+class AutoPostingRuleResponseSchema(BaseModel):
+    """Схема ответа правила автопостинга"""
+    id: int
+    name: str
+    description: Optional[str]
+    schedule_type: str
+    schedule_config: Dict[str, Any]
+    content_config: Dict[str, Any]
+    platforms: List[str]
+    accounts: Dict[str, List[int]]
+    content_types: List[str]
+    is_active: bool
+    is_paused: bool
+    max_posts_per_day: Optional[int]
+    max_posts_per_week: Optional[int]
+    total_executions: int
+    successful_executions: int
+    failed_executions: int
+    last_execution_at: Optional[str]
+    next_execution_at: Optional[str]
+    created_at: str
+    updated_at: str

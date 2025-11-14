@@ -82,6 +82,8 @@ class User(Base):
     telegram_channels = relationship("TelegramChannel", back_populates="user", cascade="all, delete-orphan")
     instagram_accounts = relationship("InstagramAccount", back_populates="user", cascade="all, delete-orphan")
     twitter_accounts = relationship("TwitterAccount", back_populates="user", cascade="all, delete-orphan")
+    scheduled_posts = relationship("ScheduledPostDB", back_populates="user", cascade="all, delete-orphan")
+    auto_posting_rules = relationship("AutoPostingRuleDB", back_populates="user", cascade="all, delete-orphan")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

@@ -86,6 +86,8 @@ def init_database():
         from app.billing.models.agent_subscription import AgentSubscription  # Новая модель
         from app.models.content import ContentPieceDB, TokenUsageDB, ContentHistoryDB
         from app.models.uploads import FileUploadDB
+        from app.models.scheduled_posts import ScheduledPostDB
+        from app.models.auto_posting_rules import AutoPostingRuleDB
         
         # Create all tables
         Base.metadata.create_all(bind=engine)

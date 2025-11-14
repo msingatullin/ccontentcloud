@@ -260,6 +260,7 @@ class ContentPieceDB(Base):
     user = relationship("User", back_populates="content_pieces")
     token_usage_records = relationship("TokenUsageDB", back_populates="content_piece")
     history_records = relationship("ContentHistoryDB", back_populates="content_piece")
+    scheduled_posts = relationship("ScheduledPostDB", back_populates="content", cascade="all, delete-orphan")
 
 
 class ContentHistoryDB(Base):

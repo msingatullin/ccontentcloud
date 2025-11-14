@@ -50,6 +50,8 @@ from app.api.social_media_ns import social_media_ns
 from app.api.telegram_ns import telegram_ns
 from app.api.instagram_ns import instagram_ns
 from app.api.twitter_ns import twitter_ns
+from app.api.scheduled_posts_ns import scheduled_posts_ns
+from app.api.auto_posting_ns import auto_posting_ns
 from app.api.swagger_config import create_swagger_api
 
 # Настройка логирования
@@ -166,6 +168,8 @@ def create_app():
     swagger_api.add_namespace(telegram_ns)
     swagger_api.add_namespace(instagram_ns)
     swagger_api.add_namespace(twitter_ns)
+    swagger_api.add_namespace(scheduled_posts_ns, path='/api/v1/scheduled-posts')
+    swagger_api.add_namespace(auto_posting_ns, path='/api/v1/auto-posting')
     
     # Регистрируем swagger_api в Flask app
     # swagger_api уже зарегистрирован в Flask app через create_swagger_api(app)
