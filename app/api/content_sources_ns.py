@@ -164,6 +164,8 @@ class ContentSourcesList(Resource):
             user_id = current_user.get('user_id')
             data = request.json
             
+            logger.info(f"Creating content source for user {user_id}: {data.get('name')}")
+            
             # Валидация обязательных полей
             if not data.get('name'):
                 return {'error': 'Name is required'}, 400
@@ -195,13 +197,17 @@ class ContentSourcesList(Resource):
             )
             
             if not source:
+                logger.error(f"Failed to create content source - service returned None")
                 return {'error': 'Failed to create content source'}, 500
             
+            logger.info(f"Content source created successfully: {source.id}")
             return source.to_dict(), 201
             
         except Exception as e:
+            import traceback
             logger.error(f"Error creating content source: {e}")
-            return {'error': 'Internal server error'}, 500
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return {'error': f'Internal server error: {str(e)}'}, 500
 
 
 @content_sources_ns.route('/<int:source_id>')

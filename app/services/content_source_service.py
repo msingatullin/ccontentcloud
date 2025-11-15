@@ -28,9 +28,13 @@ class ContentSourceService:
         """Создание нового источника контента"""
         db = SessionLocal()
         try:
+            logger.info(f"ContentSourceService.create_source called: user_id={user_id}, name={name}, type={source_type}")
+            
             # Вычисляем первую проверку
             check_interval = kwargs.get('check_interval_minutes', 60)
             next_check = datetime.utcnow() + timedelta(minutes=check_interval)
+            
+            logger.info(f"Creating ContentSource object with kwargs: {list(kwargs.keys())}")
             
             source = ContentSource(
                 user_id=user_id,
@@ -41,16 +45,23 @@ class ContentSourceService:
                 **kwargs
             )
             
+            logger.info("Adding source to database session...")
             db.add(source)
+            
+            logger.info("Committing transaction...")
             db.commit()
+            
+            logger.info("Refreshing source object...")
             db.refresh(source)
             
-            logger.info(f"Created content source: {source.id} for user {user_id}")
+            logger.info(f"✅ Created content source: {source.id} for user {user_id}")
             return source
             
         except Exception as e:
             db.rollback()
-            logger.error(f"Error creating content source: {e}")
+            import traceback
+            logger.error(f"❌ Error creating content source: {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return None
         finally:
             db.close()
