@@ -4,50 +4,16 @@ API endpoints для управления источниками контент�
 
 from flask import request
 from flask_restx import Namespace, Resource, fields
-from functools import wraps
-import jwt
-import os
 import logging
 from datetime import datetime
 
 from app.services.content_source_service import ContentSourceService, MonitoredItemService
+from app.api.routes import jwt_required
 
 logger = logging.getLogger(__name__)
 
 # Namespace
 content_sources_ns = Namespace('content-sources', description='Управление источниками контента')
-
-# JWT Secret
-JWT_SECRET = os.environ.get('JWT_SECRET', 'your-secret-key-change-in-production')
-
-
-def jwt_required(f):
-    """Декоратор для проверки JWT токена"""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        token = None
-        
-        if 'Authorization' in request.headers:
-            auth_header = request.headers['Authorization']
-            try:
-                token = auth_header.split(" ")[1]
-            except IndexError:
-                return {'error': 'Invalid authorization header format'}, 401
-        
-        if not token:
-            return {'error': 'Authorization token is missing'}, 401
-        
-        try:
-            data = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
-            request.user_id = data['user_id']
-        except jwt.ExpiredSignatureError:
-            return {'error': 'Token has expired'}, 401
-        except jwt.InvalidTokenError:
-            return {'error': 'Invalid token'}, 401
-        
-        return f(*args, **kwargs)
-    
-    return decorated_function
 
 
 # Models
