@@ -176,6 +176,11 @@ class ContentSourcesList(Resource):
             if not data.get('url'):
                 return {'error': 'URL is required'}, 400
             
+            # Подготовка auto_posting_rule_id: если 0 или None, передаём None
+            auto_posting_rule_id = data.get('auto_posting_rule_id')
+            if auto_posting_rule_id == 0 or auto_posting_rule_id is None:
+                auto_posting_rule_id = None
+            
             # Создаем источник
             source = ContentSourceService.create_source(
                 user_id=user_id,
@@ -191,7 +196,7 @@ class ContentSourcesList(Resource):
                 auto_post_enabled=data.get('auto_post_enabled', True),
                 post_delay_minutes=data.get('post_delay_minutes', 0),
                 post_template=data.get('post_template'),
-                auto_posting_rule_id=data.get('auto_posting_rule_id'),
+                auto_posting_rule_id=auto_posting_rule_id,
                 check_interval_minutes=data.get('check_interval_minutes', 60),
                 is_active=data.get('is_active', True)
             )
