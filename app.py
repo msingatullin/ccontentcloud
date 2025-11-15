@@ -348,6 +348,12 @@ app = create_app()
 
 # Инициализируем оркестратор при запуске
 if __name__ == '__main__':
+    # Инициализируем базу данных
+    logger.info("🔧 Initializing database...")
+    from app.database.connection import init_database
+    init_database()
+    logger.info("✅ Database initialized")
+    
     # Запускаем инициализацию агентов (если не отключено)
     if not DISABLE_AGENTS:
         logger.info("Инициализация агентов включена")
@@ -366,6 +372,11 @@ if __name__ == '__main__':
     app.run(host='0.0.0.0', port=port, debug=debug)
 else:
     # Для production (gunicorn)
+    logger.info("🔧 Initializing database (production mode)...")
+    from app.database.connection import init_database
+    init_database()
+    logger.info("✅ Database initialized")
+    
     if not DISABLE_AGENTS:
         logger.info("Инициализация агентов включена (production mode)")
         run_initialization()
