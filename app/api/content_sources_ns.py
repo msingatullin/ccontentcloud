@@ -127,9 +127,10 @@ class ContentSourcesList(Resource):
         }
     )
     @jwt_required
-    def get(self):
+    def get(self, current_user):
         """Получение списка источников контента"""
         try:
+            user_id = current_user.get('user_id')
             source_type = request.args.get('source_type')
             is_active = request.args.get('is_active')
             
@@ -137,7 +138,7 @@ class ContentSourcesList(Resource):
                 is_active = is_active.lower() == 'true'
             
             sources = ContentSourceService.get_user_sources(
-                user_id=request.user_id,
+                user_id=user_id,
                 source_type=source_type,
                 is_active=is_active
             )
@@ -157,9 +158,10 @@ class ContentSourcesList(Resource):
     )
     @content_sources_ns.expect(content_source_create_model)
     @jwt_required
-    def post(self):
+    def post(self, current_user):
         """Создание нового источника контента"""
         try:
+            user_id = current_user.get('user_id')
             data = request.json
             
             # Валидация обязательных полей
@@ -174,7 +176,7 @@ class ContentSourcesList(Resource):
             
             # Создаем источник
             source = ContentSourceService.create_source(
-                user_id=request.user_id,
+                user_id=user_id,
                 name=data['name'],
                 source_type=data['source_type'],
                 url=data['url'],
@@ -211,10 +213,11 @@ class ContentSourceDetail(Resource):
         security='BearerAuth'
     )
     @jwt_required
-    def get(self, source_id):
+    def get(self, current_user, source_id):
         """Получение информации об источнике"""
         try:
-            source = ContentSourceService.get_source(source_id, request.user_id)
+            user_id = current_user.get('user_id')
+            source = ContentSourceService.get_source(source_id, user_id)
             
             if not source:
                 return {'error': 'Content source not found'}, 404
@@ -231,14 +234,15 @@ class ContentSourceDetail(Resource):
     )
     @content_sources_ns.expect(content_source_update_model)
     @jwt_required
-    def put(self, source_id):
+    def put(self, current_user, source_id):
         """Обновление источника"""
         try:
+            user_id = current_user.get('user_id')
             data = request.json
             
             source = ContentSourceService.update_source(
                 source_id=source_id,
-                user_id=request.user_id,
+                user_id=user_id,
                 **data
             )
             
@@ -256,10 +260,11 @@ class ContentSourceDetail(Resource):
         security='BearerAuth'
     )
     @jwt_required
-    def delete(self, source_id):
+    def delete(self, current_user, source_id):
         """Удаление источника"""
         try:
-            success = ContentSourceService.delete_source(source_id, request.user_id)
+            user_id = current_user.get('user_id')
+            success = ContentSourceService.delete_source(source_id, user_id)
             
             if not success:
                 return {'error': 'Content source not found'}, 404
@@ -284,15 +289,16 @@ class ContentSourceItems(Resource):
         }
     )
     @jwt_required
-    def get(self, source_id):
+    def get(self, current_user, source_id):
         """Получение элементов из источника"""
         try:
+            user_id = current_user.get('user_id')
             status = request.args.get('status')
             limit = int(request.args.get('limit', 100))
             
             items = MonitoredItemService.get_items_by_source(
                 source_id=source_id,
-                user_id=request.user_id,
+                user_id=user_id,
                 status=status,
                 limit=limit
             )
@@ -319,13 +325,14 @@ class NewMonitoredItems(Resource):
         }
     )
     @jwt_required
-    def get(self):
+    def get(self, current_user):
         """Получение новых необработанных элементов"""
         try:
+            user_id = current_user.get('user_id')
             limit = int(request.args.get('limit', 50))
             
             items = MonitoredItemService.get_new_items(
-                user_id=request.user_id,
+                user_id=user_id,
                 limit=limit
             )
             
@@ -348,7 +355,7 @@ class ApproveMonitoredItem(Resource):
         security='BearerAuth'
     )
     @jwt_required
-    def post(self, item_id):
+    def post(self, current_user, item_id):
         """Утверждение элемента"""
         try:
             item = MonitoredItemService.update_item_status(
@@ -375,7 +382,7 @@ class IgnoreMonitoredItem(Resource):
         security='BearerAuth'
     )
     @jwt_required
-    def post(self, item_id):
+    def post(self, current_user, item_id):
         """Игнорирование элемента"""
         try:
             item = MonitoredItemService.update_item_status(
