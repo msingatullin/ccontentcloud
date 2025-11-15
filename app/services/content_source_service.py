@@ -9,7 +9,7 @@ from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from app.models.content_sources import ContentSource, MonitoredItem, SourceCheckHistory
-from app.database.connection import SessionLocal
+from app.database.connection import get_db_session
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ class ContentSourceService:
         **kwargs
     ) -> Optional[ContentSource]:
         """Создание нового источника контента"""
-        db = SessionLocal()
+        db = get_db_session()
         try:
             logger.info(f"ContentSourceService.create_source called: user_id={user_id}, name={name}, type={source_type}")
             
@@ -69,7 +69,7 @@ class ContentSourceService:
     @staticmethod
     def get_source(source_id: int, user_id: int) -> Optional[ContentSource]:
         """Получение источника по ID"""
-        db = SessionLocal()
+        db = get_db_session()
         try:
             return db.query(ContentSource).filter(
                 and_(
@@ -87,7 +87,7 @@ class ContentSourceService:
         is_active: Optional[bool] = None
     ) -> List[ContentSource]:
         """Получение всех источников пользователя"""
-        db = SessionLocal()
+        db = get_db_session()
         try:
             query = db.query(ContentSource).filter(ContentSource.user_id == user_id)
             
@@ -108,7 +108,7 @@ class ContentSourceService:
         **updates
     ) -> Optional[ContentSource]:
         """Обновление источника"""
-        db = SessionLocal()
+        db = get_db_session()
         try:
             source = db.query(ContentSource).filter(
                 and_(
@@ -147,7 +147,7 @@ class ContentSourceService:
     @staticmethod
     def delete_source(source_id: int, user_id: int) -> bool:
         """Удаление источника"""
-        db = SessionLocal()
+        db = get_db_session()
         try:
             source = db.query(ContentSource).filter(
                 and_(
@@ -175,7 +175,7 @@ class ContentSourceService:
     @staticmethod
     def get_sources_to_check(limit: int = 50) -> List[ContentSource]:
         """Получение источников, которые нужно проверить"""
-        db = SessionLocal()
+        db = get_db_session()
         try:
             now = datetime.utcnow()
             return db.query(ContentSource).filter(
@@ -196,7 +196,7 @@ class ContentSourceService:
         error_message: Optional[str] = None
     ) -> bool:
         """Обновление статуса проверки источника"""
-        db = SessionLocal()
+        db = get_db_session()
         try:
             source = db.query(ContentSource).filter(ContentSource.id == source_id).first()
             
@@ -228,7 +228,7 @@ class ContentSourceService:
     @staticmethod
     def save_snapshot(source_id: int, snapshot_hash: str, snapshot_data: Dict[str, Any]) -> bool:
         """Сохранение снимка контента для diff"""
-        db = SessionLocal()
+        db = get_db_session()
         try:
             source = db.query(ContentSource).filter(ContentSource.id == source_id).first()
             
@@ -262,7 +262,7 @@ class MonitoredItemService:
         **kwargs
     ) -> Optional[MonitoredItem]:
         """Создание нового найденного элемента"""
-        db = SessionLocal()
+        db = get_db_session()
         try:
             item = MonitoredItem(
                 source_id=source_id,
@@ -288,7 +288,7 @@ class MonitoredItemService:
     @staticmethod
     def get_item(item_id: int, user_id: int) -> Optional[MonitoredItem]:
         """Получение элемента по ID"""
-        db = SessionLocal()
+        db = get_db_session()
         try:
             return db.query(MonitoredItem).filter(
                 and_(
@@ -307,7 +307,7 @@ class MonitoredItemService:
         limit: int = 100
     ) -> List[MonitoredItem]:
         """Получение элементов по источнику"""
-        db = SessionLocal()
+        db = get_db_session()
         try:
             query = db.query(MonitoredItem).filter(
                 and_(
@@ -326,7 +326,7 @@ class MonitoredItemService:
     @staticmethod
     def get_new_items(user_id: int, limit: int = 50) -> List[MonitoredItem]:
         """Получение новых необработанных элементов"""
-        db = SessionLocal()
+        db = get_db_session()
         try:
             return db.query(MonitoredItem).filter(
                 and_(
@@ -347,7 +347,7 @@ class MonitoredItemService:
         **kwargs
     ) -> Optional[MonitoredItem]:
         """Обновление статуса элемента"""
-        db = SessionLocal()
+        db = get_db_session()
         try:
             item = db.query(MonitoredItem).filter(MonitoredItem.id == item_id).first()
             
@@ -383,7 +383,7 @@ class MonitoredItemService:
     @staticmethod
     def check_duplicate(source_id: int, external_id: Optional[str], url: Optional[str]) -> Optional[MonitoredItem]:
         """Проверка на дубликат"""
-        db = SessionLocal()
+        db = get_db_session()
         try:
             conditions = [MonitoredItem.source_id == source_id]
             
@@ -414,7 +414,7 @@ class SourceCheckHistoryService:
         execution_time_ms: Optional[int] = None
     ) -> Optional[SourceCheckHistory]:
         """Создание записи истории проверки"""
-        db = SessionLocal()
+        db = get_db_session()
         try:
             history = SourceCheckHistory(
                 source_id=source_id,
@@ -444,7 +444,7 @@ class SourceCheckHistoryService:
     @staticmethod
     def get_source_history(source_id: int, limit: int = 50) -> List[SourceCheckHistory]:
         """Получение истории проверок источника"""
-        db = SessionLocal()
+        db = get_db_session()
         try:
             return db.query(SourceCheckHistory).filter(
                 SourceCheckHistory.source_id == source_id
