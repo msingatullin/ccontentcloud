@@ -72,7 +72,8 @@ class ContentOrchestrator:
                                     content_types: List[ContentType] = None,
                                     user_id: Optional[int] = None,
                                     test_mode: bool = False,
-                                    channel_id: Optional[int] = None) -> str:
+                                    channel_id: Optional[int] = None,
+                                    publish_immediately: bool = True) -> str:
         """Создает workflow для создания контента"""
         platforms = platforms or [Platform.TELEGRAM, Platform.VK]
         content_types = content_types or [ContentType.POST]
@@ -125,30 +126,33 @@ class ContentOrchestrator:
                     }
                 )
                 
-                # Задача публикации контента
-                publish_task_name = f"Publish {content_type.value} to {platform.value}"
-                
-                # Формируем контекст публикации с account_id
-                publish_context = {
-                    "brief_id": brief.id,
-                    "platform": platform.value,
-                    "content_type": content_type.value,
-                    "user_id": user_id,
-                    "test_mode": test_mode,
-                    # content будет добавлен после создания контента
-                }
-                
-                # Добавляем account_id если указан channel_id
-                if channel_id:
-                    publish_context["account_id"] = channel_id
-                
-                self.workflow_engine.add_task(
-                    workflow_id=workflow.id,
-                    task_name=publish_task_name,
-                    task_type=TaskType.PLANNED,
-                    priority=TaskPriority.HIGH,
-                    context=publish_context
-                )
+                # Задача публикации контента - создаем только если publish_immediately = True
+                if publish_immediately:
+                    publish_task_name = f"Publish {content_type.value} to {platform.value}"
+                    
+                    # Формируем контекст публикации с account_id
+                    publish_context = {
+                        "brief_id": brief.id,
+                        "platform": platform.value,
+                        "content_type": content_type.value,
+                        "user_id": user_id,
+                        "test_mode": test_mode,
+                        # content будет добавлен после создания контента
+                    }
+                    
+                    # Добавляем account_id если указан channel_id
+                    if channel_id:
+                        publish_context["account_id"] = channel_id
+                    
+                    self.workflow_engine.add_task(
+                        workflow_id=workflow.id,
+                        task_name=publish_task_name,
+                        task_type=TaskType.PLANNED,
+                        priority=TaskPriority.HIGH,
+                        context=publish_context
+                    )
+                else:
+                    logger.info(f"Пропущена задача публикации для {content_type.value} на {platform.value} (publish_immediately=False)")
         
         logger.info(f"Создан workflow {workflow.id} для бриф {brief.id} с задачами создания и публикации")
         return workflow.id
@@ -460,13 +464,14 @@ class ContentOrchestrator:
             platforms = [Platform(p) for p in request.get("platforms", ["telegram", "vk"])]
             content_types = [ContentType(ct) for ct in request.get("content_types", ["post"])]
             
-            # Получаем user_id, test_mode и channel_id из запроса
+            # Получаем user_id, test_mode, channel_id и publish_immediately из запроса
             user_id = request.get("user_id")
             test_mode = request.get("test_mode", False)
             channel_id = request.get("channel_id")  # ID конкретного канала для публикации
+            publish_immediately = request.get("publish_immediately", True)  # По умолчанию публикуем сразу
             
-            # Создаем workflow с передачей test_mode и channel_id
-            workflow_id = await self.create_content_workflow(brief, platforms, content_types, user_id, test_mode, channel_id)
+            # Создаем workflow с передачей всех параметров
+            workflow_id = await self.create_content_workflow(brief, platforms, content_types, user_id, test_mode, channel_id, publish_immediately)
             
             # Проверяем нужен ли фактчекинг
             constraints = request.get("constraints", {})

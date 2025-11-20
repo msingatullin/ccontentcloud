@@ -93,6 +93,7 @@ class ContentRequestSchema(BaseModel):
     constraints: Dict[str, Any] = Field(default={}, description="Дополнительные ограничения")
     test_mode: bool = Field(default=False, description="Тестовый режим (без реальной публикации). По умолчанию False - публикация реальная")
     channel_id: Optional[int] = Field(default=None, description="ID конкретного канала/аккаунта для публикации (если не указан - используется дефолтный)")
+    publish_immediately: bool = Field(default=True, description="Публиковать контент сразу после создания. Если False - контент создается, но не публикуется (для отложенной публикации)")
     
     # Медиа и документы
     uploaded_files: List[str] = Field(default=[], max_items=10, description="IDs загруженных файлов для использования в контенте")
