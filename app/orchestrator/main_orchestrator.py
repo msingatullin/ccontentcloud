@@ -73,7 +73,8 @@ class ContentOrchestrator:
                                     user_id: Optional[int] = None,
                                     test_mode: bool = False,
                                     channel_id: Optional[int] = None,
-                                    publish_immediately: bool = True) -> str:
+                                    publish_immediately: bool = True,
+                                    generate_image: bool = False) -> str:
         """Создает workflow для создания контента"""
         platforms = platforms or [Platform.TELEGRAM, Platform.VK]
         content_types = content_types or [ContentType.POST]
@@ -153,6 +154,33 @@ class ContentOrchestrator:
                     )
                 else:
                     logger.info(f"Пропущена задача публикации для {content_type.value} на {platform.value} (publish_immediately=False)")
+        
+        # Добавляем задачу генерации изображения если запрошено
+        if generate_image:
+            image_task_name = "Generate Image for Content"
+            
+            # Формируем промпт для генерации изображения на основе описания и заголовка
+            image_prompt = f"{brief.title}. {brief.description[:200]}"  # Первые 200 символов описания
+            
+            image_context = {
+                "brief_id": brief.id,
+                "prompt": image_prompt,
+                "content_type": "post_image",  # Тип изображения для поста
+                "user_id": user_id,
+                "platform": "telegram",  # По умолчанию для Telegram, можно адаптировать
+                "style": "realistic",  # Стиль изображения
+                "image_format": "square"  # Формат изображения (square для постов)
+            }
+            
+            self.workflow_engine.add_task(
+                workflow_id=workflow.id,
+                task_name=image_task_name,
+                task_type=TaskType.PLANNED,
+                priority=TaskPriority.MEDIUM,
+                context=image_context
+            )
+            
+            logger.info(f"Добавлена задача генерации изображения для бриф {brief.id}")
         
         logger.info(f"Создан workflow {workflow.id} для бриф {brief.id} с задачами создания и публикации")
         return workflow.id
@@ -464,14 +492,15 @@ class ContentOrchestrator:
             platforms = [Platform(p) for p in request.get("platforms", ["telegram", "vk"])]
             content_types = [ContentType(ct) for ct in request.get("content_types", ["post"])]
             
-            # Получаем user_id, test_mode, channel_id и publish_immediately из запроса
+            # Получаем user_id, test_mode, channel_id, publish_immediately и generate_image из запроса
             user_id = request.get("user_id")
             test_mode = request.get("test_mode", False)
             channel_id = request.get("channel_id")  # ID конкретного канала для публикации
             publish_immediately = request.get("publish_immediately", True)  # По умолчанию публикуем сразу
+            generate_image = request.get("generate_image", False)  # Генерация изображения ИИ
             
             # Создаем workflow с передачей всех параметров
-            workflow_id = await self.create_content_workflow(brief, platforms, content_types, user_id, test_mode, channel_id, publish_immediately)
+            workflow_id = await self.create_content_workflow(brief, platforms, content_types, user_id, test_mode, channel_id, publish_immediately, generate_image)
             
             # Проверяем нужен ли фактчекинг
             constraints = request.get("constraints", {})

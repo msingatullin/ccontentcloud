@@ -301,9 +301,19 @@ class ScheduledPostsWorker:
         if content.title and text:
             # Проверяем, есть ли заголовок в начале текста (с небольшой вариативностью)
             title_clean = content.title.strip()
-            text_start = text[:len(title_clean) + 20].strip()  # Первые символы текста
-            if title_clean.lower() in text_start.lower():
+            # Проверяем первые 100 символов текста
+            text_start = text[:100].strip()
+            # Убираем HTML теги если есть
+            text_start_clean = text_start.replace('<b>', '').replace('</b>', '').replace('<i>', '').replace('</i>', '').strip()
+            # Проверяем точное совпадение или почти точное (без учета регистра)
+            title_lower = title_clean.lower()
+            text_start_lower = text_start_clean.lower()
+            # Если заголовок в начале текста (точное совпадение или с небольшим дополнением)
+            if title_lower == text_start_lower[:len(title_lower)] or title_lower in text_start_lower[:len(title_lower) + 10]:
                 title_in_text = True
+                # Убираем заголовок из начала текста если он там есть
+                if text_start_clean.startswith(title_clean):
+                    text = text[len(text_start_clean[:len(title_clean) + 5]):].strip()
         
         # Заголовок (если есть и не дублируется в тексте)
         if content.title and not title_in_text:
