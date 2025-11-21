@@ -36,6 +36,10 @@ scheduled_post_model = scheduled_posts_ns.model('ScheduledPost', {
 
 @scheduled_posts_ns.route('')
 class ScheduledPostsList(Resource):
+    def options(self):
+        """Handle CORS preflight requests"""
+        return {}, 200
+    
     @jwt_required
     @scheduled_posts_ns.doc('list_scheduled_posts', security='BearerAuth')
     def get(self, current_user):
@@ -140,6 +144,10 @@ class ScheduledPostsList(Resource):
 
 @scheduled_posts_ns.route('/<int:post_id>')
 class ScheduledPostDetail(Resource):
+    def options(self, post_id=None):
+        """Handle CORS preflight requests"""
+        return {}, 200
+    
     @jwt_required
     @scheduled_posts_ns.doc('get_scheduled_post', security='BearerAuth')
     def get(self, current_user, post_id):
@@ -299,6 +307,10 @@ class ScheduledPostDetail(Resource):
 
 @scheduled_posts_ns.route('/<int:post_id>/cancel')
 class ScheduledPostCancel(Resource):
+    def options(self, post_id=None):
+        """Handle CORS preflight requests"""
+        return {}, 200
+    
     @jwt_required
     @scheduled_posts_ns.doc('cancel_scheduled_post', security='BearerAuth')
     def post(self, current_user, post_id):
