@@ -681,6 +681,56 @@ class ContentHistory(Resource):
             return handle_exception(e)
 
 
+@api.route('/content/by-brief/<string:brief_id>')
+class ContentByBrief(Resource):
+    @jwt_required
+    @api.doc('get_content_by_brief', description='Получает контент по brief_id', security='BearerAuth')
+    def get(self, current_user, brief_id):
+        """
+        Получает контент по brief_id (для отложенного постинга)
+        """
+        try:
+            from app.models.content import ContentPieceDB
+            
+            user_id = current_user.get('user_id')
+            db_session = get_db_session()
+            
+            # Находим контент по brief_id
+            content = db_session.query(ContentPieceDB).filter(
+                ContentPieceDB.brief_id == brief_id,
+                ContentPieceDB.user_id == user_id
+            ).first()
+            
+            db_session.close()
+            
+            if not content:
+                return {
+                    "success": False,
+                    "error": "Content Not Found",
+                    "message": f"Контент для brief_id {brief_id} еще не создан или не найден",
+                    "status_code": 404,
+                    "timestamp": datetime.now().isoformat()
+                }, 404
+            
+            return {
+                "success": True,
+                "data": {
+                    "id": content.id,
+                    "brief_id": content.brief_id,
+                    "title": content.title,
+                    "platform": content.platform,
+                    "content_type": content.content_type,
+                    "status": content.status,
+                    "created_at": content.created_at.isoformat()
+                },
+                "timestamp": datetime.now().isoformat()
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Ошибка получения контента по brief_id: {e}")
+            return handle_exception(e)
+
+
 @api.route('/content/<string:content_id>')
 class ContentDetail(Resource):
     @jwt_required
