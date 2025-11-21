@@ -198,57 +198,78 @@ class ScheduledPostsWorker:
     def _publish_to_telegram(self, post: ScheduledPostDB, content: ContentPieceDB, db) -> dict:
         """Публикация в Telegram"""
         try:
-            from app.integrations.telegram_integration import TelegramIntegration
-            from app.models.social_media import TelegramChannel
+            import asyncio
+            from app.services.telegram_channel_service import TelegramChannelService
+            from app.models.telegram_channels import TelegramChannel
             
             # Получаем канал
             if post.account_id:
                 channel = db.query(TelegramChannel).filter(
-                    TelegramChannel.id == post.account_id
-                ).first()
-            else:
-                # Берем первый активный канал пользователя
-                channel = db.query(TelegramChannel).filter(
+                    TelegramChannel.id == post.account_id,
                     TelegramChannel.user_id == post.user_id,
                     TelegramChannel.is_active == True
                 ).first()
+            else:
+                # Берем дефолтный канал пользователя
+                service = TelegramChannelService(db)
+                channel = service.get_default_channel(post.user_id)
             
             if not channel:
                 return {
                     'success': False,
-                    'error': 'Telegram канал не найден'
+                    'error': 'Telegram канал не найден. Добавьте канал в настройках.'
                 }
             
-            # Инициализируем интеграцию
-            telegram = TelegramIntegration()
+            if not channel.is_verified:
+                return {
+                    'success': False,
+                    'error': f'Канал "{channel.channel_name}" не верифицирован. Добавьте бота @content4ubot в администраторы канала.'
+                }
             
-            # Публикуем
-            result = telegram.send_message(
-                bot_token=channel.bot_token,
+            # Инициализируем сервис
+            service = TelegramChannelService(db)
+            
+            # Формируем текст сообщения
+            message_text = content.text or content.title
+            if not message_text:
+                message_text = f"{content.title}\n\n{content.text or ''}".strip()
+            
+            # Публикуем через TelegramChannelService (async метод)
+            logger.info(f"Публикация в канал '{channel.channel_name}' (chat_id={channel.chat_id})")
+            result = asyncio.run(service.send_message(
                 chat_id=channel.chat_id,
-                text=content.text or content.title,
-                options=post.publish_options or {}
-            )
+                text=message_text,
+                parse_mode="HTML",
+                disable_web_page_preview=False
+            ))
             
-            if result.get('ok'):
-                message_id = result.get('result', {}).get('message_id')
+            if result.get('success'):
+                message_data = result.get('data', {})
+                message_id = message_data.get('message_id')
+                
+                # Обновляем статистику канала
+                service.update_channel_stats(channel.id, post_success=True)
+                
+                logger.info(f"✅ Пост успешно опубликован в канал '{channel.channel_name}', message_id={message_id}")
+                
                 return {
                     'success': True,
                     'platform_post_id': str(message_id) if message_id else None
                 }
             else:
+                error_msg = result.get('error', 'Telegram API error')
+                logger.error(f"❌ Ошибка публикации в канал '{channel.channel_name}': {error_msg}")
+                
+                # Обновляем статистику канала с ошибкой
+                service.update_channel_stats(channel.id, post_success=False, error_message=error_msg)
+                
                 return {
                     'success': False,
-                    'error': result.get('description', 'Telegram API error')
+                    'error': error_msg
                 }
         
-        except ImportError:
-            logger.warning("TelegramIntegration не найден, используем заглушку")
-            return {
-                'success': True,
-                'platform_post_id': f'telegram_mock_{post.id}_{int(time.time())}'
-            }
         except Exception as e:
+            logger.error(f"Критическая ошибка публикации в Telegram: {e}", exc_info=True)
             return {
                 'success': False,
                 'error': str(e)
