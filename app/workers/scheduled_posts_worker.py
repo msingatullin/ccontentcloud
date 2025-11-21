@@ -229,10 +229,26 @@ class ScheduledPostsWorker:
             # Инициализируем сервис
             service = TelegramChannelService(db)
             
-            # Формируем текст сообщения
-            message_text = content.text or content.title
+            # Формируем текст сообщения через форматирование (как в publisher_agent)
+            # Убираем метаданные из текста
+            message_text = self._format_telegram_message(content)
+            
+            # Дополнительная очистка от метаданных (на случай если они все еще есть)
+            # Удаляем строки с "Наши цели:", "Бизнес-цели:", технические данные
+            lines = message_text.split('\n')
+            cleaned_lines = []
+            for line in lines:
+                # Пропускаем строки с метаданными
+                if any(meta in line.lower() for meta in ['наши цели:', 'бизнес-цели:', 'business_goals', 'creating_posts', 'publishing_social']):
+                    continue
+                cleaned_lines.append(line)
+            message_text = '\n'.join(cleaned_lines).strip()
+            
             if not message_text:
-                message_text = f"{content.title}\n\n{content.text or ''}".strip()
+                # Fallback: если после очистки ничего не осталось, используем базовый текст
+                message_text = content.text or content.title
+                if not message_text:
+                    message_text = f"{content.title}\n\n{content.text or ''}".strip()
             
             # Публикуем через TelegramChannelService (async метод)
             logger.info(f"Публикация в канал '{channel.channel_name}' (chat_id={channel.chat_id})")
@@ -274,6 +290,41 @@ class ScheduledPostsWorker:
                 'success': False,
                 'error': str(e)
             }
+    
+    def _format_telegram_message(self, content: ContentPieceDB) -> str:
+        """Форматирует сообщение для Telegram (как в publisher_agent)"""
+        message_parts = []
+        
+        # Заголовок (если есть)
+        if content.title:
+            message_parts.append(f"<b>{content.title}</b>")
+        
+        # Основной текст (очищаем от метаданных)
+        if content.text:
+            text = content.text
+            # Убираем строки с метаданными
+            lines = text.split('\n')
+            cleaned_lines = []
+            for line in lines:
+                # Пропускаем строки с метаданными
+                if any(meta in line.lower() for meta in ['наши цели:', 'бизнес-цели:', 'business_goals', 'creating_posts', 'publishing_social']):
+                    continue
+                cleaned_lines.append(line)
+            text = '\n'.join(cleaned_lines).strip()
+            if text:
+                message_parts.append(text)
+        
+        # Хештеги (если есть)
+        if content.hashtags and isinstance(content.hashtags, list):
+            hashtags_text = " ".join([f"#{tag.replace('#', '')}" for tag in content.hashtags[:10]])  # Максимум 10 хештегов
+            if hashtags_text:
+                message_parts.append(hashtags_text)
+        
+        # Call to action (если есть)
+        if content.call_to_action:
+            message_parts.append(f"\n{content.call_to_action}")
+        
+        return "\n\n".join(message_parts)
     
     def _publish_to_instagram(self, post: ScheduledPostDB, content: ContentPieceDB, db) -> dict:
         """Публикация в Instagram"""
