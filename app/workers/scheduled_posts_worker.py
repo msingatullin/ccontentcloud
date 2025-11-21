@@ -301,19 +301,21 @@ class ScheduledPostsWorker:
         if content.title and text:
             # Проверяем, есть ли заголовок в начале текста (с небольшой вариативностью)
             title_clean = content.title.strip()
-            # Проверяем первые 100 символов текста
-            text_start = text[:100].strip()
             # Убираем HTML теги если есть
-            text_start_clean = text_start.replace('<b>', '').replace('</b>', '').replace('<i>', '').replace('</i>', '').strip()
-            # Проверяем точное совпадение или почти точное (без учета регистра)
-            title_lower = title_clean.lower()
-            text_start_lower = text_start_clean.lower()
-            # Если заголовок в начале текста (точное совпадение или с небольшим дополнением)
-            if title_lower == text_start_lower[:len(title_lower)] or title_lower in text_start_lower[:len(title_lower) + 10]:
+            text_clean = text.replace('<b>', '').replace('</b>', '').replace('<i>', '').replace('</i>', '').strip()
+            # Проверяем первые 150 символов текста (больше для учета вариаций)
+            text_start = text_clean[:150].strip()
+            
+            # Извлекаем ключевые слова из заголовка (первые 2-3 значимых слова)
+            title_words = [w.lower().strip() for w in title_clean.split() if len(w) > 3][:3]
+            text_start_lower = text_start.lower()
+            
+            # Проверяем, есть ли ключевые слова заголовка в начале текста
+            # Если хотя бы 2 из 3 первых слов заголовка встречаются в начале текста - это дубликат
+            matches = sum(1 for word in title_words if word in text_start_lower[:100])
+            if matches >= 2 or title_clean.lower() in text_start_lower[:len(title_clean) + 20]:
                 title_in_text = True
-                # Убираем заголовок из начала текста если он там есть
-                if text_start_clean.startswith(title_clean):
-                    text = text[len(text_start_clean[:len(title_clean) + 5]):].strip()
+                logger.info(f"Заголовок '{title_clean}' найден в начале текста, не добавляем дубликат")
         
         # Заголовок (если есть и не дублируется в тексте)
         if content.title and not title_in_text:
@@ -327,16 +329,31 @@ class ScheduledPostsWorker:
         if content.hashtags:
             logger.info(f"Hashtags found: {content.hashtags}, type: {type(content.hashtags)}")
             if isinstance(content.hashtags, list) and len(content.hashtags) > 0:
-                hashtags_text = " ".join([f"#{tag.replace('#', '').strip()}" for tag in content.hashtags[:10] if tag and tag.strip()])
-                if hashtags_text:
+                # Очищаем хештеги от всех # (могут быть двойные или множественные)
+                clean_hashtags = []
+                for tag in content.hashtags[:10]:
+                    if tag and tag.strip():
+                        # Убираем все # из начала и конца, оставляем только один в начале
+                        clean_tag = tag.strip().lstrip('#').strip()
+                        if clean_tag:
+                            clean_hashtags.append(f"#{clean_tag}")
+                
+                if clean_hashtags:
+                    hashtags_text = " ".join(clean_hashtags)
                     message_parts.append(hashtags_text)
                     logger.info(f"Hashtags added to message: {hashtags_text}")
             elif isinstance(content.hashtags, str):
                 # Если хештеги пришли как строка, пытаемся распарсить
                 hashtags_list = [tag.strip() for tag in content.hashtags.split(',') if tag.strip()]
                 if hashtags_list:
-                    hashtags_text = " ".join([f"#{tag.replace('#', '').strip()}" for tag in hashtags_list[:10]])
-                    if hashtags_text:
+                    clean_hashtags = []
+                    for tag in hashtags_list[:10]:
+                        # Убираем все # из начала и конца, оставляем только один в начале
+                        clean_tag = tag.strip().lstrip('#').strip()
+                        if clean_tag:
+                            clean_hashtags.append(f"#{clean_tag}")
+                    if clean_hashtags:
+                        hashtags_text = " ".join(clean_hashtags)
                         message_parts.append(hashtags_text)
                         logger.info(f"Hashtags (from string) added to message: {hashtags_text}")
         else:
