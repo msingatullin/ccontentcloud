@@ -771,22 +771,37 @@ class DraftingAgent(BaseAgent):
         # Получаем гайд по тону
         tone_guide = self.tone_guides.get(tone, self.tone_guides["professional"])
         
-        # Создаем основной контент
+        # Создаем основной контент (fallback - только если AI не сработал)
+        # Используем описание напрямую, разбиваем на абзацы
         content_parts = []
         
-        # Введение
-        intro = f"Для {target_audience} важно понимать, что {description.lower()}"
-        content_parts.append(intro)
+        # Берем описание и разбиваем на абзацы
+        if description:
+            # Разбиваем описание по предложениям
+            sentences = [s.strip() + '.' for s in description.split('.') if s.strip()]
+            
+            # Группируем по 2-3 предложения в абзац
+            paragraphs = []
+            current_paragraph = []
+            for sentence in sentences:
+                if sentence.strip() and sentence.strip() != '.':
+                    current_paragraph.append(sentence.strip())
+                    if len(current_paragraph) >= 3:  # 3 предложения в абзац
+                        paragraphs.append(' '.join(current_paragraph))
+                        current_paragraph = []
+            
+            if current_paragraph:
+                paragraphs.append(' '.join(current_paragraph))
+            
+            # Добавляем абзацы с переносами строк
+            content_parts.extend(paragraphs)
+        else:
+            # Минимальный fallback
+            content_parts.append(f"{title or 'Рассказываю о важной теме'}.")
         
-        # Основные пункты
-        if keywords:
-            for keyword in keywords[:3]:  # Максимум 3 пункта
-                point = f"• {keyword} - ключевой элемент успеха"
-                content_parts.append(point)
+        # НЕ добавляем шаблонные фразы, бизнес-цели или метаданные
         
-        # НЕ добавляем бизнес-цели в текст поста - это метаданные для AI, а не для публикации
-        
-        return "\n".join(content_parts)
+        return "\n\n".join(content_parts)
     
     async def _generate_call_to_action(self, brief_data: Dict[str, Any], platform: str) -> str:
         """Генерирует призыв к действию из массива элементов"""
