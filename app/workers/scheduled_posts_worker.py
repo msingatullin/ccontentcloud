@@ -233,22 +233,10 @@ class ScheduledPostsWorker:
             # Убираем метаданные из текста
             message_text = self._format_telegram_message(content)
             
-            # Дополнительная очистка от метаданных (на случай если они все еще есть)
-            # Удаляем строки с "Наши цели:", "Бизнес-цели:", технические данные
-            lines = message_text.split('\n')
-            cleaned_lines = []
-            for line in lines:
-                # Пропускаем строки с метаданными
-                if any(meta in line.lower() for meta in ['наши цели:', 'бизнес-цели:', 'business_goals', 'creating_posts', 'publishing_social']):
-                    continue
-                cleaned_lines.append(line)
-            message_text = '\n'.join(cleaned_lines).strip()
-            
-            if not message_text:
-                # Fallback: если после очистки ничего не осталось, используем базовый текст
-                message_text = content.text or content.title
-                if not message_text:
-                    message_text = f"{content.title}\n\n{content.text or ''}".strip()
+            if not message_text or not message_text.strip():
+                # Fallback: если после форматирования ничего не осталось, используем базовый текст
+                logger.warning(f"Formatted message is empty for content {content.id}, using fallback")
+                message_text = content.text or content.title or ""
             
             # Публикуем через TelegramChannelService (async метод)
             logger.info(f"Публикация в канал '{channel.channel_name}' (chat_id={channel.chat_id})")
@@ -295,15 +283,11 @@ class ScheduledPostsWorker:
         """Форматирует сообщение для Telegram (как в publisher_agent)"""
         message_parts = []
         
-        # Заголовок (если есть)
-        if content.title:
-            message_parts.append(f"<b>{content.title}</b>")
-        
         # Основной текст (очищаем от метаданных)
+        text = ""
         if content.text:
-            text = content.text
             # Убираем строки с метаданными
-            lines = text.split('\n')
+            lines = content.text.split('\n')
             cleaned_lines = []
             for line in lines:
                 # Пропускаем строки с метаданными
@@ -311,20 +295,48 @@ class ScheduledPostsWorker:
                     continue
                 cleaned_lines.append(line)
             text = '\n'.join(cleaned_lines).strip()
-            if text:
-                message_parts.append(text)
         
-        # Хештеги (если есть)
-        if content.hashtags and isinstance(content.hashtags, list):
-            hashtags_text = " ".join([f"#{tag.replace('#', '')}" for tag in content.hashtags[:10]])  # Максимум 10 хештегов
-            if hashtags_text:
-                message_parts.append(hashtags_text)
+        # Проверяем, не начинается ли текст уже с заголовка
+        title_in_text = False
+        if content.title and text:
+            # Проверяем, есть ли заголовок в начале текста (с небольшой вариативностью)
+            title_clean = content.title.strip()
+            text_start = text[:len(title_clean) + 20].strip()  # Первые символы текста
+            if title_clean.lower() in text_start.lower():
+                title_in_text = True
+        
+        # Заголовок (если есть и не дублируется в тексте)
+        if content.title and not title_in_text:
+            message_parts.append(f"<b>{content.title}</b>")
+        
+        # Добавляем основной текст (если есть)
+        if text:
+            message_parts.append(text)
+        
+        # Хештеги (если есть) - логируем для отладки
+        if content.hashtags:
+            logger.info(f"Hashtags found: {content.hashtags}, type: {type(content.hashtags)}")
+            if isinstance(content.hashtags, list) and len(content.hashtags) > 0:
+                hashtags_text = " ".join([f"#{tag.replace('#', '').strip()}" for tag in content.hashtags[:10] if tag and tag.strip()])
+                if hashtags_text:
+                    message_parts.append(hashtags_text)
+                    logger.info(f"Hashtags added to message: {hashtags_text}")
+            elif isinstance(content.hashtags, str):
+                # Если хештеги пришли как строка, пытаемся распарсить
+                hashtags_list = [tag.strip() for tag in content.hashtags.split(',') if tag.strip()]
+                if hashtags_list:
+                    hashtags_text = " ".join([f"#{tag.replace('#', '').strip()}" for tag in hashtags_list[:10]])
+                    if hashtags_text:
+                        message_parts.append(hashtags_text)
+                        logger.info(f"Hashtags (from string) added to message: {hashtags_text}")
+        else:
+            logger.warning(f"No hashtags found for content {content.id}")
         
         # Call to action (если есть)
         if content.call_to_action:
-            message_parts.append(f"\n{content.call_to_action}")
+            message_parts.append(f"{content.call_to_action}")
         
-        return "\n\n".join(message_parts)
+        return "\n\n".join([part for part in message_parts if part.strip()])
     
     def _publish_to_instagram(self, post: ScheduledPostDB, content: ContentPieceDB, db) -> dict:
         """Публикация в Instagram"""
