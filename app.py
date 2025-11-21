@@ -149,6 +149,45 @@ def create_app():
         }
     })
     
+    # Глобальный обработчик OPTIONS запросов для CORS preflight
+    # Обрабатываем до того, как запрос попадет в Flask-RESTX или JWT middleware
+    @app.before_request
+    def handle_preflight():
+        """Обработка CORS preflight (OPTIONS) запросов"""
+        if request.method == "OPTIONS":
+            # Получаем Origin из запроса
+            origin = request.headers.get('Origin', '*')
+            
+            # Проверяем, разрешен ли этот origin
+            allowed_origins = [
+                "http://localhost:3000",
+                "http://127.0.0.1:3000",
+                "http://localhost:5173",
+                "https://content4u.ai",
+                "https://www.content4u.ai",
+                "https://goinvesting.ai",
+                "https://www.goinvesting.ai",
+                "https://content-curator-frontend-dt3n7zpq-uc.a.run.app",
+                "https://content-curator-frontend-1046574462613.us-central1.run.app",
+                "https://content-curator-dt3n7zpq-uc.a.run.app",
+                "https://content-curator-web-1046574462613.europe-west1.run.app"
+            ]
+            
+            # Используем origin из запроса, если он разрешен, иначе используем первый разрешенный
+            if origin in allowed_origins:
+                response_origin = origin
+            else:
+                # Для локальной разработки разрешаем любой origin
+                response_origin = origin if origin.startswith('http://localhost') or origin.startswith('http://127.0.0.1') else allowed_origins[0]
+            
+            response = jsonify({})
+            response.headers.add("Access-Control-Allow-Origin", response_origin)
+            response.headers.add('Access-Control-Allow-Headers', request.headers.get('Access-Control-Request-Headers', 'Content-Type, Authorization'))
+            response.headers.add('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
+            response.headers.add('Access-Control-Allow-Credentials', 'true')
+            response.headers.add('Access-Control-Max-Age', '3600')
+            return response
+    
     # Инициализируем базу данных
     logger.info("Initializing database...")
     if not init_database():
