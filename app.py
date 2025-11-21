@@ -210,9 +210,9 @@ def create_app():
     swagger_api.add_namespace(telegram_ns)
     swagger_api.add_namespace(instagram_ns)
     swagger_api.add_namespace(twitter_ns)
-    swagger_api.add_namespace(scheduled_posts_ns, path='/api/v1/scheduled-posts')
-    swagger_api.add_namespace(auto_posting_ns, path='/api/v1/auto-posting')
-    swagger_api.add_namespace(content_sources_ns, path='/api/v1/content-sources')
+    swagger_api.add_namespace(scheduled_posts_ns, path='/scheduled-posts')
+    swagger_api.add_namespace(auto_posting_ns, path='/auto-posting')
+    swagger_api.add_namespace(content_sources_ns, path='/content-sources')
     
     # Регистрируем swagger_api в Flask app
     # swagger_api уже зарегистрирован в Flask app через create_swagger_api(app)
