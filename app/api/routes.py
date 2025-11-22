@@ -3915,9 +3915,38 @@ class ContentSourcesList(Resource):
             )
             
             if source:
+                # Немедленно проверяем источник в фоне, чтобы создать посты из существующих новостей
+                try:
+                    from app.workers.web_crawler_worker import WebCrawlerWorker
+                    import asyncio
+                    
+                    # Создаем временный worker для немедленной проверки
+                    temp_worker = WebCrawlerWorker(check_interval=60)
+                    logger.info(f"🚀 Запускаем немедленную проверку источника {source.id} после создания...")
+                    
+                    # Запускаем проверку в фоне (не блокируем ответ)
+                    def check_source_async():
+                        try:
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+                            result = loop.run_until_complete(temp_worker._check_source(source))
+                            logger.info(f"✅ Немедленная проверка источника {source.id} завершена: найдено {result.get('items_new', 0)} новых новостей, создано {result.get('items_posted', 0)} постов")
+                        except Exception as e:
+                            logger.error(f"❌ Ошибка при немедленной проверке источника {source.id}: {e}")
+                    
+                    import threading
+                    check_thread = threading.Thread(target=check_source_async, daemon=True)
+                    check_thread.start()
+                    logger.info(f"⏳ Проверка источника {source.id} запущена в фоне...")
+                    
+                except Exception as e:
+                    # Если не удалось запустить проверку - не критично, источник все равно создан
+                    logger.warning(f"⚠️ Не удалось запустить немедленную проверку источника {source.id}: {e}")
+                
                 return {
                     'success': True,
-                    'data': source.to_dict()
+                    'data': source.to_dict(),
+                    'message': 'Источник создан. Запущена проверка для поиска новостей...'
                 }, 201
             else:
                 return {
