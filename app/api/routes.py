@@ -551,6 +551,9 @@ class ContentCreate(Resource):
             request_data['user_id'] = user_id
             logger.info(f"Request data prepared: {request_data}")
             
+            # Логируем параметры изображения для отладки
+            logger.info(f"🖼️ Параметры изображения: generate_image={request_data.get('generate_image')}, image_source={request_data.get('image_source')}")
+            
             # Получаем персональный оркестратор пользователя
             from app.orchestrator.user_orchestrator_factory import UserOrchestratorFactory
             db_session = get_db_session()
