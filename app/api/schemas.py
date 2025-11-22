@@ -98,7 +98,8 @@ class ContentRequestSchema(BaseModel):
     # Медиа и документы
     uploaded_files: List[str] = Field(default=[], max_items=10, description="IDs загруженных файлов для использования в контенте")
     reference_urls: List[str] = Field(default=[], max_items=5, description="URLs референсных материалов")
-    generate_image: bool = Field(default=False, description="Генерировать изображение ИИ для поста на основе описания")
+    generate_image: bool = Field(default=False, description="Добавить изображение к посту")
+    image_source: Optional[str] = Field(default=None, description="Источник изображения: 'stock' (стоковые из Unsplash) или 'ai' (генерировать через ИИ)")
     
     @validator('keywords')
     def validate_keywords(cls, v):
