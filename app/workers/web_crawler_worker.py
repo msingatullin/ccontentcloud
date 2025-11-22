@@ -444,7 +444,12 @@ class WebCrawlerWorker:
         extracted_data: Dict[str, Any]
     ) -> bool:
         """Создание отложенного поста из найденного контента"""
+        db = get_db_session()
         try:
+            # Сначала создаем контент из новости
+            from app.models.content import ContentPieceDB
+            import uuid
+            
             # Формируем текст поста по шаблону
             if source.post_template:
                 post_text = source.post_template.format(
@@ -459,6 +464,27 @@ class WebCrawlerWorker:
                 post_text = f"{extracted_data.get('title', '')}\n\n{extracted_data.get('summary', '')}"
                 if extracted_data.get('url'):
                     post_text += f"\n\n{extracted_data['url']}"
+            
+            # Создаем контент из новости
+            content = ContentPieceDB(
+                id=str(uuid.uuid4()),
+                user_id=source.user_id,
+                title=extracted_data.get('title', 'Untitled'),
+                content=post_text,
+                content_type='text',
+                status='draft',
+                metadata={
+                    'source_id': source.id,
+                    'monitored_item_id': monitored_item.id,
+                    'url': extracted_data.get('url', ''),
+                    'auto_generated': True,
+                    'image_url': extracted_data.get('image_url')
+                }
+            )
+            db.add(content)
+            db.commit()
+            db.refresh(content)
+            logger.info(f"Created content piece {content.id} from monitored item {monitored_item.id}")
             
             # Определяем время публикации с учетом расписания
             from datetime import timedelta
@@ -520,28 +546,31 @@ class WebCrawlerWorker:
                     scheduled_time = scheduled_time.replace(hour=9, minute=0, second=0, microsecond=0)
                     logger.warning(f"Could not find suitable posting time for source {source.id}, scheduled for {scheduled_time}")
             
-            # Если у источника есть правило автопостинга, используем его настройки
-            if source.auto_posting_rule_id:
-                # Получаем правило и используем его платформы/аккаунты
-                # TODO: интеграция с AutoPostingRuleDB
-                platforms = ['telegram']  # По умолчанию
-            else:
-                platforms = ['telegram']  # По умолчанию
+            # Получаем первый активный Telegram канал пользователя
+            from app.models.telegram_channels import TelegramChannelDB
+            telegram_channel = db.query(TelegramChannelDB).filter(
+                TelegramChannelDB.user_id == source.user_id,
+                TelegramChannelDB.is_active == True
+            ).first()
             
-            # Создаем отложенный пост для каждой платформы
-            for platform in platforms:
-                scheduled_post = ScheduledPostService.create_scheduled_post(
+            if not telegram_channel:
+                logger.warning(f"No active Telegram channel found for user {source.user_id}, skipping post creation")
+                return False
+            
+            # Создаем сервис с сессией БД
+            scheduled_service = ScheduledPostService(db)
+            
+            # Создаем отложенный пост
+            try:
+                scheduled_post = scheduled_service.create_scheduled_post(
                     user_id=source.user_id,
-                    content_id=None,  # Пока без контента
-                    platform=platform,
-                    account_id=None,  # TODO: определить из правила или настроек пользователя
+                    content_id=content.id,
+                    platform='telegram',
+                    account_id=telegram_channel.id,
                     scheduled_time=scheduled_time,
-                    content_text=post_text,
-                    media_urls=[extracted_data.get('image_url')] if extracted_data.get('image_url') else None,
-                    metadata={
-                        'source_id': source.id,
-                        'monitored_item_id': monitored_item.id,
-                        'auto_generated': True
+                    publish_options={
+                        'text': post_text,
+                        'media_urls': [extracted_data.get('image_url')] if extracted_data.get('image_url') else None
                     }
                 )
                 
@@ -553,12 +582,19 @@ class WebCrawlerWorker:
                         scheduled_post_id=scheduled_post.id
                     )
                     
-                    logger.info(f"Created scheduled post {scheduled_post.id} from monitored item {monitored_item.id}")
+                    logger.info(f"✅ Created scheduled post {scheduled_post.id} from monitored item {monitored_item.id} for source {source.id}")
                     return True
-            
-            return False
+                else:
+                    logger.warning(f"Failed to create scheduled post for monitored item {monitored_item.id}")
+                    return False
+                    
+            except Exception as e:
+                logger.error(f"Error creating scheduled post via service: {e}", exc_info=True)
+                return False
             
         except Exception as e:
-            logger.error(f"Error creating scheduled post: {e}")
+            logger.error(f"Error creating scheduled post: {e}", exc_info=True)
             return False
+        finally:
+            db.close()
 
