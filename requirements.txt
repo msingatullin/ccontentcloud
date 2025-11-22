@@ -19,6 +19,7 @@ redis==5.0.1
 # HTTP Requests
 requests==2.31.0
 httpx==0.25.2
+beautifulsoup4==4.12.2  # HTML parsing for metadata extraction
 
 # Environment & Config
 python-dotenv==1.0.0
