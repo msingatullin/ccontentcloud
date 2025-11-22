@@ -343,13 +343,16 @@ class WebCrawlerWorker:
             )
             
             if not changes.get('has_changes'):
-                logger.info(f"Website source {source.id}: no changes detected")
+                logger.info(f"📄 Источник {source.id} ({source.name}): изменений не обнаружено (первая проверка или контент не изменился)")
+                logger.info(f"💡 Подсказка: При первой проверке система сохраняет снимок страницы. Новости будут найдены при следующей проверке, если контент изменится")
                 return {
                     'items_found': 0,
                     'items_new': 0,
                     'items_duplicate': 0,
                     'items_posted': 0
                 }
+            
+            logger.info(f"✅ Источник {source.id} ({source.name}): обнаружены изменения, извлекаем контент...")
             
             # Сохраняем новый снимок
             ContentSourceService.save_snapshot(
@@ -369,6 +372,13 @@ class WebCrawlerWorker:
                 source.url,
                 extraction_hints
             )
+            
+            relevance_score = extracted_data.get('relevance_score', 0.5)
+            keywords_used = source.keywords if source.keywords else []
+            
+            logger.info(f"📊 Источник {source.id}: извлечен контент '{extracted_data.get('title', 'Untitled')[:50]}...'")
+            logger.info(f"🔍 Ключевые слова для фильтрации: {keywords_used if keywords_used else 'не указаны'}")
+            logger.info(f"⭐ Релевантность (relevance_score): {relevance_score:.2f} (порог для поста: 0.5)")
             
             items_found = 1
             
@@ -407,12 +417,21 @@ class WebCrawlerWorker:
                 
                 if monitored_item:
                     items_new += 1
+                    logger.info(f"✅ Создан monitored_item {monitored_item.id} для источника {source.id}")
                     
                     # Если включен автопостинг и это релевантный контент
-                    if source.auto_post_enabled and extracted_data.get('relevance_score', 0) >= 0.5:
-                        posted = await self._create_scheduled_post(source, monitored_item, extracted_data)
-                        if posted:
-                            items_posted += 1
+                    if source.auto_post_enabled:
+                        if relevance_score >= 0.5:
+                            logger.info(f"🚀 Автопостинг включен, relevance_score {relevance_score:.2f} >= 0.5, создаем пост...")
+                            posted = await self._create_scheduled_post(source, monitored_item, extracted_data)
+                            if posted:
+                                items_posted += 1
+                            else:
+                                logger.warning(f"⚠️ Не удалось создать пост для monitored_item {monitored_item.id}")
+                        else:
+                            logger.info(f"⏸️ Автопостинг включен, но relevance_score {relevance_score:.2f} < 0.5, пост не создается")
+                    else:
+                        logger.info(f"⏸️ Автопостинг выключен для источника {source.id}, пост не создается")
             
             return {
                 'items_found': items_found,
