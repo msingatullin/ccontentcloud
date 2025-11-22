@@ -294,9 +294,12 @@ class ContentOrchestrator:
                             if brief_id:
                                 await self._add_image_to_content(brief_id, image_url, user_id)
                                 logger.info(f"✅ Добавлено изображение {image_url} в контент для brief_id {brief_id}")
+                            else:
+                                logger.warning(f"⚠️ brief_id не найден в контексте задачи {task.id} ({task.name})")
                         else:
                             logger.warning(f"⚠️ image_url не найден в результате задачи {task.id} ({task.name}). "
-                                         f"Результат: {list(result.keys()) if isinstance(result, dict) else type(result)}")
+                                         f"Результат keys: {list(result.keys()) if isinstance(result, dict) else type(result)}, "
+                                         f"task_result type: {type(result.get('result')) if isinstance(result, dict) else 'N/A'}")
                     
                     # Если это задача создания контента, передаем результат в задачу публикации
                     if 'content' in result and 'Create' in task.name:

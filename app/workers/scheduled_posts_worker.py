@@ -242,9 +242,24 @@ class ScheduledPostsWorker:
             
             # Проверяем наличие изображений
             image_url = None
-            if content.media_urls and isinstance(content.media_urls, list) and len(content.media_urls) > 0:
-                image_url = content.media_urls[0]  # Берем первое изображение
-                logger.info(f"Найдено изображение для публикации: {image_url}")
+            if content.media_urls:
+                if isinstance(content.media_urls, list) and len(content.media_urls) > 0:
+                    image_url = content.media_urls[0]  # Берем первое изображение
+                    logger.info(f"📸 Найдено изображение для публикации: {image_url}")
+                elif isinstance(content.media_urls, str):
+                    # Если media_urls - это строка (JSON)
+                    import json
+                    try:
+                        media_list = json.loads(content.media_urls)
+                        if isinstance(media_list, list) and len(media_list) > 0:
+                            image_url = media_list[0]
+                            logger.info(f"📸 Найдено изображение для публикации (из JSON строки): {image_url}")
+                    except:
+                        logger.warning(f"⚠️ Не удалось распарсить media_urls как JSON: {content.media_urls}")
+                else:
+                    logger.info(f"ℹ️ media_urls имеет неожиданный тип: {type(content.media_urls)}, значение: {content.media_urls}")
+            else:
+                logger.info(f"ℹ️ media_urls пуст для контента {content.id}")
             
             # Публикуем через TelegramChannelService (async метод)
             logger.info(f"Публикация в канал '{channel.channel_name}' (chat_id={channel.chat_id})")
