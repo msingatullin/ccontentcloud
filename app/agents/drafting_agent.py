@@ -620,31 +620,53 @@ class DraftingAgent(BaseAgent):
         tone_guide = self.tone_guides.get(tone, self.tone_guides["professional"])
         
         # НЕ используем шаблонные зацепки - они звучат как ИИ
-        # Зацепка будет сгенерирована в основном контенте, а не отдельно
-        # Просто используем заголовок или первую мысль из описания без эмодзи
+        # НЕ используем заголовок напрямую - он будет добавлен отдельно при форматировании
+        # Генерируем зацепку на основе описания, извлекая первую естественную мысль
         title = brief_data.get("title", "")
         description = brief_data.get("description", "")
         
-        # Используем заголовок как зацепку если он есть
-        if title:
-            hook = title
-        elif description:
+        # Пропускаем заголовок - он будет добавлен отдельно
+        # Генерируем зацепку из описания, пропуская формальные начала
+        hook = ""  # По умолчанию пустая - заголовок будет добавлен отдельно
+        
+        if description:
             # Берем первую осмысленную фразу из описания (пропускаем технические вступления)
             sentences = description.split('.')
+            skip_phrases = ['это комплексная', 'включает', 'имеет', 'состоит', 'это комплекс',
+                           'профессиональный', 'компания предлагает', 'сервис по', 'профессиональная',
+                           'ремонтируем', 'делаем замену']
             for sentence in sentences:
                 sentence = sentence.strip()
-                if len(sentence) > 20 and not any(phrase in sentence.lower() for phrase in ['это комплексная', 'включает', 'имеет', 'состоит', 'это комплекс']):
-                    hook = sentence
-                    break
+                # Пропускаем технические и формальные вступления
+                sentence_lower = sentence.lower()
+                if len(sentence) > 20:
+                    # Пропускаем если начинается с формальных фраз
+                    if any(sentence_lower.startswith(phrase) for phrase in skip_phrases):
+                        continue
+                    # Пропускаем если содержит формальные конструкции
+                    if not any(phrase in sentence_lower for phrase in skip_phrases):
+                        hook = sentence
+                        break
             else:
-                # Если ничего не нашли, берем первое предложение
-                hook = sentences[0].strip() if sentences else description[:80]
+                # Если ничего не нашли, берем первое предложение, но обрезаем формальное начало
+                if sentences:
+                    first_sentence = sentences[0].strip()
+                    # Убираем формальные начала
+                    for skip in ['Профессиональный', 'Профессиональная', 'Компания', 'Сервис', 'Ремонтируем', 'Делаем']:
+                        if first_sentence.startswith(skip):
+                            # Берем следующее предложение или обрезаем начало
+                            if len(sentences) > 1:
+                                hook = sentences[1].strip()
+                            else:
+                                hook = first_sentence[len(skip):].strip().lstrip(':').strip()
+                            break
+                    else:
+                        hook = first_sentence
+                else:
+                    hook = description[:80]
             
             if len(hook) > 100:
                 hook = hook[:100] + "..."
-        else:
-            # Минимальная fallback зацепка без шаблонов
-            hook = f"О {keywords[0] if keywords else 'важном'}."
         
         # НЕ добавляем эмодзи автоматически - зацепка должна быть без эмодзи
         return hook
