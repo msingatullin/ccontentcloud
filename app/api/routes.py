@@ -4167,6 +4167,84 @@ class ProductionCalendarCheck(Resource):
             }, 500
 
 
+@content_sources_ns.route('/<int:source_id>/check-now')
+class CheckSourceNow(Resource):
+    """Немедленная проверка источника"""
+    
+    @jwt_required
+    @content_sources_ns.doc('check_source_now', description='Запустить немедленную проверку источника')
+    def post(self, source_id, current_user=None):
+        """Запустить немедленную проверку источника"""
+        try:
+            user_id = request.user_id or (current_user.get('user_id') if current_user else None)
+            if not user_id:
+                return {'success': False, 'error': 'User not authenticated'}, 401
+            
+            source = ContentSourceService.get_source(source_id, user_id)
+            if not source:
+                return {'success': False, 'error': 'Источник не найден'}, 404
+            
+            # Активируем источник, если он неактивен
+            if not source.is_active:
+                db = get_db_session()
+                try:
+                    source.is_active = True
+                    db.commit()
+                    db.refresh(source)
+                finally:
+                    db.close()
+            
+            # Включаем автопостинг, если он выключен
+            if not source.auto_post_enabled:
+                db = get_db_session()
+                try:
+                    source.auto_post_enabled = True
+                    db.commit()
+                    db.refresh(source)
+                finally:
+                    db.close()
+            
+            # Запускаем проверку в фоне
+            try:
+                from app.workers.web_crawler_worker import WebCrawlerWorker
+                import asyncio
+                import threading
+                
+                temp_worker = WebCrawlerWorker(check_interval=60)
+                logger.info(f"🚀 Запускаем ручную проверку источника {source.id}...")
+                
+                def check_source_async():
+                    try:
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        result = loop.run_until_complete(temp_worker._check_source(source))
+                        logger.info(f"✅ Ручная проверка источника {source.id} завершена: найдено {result.get('items_new', 0)} новых новостей, создано {result.get('items_posted', 0)} постов")
+                    except Exception as e:
+                        logger.error(f"❌ Ошибка при ручной проверке источника {source.id}: {e}", exc_info=True)
+                
+                check_thread = threading.Thread(target=check_source_async, daemon=True)
+                check_thread.start()
+                
+                return {
+                    'success': True,
+                    'message': 'Проверка источника запущена. Результаты появятся через несколько секунд.'
+                }, 200
+                
+            except Exception as e:
+                logger.error(f"Error starting manual check: {e}")
+                return {
+                    'success': False,
+                    'error': f'Не удалось запустить проверку: {str(e)}'
+                }, 500
+                
+        except Exception as e:
+            logger.error(f"Error in check_source_now: {e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }, 500
+
+
 @content_sources_ns.route('/fetch-metadata')
 class FetchWebsiteMetadata(Resource):
     """Получение метаданных сайта (название, описание)"""
