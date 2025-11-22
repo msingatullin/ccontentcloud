@@ -245,6 +245,26 @@ class MultimediaProducerAgent(BaseAgent):
         except Exception as e:
             logger.error(f"Ошибка инициализации MCP интеграций: {e}")
     
+    def can_handle_task(self, task: Task) -> bool:
+        """Проверяет, может ли агент выполнить задачу"""
+        if not super().can_handle_task(task):
+            return False
+        
+        # Проверяем, что задача связана с изображениями
+        task_name = task.name if hasattr(task, 'name') else ""
+        task_context = task.context if hasattr(task, 'context') else {}
+        
+        # MultimediaProducerAgent обрабатывает задачи генерации и поиска изображений
+        image_related_keywords = ["Image", "image", "stock", "Stock", "Generate", "generate", "multimedia"]
+        if any(keyword in task_name for keyword in image_related_keywords):
+            return True
+        
+        # Также проверяем контекст задачи
+        if task_context.get("content_type") in ["post_image", "image"] or task_context.get("image_source"):
+            return True
+        
+        return False
+    
     async def execute_task(self, task: Task) -> Dict[str, Any]:
         """Выполняет задачу по созданию визуального контента"""
         try:

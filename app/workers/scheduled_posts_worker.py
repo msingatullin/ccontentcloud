@@ -313,9 +313,21 @@ class ScheduledPostsWorker:
             # Проверяем, есть ли ключевые слова заголовка в начале текста
             # Если хотя бы 2 из 3 первых слов заголовка встречаются в начале текста - это дубликат
             matches = sum(1 for word in title_words if word in text_start_lower[:100])
-            if matches >= 2 or title_clean.lower() in text_start_lower[:len(title_clean) + 20]:
+            
+            # Также проверяем формальные начала, которые могут содержать тему из заголовка
+            formal_beginnings = ['предлагает', 'компания', 'сервис', 'служба', 'сервис по']
+            has_formal_beginning = any(beginning in text_start_lower[:50] for beginning in formal_beginnings)
+            
+            if matches >= 2 or (has_formal_beginning and matches >= 1) or title_clean.lower() in text_start_lower[:len(title_clean) + 20]:
                 title_in_text = True
-                logger.info(f"Заголовок '{title_clean}' найден в начале текста, не добавляем дубликат")
+                logger.info(f"Заголовок '{title_clean}' найден в начале текста (совпадений: {matches}), не добавляем дубликат")
+                # Убираем формальное начало из текста, если оно есть
+                if has_formal_beginning:
+                    # Пытаемся удалить первое предложение, если оно содержит формальное начало
+                    sentences = text.split('.')
+                    if len(sentences) > 1 and any(beginning in sentences[0].lower() for beginning in formal_beginnings):
+                        text = '. '.join(sentences[1:]).strip()
+                        logger.info(f"Удалено формальное начало из текста")
         
         # Заголовок (если есть и не дублируется в тексте)
         if content.title and not title_in_text:
