@@ -224,14 +224,19 @@ class ContentOrchestrator:
             user_id = workflow.context.get('user_id')
             
             # Выполняем задачи по порядку
+            logger.info(f"🔄 Начинаем выполнение workflow {workflow_id}, всего задач: {len(workflow.tasks)}")
             for task in workflow.tasks:
+                logger.info(f"📋 Задача: {task.name} (id={task.id}), статус: {task.status.value}, тип: {task.task_type.value}")
                 if task.status == TaskStatus.PENDING:
                     # Назначаем задачу агенту
+                    logger.info(f"🔍 Пытаемся назначить задачу {task.id} ({task.name}) агенту...")
                     agent_id = self.agent_manager.assign_task_to_agent(task)
                     if agent_id:
+                        logger.info(f"✅ Задача {task.id} назначена агенту {agent_id}, начинаем выполнение...")
                         # Выполняем задачу
                         result = await self.agent_manager.execute_task(task.id)
                         results[task.id] = result
+                        logger.info(f"✅ Задача {task.id} выполнена, результат: {list(result.keys()) if isinstance(result, dict) else type(result)}")
                         
                         # Сохраняем результат в БД если это контент
                         if user_id and 'content' in result:
