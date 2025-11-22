@@ -159,8 +159,10 @@ class ContentOrchestrator:
         
         # Добавляем задачу добавления изображения если запрошено
         if generate_image:
-            # Получаем источник изображения из контекста
+            logger.info(f"🖼️ Создание задачи генерации изображения для бриф {brief.id}, generate_image={generate_image}")
+            # Получаем источник изображения из контекста workflow
             image_source = workflow.context.get('image_source', 'stock')  # По умолчанию стоковые
+            logger.info(f"🖼️ Источник изображения: {image_source}")
             
             if image_source == 'ai':
                 # Генерация через ИИ
@@ -600,6 +602,9 @@ class ContentOrchestrator:
             publish_immediately = request.get("publish_immediately", True)  # По умолчанию публикуем сразу
             generate_image = request.get("generate_image", False)  # Добавление изображения
             image_source = request.get("image_source", "stock")  # Источник изображения: 'stock' или 'ai'
+            
+            # Логируем параметры для отладки
+            logger.info(f"📝 Параметры создания контента: generate_image={generate_image}, image_source={image_source}, publish_immediately={publish_immediately}")
             
             # Создаем workflow с передачей всех параметров
             workflow_id = await self.create_content_workflow(brief, platforms, content_types, user_id, test_mode, channel_id, publish_immediately, generate_image, image_source)
