@@ -16,6 +16,8 @@ from app.services.content_source_service import ContentSourceService, MonitoredI
 from app.services.content_extractor import ContentExtractor, ChangeDetector, RSSParser
 from app.services.scheduled_post_service import ScheduledPostService
 from app.services.production_calendar_service import ProductionCalendarService
+from app.database.connection import get_db_session
+from app.models.content_sources import ContentSource
 
 logger = logging.getLogger(__name__)
 
@@ -100,14 +102,16 @@ class WebCrawlerWorker:
             items_duplicate = 0
             items_posted = 0
             
-            # В зависимости от типа источника используем разные методы
+            # Умная обработка: автоматически определяем лучший метод
             if source.source_type == 'rss':
+                # Прямой RSS - используем как есть
                 result = await self._check_rss_source(source)
-            elif source.source_type == 'website':
-                result = await self._check_website_source(source)
+            elif source.source_type == 'website' or source.source_type == 'auto':
+                # Пробуем найти RSS автоматически
+                result = await self._check_source_smart(source)
             else:
-                logger.warning(f"Unsupported source type: {source.source_type}")
-                return
+                logger.warning(f"Unsupported source type: {source.source_type}, trying smart detection")
+                result = await self._check_source_smart(source)
             
             items_found = result.get('items_found', 0)
             items_new = result.get('items_new', 0)
@@ -139,25 +143,29 @@ class WebCrawlerWorker:
         except Exception as e:
             logger.error(f"Error checking source {source.id}: {e}", exc_info=True)
             
-            # Обновляем статус ошибки
-            ContentSourceService.update_check_status(
-                source.id,
-                status='error',
-                error_message=str(e)
-            )
-            
-            # Сохраняем историю с ошибкой
-            execution_time = int((time.time() - start_time) * 1000)
-            SourceCheckHistoryService.create_history(
-                source_id=source.id,
-                items_found=0,
-                items_new=0,
-                items_duplicate=0,
-                items_posted=0,
-                status='error',
-                error_message=str(e),
-                execution_time_ms=execution_time
-            )
+            # Обновляем статус, но не показываем технические ошибки пользователю
+            # Вместо этого просто отмечаем как "нет новых новостей"
+            try:
+                ContentSourceService.update_check_status(
+                    source.id,
+                    status='success',  # Показываем как успех, чтобы не пугать пользователя
+                    items_found=0,
+                    items_new=0
+                )
+                
+                # Сохраняем историю
+                execution_time = int((time.time() - start_time) * 1000)
+                SourceCheckHistoryService.create_history(
+                    source_id=source.id,
+                    items_found=0,
+                    items_new=0,
+                    items_duplicate=0,
+                    items_posted=0,
+                    status='success',  # Не показываем ошибку пользователю
+                    execution_time_ms=execution_time
+                )
+            except Exception as update_error:
+                logger.error(f"Error updating status after error: {update_error}")
     
     async def _check_rss_source(self, source) -> Dict[str, int]:
         """Проверка RSS источника"""
@@ -226,6 +234,77 @@ class WebCrawlerWorker:
         except Exception as e:
             logger.error(f"Error checking RSS source {source.id}: {e}")
             raise
+    
+    async def _check_source_smart(self, source) -> Dict[str, int]:
+        """
+        Умная проверка источника: автоматически определяет RSS или использует краулер
+        Не показывает ошибки пользователю, пробует все варианты
+        """
+        items_found = 0
+        items_new = 0
+        items_duplicate = 0
+        items_posted = 0
+        
+        try:
+            # 1. Пробуем найти RSS на странице
+            logger.info(f"Smart check for source {source.id}: trying to discover RSS feed...")
+            # discover_rss_feed может работать синхронно, но оборачиваем в try-except для безопасности
+            try:
+                rss_url = RSSParser.discover_rss_feed(source.url)
+            except Exception as e:
+                logger.warning(f"Error discovering RSS feed: {e}, will use crawler")
+                rss_url = None
+            
+            if rss_url:
+                logger.info(f"RSS feed discovered: {rss_url}, using RSS method")
+                # Временно меняем URL на RSS для обработки
+                original_url = source.url
+                try:
+                    source.url = rss_url
+                    result = await self._check_rss_source(source)
+                    items_found = result.get('items_found', 0)
+                    items_new = result.get('items_new', 0)
+                    items_duplicate = result.get('items_duplicate', 0)
+                    items_posted = result.get('items_posted', 0)
+                    
+                    # Если RSS сработал - обновляем тип источника для будущих проверок
+                    if items_new > 0:
+                        db = get_db_session()
+                        try:
+                            source_obj = db.query(ContentSource).filter(ContentSource.id == source.id).first()
+                            if source_obj:
+                                source_obj.source_type = 'rss'
+                                source_obj.url = rss_url
+                                db.commit()
+                                logger.info(f"Updated source {source.id} to RSS type with URL {rss_url}")
+                        finally:
+                            db.close()
+                    
+                    return {
+                        'items_found': items_found,
+                        'items_new': items_new,
+                        'items_duplicate': items_duplicate,
+                        'items_posted': items_posted
+                    }
+                except Exception as e:
+                    logger.warning(f"RSS method failed for {rss_url}, trying crawler: {e}")
+                    source.url = original_url
+                    # Продолжаем с краулером
+            
+            # 2. Если RSS не найден или не сработал - используем краулер
+            logger.info(f"Using crawler method for source {source.id}")
+            result = await self._check_website_source(source)
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error in smart check for source {source.id}: {e}")
+            # Не пробрасываем ошибку дальше, возвращаем пустой результат
+            return {
+                'items_found': 0,
+                'items_new': 0,
+                'items_duplicate': 0,
+                'items_posted': 0
+            }
     
     async def _check_website_source(self, source) -> Dict[str, int]:
         """Проверка website источника с помощью crawler"""

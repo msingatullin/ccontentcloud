@@ -387,4 +387,91 @@ class RSSParser:
         except Exception as e:
             logger.error(f"Error parsing RSS feed: {e}")
             return []
+    
+    @staticmethod
+    def discover_rss_feed(url: str, html: Optional[str] = None) -> Optional[str]:
+        """
+        Автоматический поиск RSS ленты на странице
+        
+        Args:
+            url: URL страницы
+            html: HTML содержимое страницы (если уже загружено)
+        
+        Returns:
+            URL RSS ленты или None если не найдено
+        """
+        import requests
+        from urllib.parse import urljoin, urlparse
+        
+        try:
+            # Если HTML не передан, загружаем страницу
+            if not html:
+                response = requests.get(url, timeout=10, headers={
+                    'User-Agent': 'Mozilla/5.0 (compatible; ContentCurator/1.0)'
+                })
+                response.raise_for_status()
+                html = response.text
+            
+            # 1. Ищем RSS ссылки в <link> тегах
+            rss_link_pattern = r'<link[^>]+rel=["\'](?:alternate|feed)["\'][^>]+type=["\']application/(?:rss|atom)\+xml["\'][^>]+href=["\']([^"\']+)["\']'
+            matches = re.findall(rss_link_pattern, html, re.IGNORECASE)
+            
+            if matches:
+                rss_url = matches[0]
+                # Преобразуем относительный URL в абсолютный
+                if not rss_url.startswith('http'):
+                    rss_url = urljoin(url, rss_url)
+                logger.info(f"Found RSS feed via <link> tag: {rss_url}")
+                return rss_url
+            
+            # 2. Проверяем стандартные пути RSS
+            parsed_url = urlparse(url)
+            base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
+            standard_paths = [
+                '/rss',
+                '/feed',
+                '/rss.xml',
+                '/feed.xml',
+                '/rss/',
+                '/feed/',
+                '/atom.xml',
+                '/index.xml',
+                f'{parsed_url.path}/rss',
+                f'{parsed_url.path}/feed',
+            ]
+            
+            for path in standard_paths:
+                test_url = urljoin(base_url, path)
+                try:
+                    response = requests.head(test_url, timeout=5, allow_redirects=True, headers={
+                        'User-Agent': 'Mozilla/5.0 (compatible; ContentCurator/1.0)'
+                    })
+                    content_type = response.headers.get('Content-Type', '').lower()
+                    if 'xml' in content_type or 'rss' in content_type or 'atom' in content_type:
+                        logger.info(f"Found RSS feed at standard path: {test_url}")
+                        return test_url
+                except:
+                    continue
+            
+            # 3. Ищем упоминания RSS в тексте страницы
+            rss_mention_pattern = r'(https?://[^\s<>"\']+\.(?:rss|xml|atom))'
+            mentions = re.findall(rss_mention_pattern, html, re.IGNORECASE)
+            for mention in mentions[:5]:  # Проверяем первые 5 упоминаний
+                try:
+                    response = requests.head(mention, timeout=5, allow_redirects=True, headers={
+                        'User-Agent': 'Mozilla/5.0 (compatible; ContentCurator/1.0)'
+                    })
+                    content_type = response.headers.get('Content-Type', '').lower()
+                    if 'xml' in content_type or 'rss' in content_type:
+                        logger.info(f"Found RSS feed via text mention: {mention}")
+                        return mention
+                except:
+                    continue
+            
+            logger.info(f"No RSS feed found for {url}")
+            return None
+            
+        except Exception as e:
+            logger.warning(f"Error discovering RSS feed for {url}: {e}")
+            return None
 

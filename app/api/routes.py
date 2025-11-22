@@ -3889,10 +3889,15 @@ class ContentSourcesList(Resource):
             # Сохраняем posting_schedule в config
             config = data.get('posting_schedule', {})
             
+            # По умолчанию используем 'auto' для автоматической детекции RSS
+            source_type = data.get('source_type', 'auto')
+            if source_type not in ['rss', 'website', 'auto']:
+                source_type = 'auto'
+            
             source = ContentSourceService.create_source(
                 user_id=user_id,
                 name=data['name'],
-                source_type=data.get('source_type', 'rss'),
+                source_type=source_type,
                 url=data['url'],
                 keywords=keywords,
                 exclude_keywords=data.get('exclude_keywords', []),

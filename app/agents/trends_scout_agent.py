@@ -110,31 +110,6 @@ class TrendsScoutAgent(BaseAgent):
         self._initialize_mcp_integrations()
         logger.info(f"TrendsScoutAgent MVP {agent_id} инициализирован")
     
-    def can_handle_task(self, task: Task) -> bool:
-        """
-        Проверяет, может ли TrendsScoutAgent выполнить задачу
-        НЕ обрабатывает задачи публикации и задачи с изображениями
-        """
-        # Сначала проверяем базовые условия
-        if not super().can_handle_task(task):
-            return False
-        
-        # TrendsScoutAgent НЕ обрабатывает задачи публикации
-        if "Publish" in task.name or "publish" in task.name.lower():
-            return False
-        
-        # TrendsScoutAgent НЕ обрабатывает задачи генерации/поиска изображений
-        image_keywords = ["Image", "image", "Stock", "stock", "Generate", "generate", "multimedia"]
-        if any(keyword in task.name for keyword in image_keywords):
-            return False
-        
-        # Также проверяем контекст задачи
-        task_context = task.context if hasattr(task, 'context') else {}
-        if task_context.get("image_source") or task_context.get("content_type") in ["post_image", "image"]:
-            return False
-        
-        return True
-    
     def _load_trend_keywords(self) -> Dict[str, List[str]]:
         """Загружает ключевые слова для анализа трендов"""
         return {
