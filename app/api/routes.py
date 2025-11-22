@@ -3848,10 +3848,13 @@ class ContentSourcesList(Resource):
     
     @jwt_required
     @content_sources_ns.doc('list_content_sources', description='Получить список источников контента')
-    def get(self):
+    def get(self, current_user=None):
         """Получить список всех источников контента текущего пользователя"""
         try:
-            user_id = request.user_id
+            # Получаем user_id из request (установлен в jwt_required) или из current_user
+            user_id = request.user_id or (current_user.get('user_id') if current_user else None)
+            if not user_id:
+                return {'success': False, 'error': 'User not authenticated'}, 401
             
             sources = ContentSourceService.get_user_sources(user_id)
             
@@ -3869,10 +3872,12 @@ class ContentSourcesList(Resource):
     
     @jwt_required
     @content_sources_ns.doc('create_content_source', description='Создать новый источник контента')
-    def post(self):
+    def post(self, current_user=None):
         """Создать новый источник контента"""
         try:
-            user_id = request.user_id
+            user_id = request.user_id or (current_user.get('user_id') if current_user else None)
+            if not user_id:
+                return {'success': False, 'error': 'User not authenticated'}, 401
             data = request.get_json()
             
             # Валидация обязательных полей
@@ -3931,10 +3936,12 @@ class ContentSourceDetail(Resource):
     
     @jwt_required
     @content_sources_ns.doc('get_content_source', description='Получить детали источника')
-    def get(self, source_id):
+    def get(self, source_id, current_user=None):
         """Получить детали источника контента"""
         try:
-            user_id = request.user_id
+            user_id = request.user_id or (current_user.get('user_id') if current_user else None)
+            if not user_id:
+                return {'success': False, 'error': 'User not authenticated'}, 401
             
             source = ContentSourceService.get_source(source_id, user_id)
             
@@ -3958,10 +3965,12 @@ class ContentSourceDetail(Resource):
     
     @jwt_required
     @content_sources_ns.doc('update_content_source', description='Обновить источник контента')
-    def put(self, source_id):
+    def put(self, source_id, current_user=None):
         """Обновить источник контента"""
         try:
-            user_id = request.user_id
+            user_id = request.user_id or (current_user.get('user_id') if current_user else None)
+            if not user_id:
+                return {'success': False, 'error': 'User not authenticated'}, 401
             data = request.get_json()
             
             # Преобразуем keywords из строки в список, если нужно
@@ -4006,10 +4015,12 @@ class ContentSourceDetail(Resource):
     
     @jwt_required
     @content_sources_ns.doc('delete_content_source', description='Удалить источник контента')
-    def delete(self, source_id):
+    def delete(self, source_id, current_user=None):
         """Удалить источник контента"""
         try:
-            user_id = request.user_id
+            user_id = request.user_id or (current_user.get('user_id') if current_user else None)
+            if not user_id:
+                return {'success': False, 'error': 'User not authenticated'}, 401
             
             success = ContentSourceService.delete_source(source_id, user_id)
             
@@ -4038,10 +4049,12 @@ class ContentSourceToggle(Resource):
     
     @jwt_required
     @content_sources_ns.doc('toggle_content_source', description='Включить/выключить источник')
-    def post(self, source_id):
+    def post(self, source_id, current_user=None):
         """Включить/выключить источник контента"""
         try:
-            user_id = request.user_id
+            user_id = request.user_id or (current_user.get('user_id') if current_user else None)
+            if not user_id:
+                return {'success': False, 'error': 'User not authenticated'}, 401
             data = request.get_json()
             is_active = data.get('is_active', True)
             
@@ -4076,7 +4089,7 @@ class ProductionCalendarCheck(Resource):
     
     @jwt_required
     @content_sources_ns.doc('check_production_calendar', description='Проверить дату через производственный календарь')
-    def post(self):
+    def post(self, current_user=None):
         """Проверить, является ли дата рабочим днем"""
         try:
             data = request.get_json()
