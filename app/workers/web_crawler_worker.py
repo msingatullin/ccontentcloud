@@ -591,7 +591,14 @@ class WebCrawlerWorker:
                         scheduled_post_id=scheduled_post.id
                     )
                     
-                    logger.info(f"✅ Created scheduled post {scheduled_post.id} from monitored item {monitored_item.id} for source {source.id}")
+                    # Обновляем счетчик созданных постов в источнике
+                    source_obj = db.query(ContentSource).filter(ContentSource.id == source.id).first()
+                    if source_obj:
+                        source_obj.total_posts_created = (source_obj.total_posts_created or 0) + 1
+                        db.commit()
+                    
+                    logger.info(f"✅ Создан отложенный пост {scheduled_post.id} из новости '{extracted_data.get('title', '')[:50]}...' для источника {source.id}")
+                    logger.info(f"📅 Запланирован на {scheduled_time}")
                     return True
                 else:
                     logger.warning(f"Failed to create scheduled post for monitored item {monitored_item.id}")
