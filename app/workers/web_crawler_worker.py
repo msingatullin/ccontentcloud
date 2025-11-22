@@ -470,8 +470,9 @@ class WebCrawlerWorker:
                 id=str(uuid.uuid4()),
                 user_id=source.user_id,
                 title=extracted_data.get('title', 'Untitled'),
-                content=post_text,
-                content_type='text',
+                text=post_text,
+                content_type='post',
+                platform='telegram',
                 status='draft',
                 metadata={
                     'source_id': source.id,
