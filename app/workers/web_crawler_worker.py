@@ -444,6 +444,11 @@ class WebCrawlerWorker:
         extracted_data: Dict[str, Any]
     ) -> bool:
         """Создание отложенного поста из найденного контента"""
+        # Проверяем, включен ли автопостинг
+        if not source.auto_post_enabled:
+            logger.debug(f"Автопостинг выключен для источника {source.id}, пропускаем создание поста")
+            return False
+        
         db = get_db_session()
         try:
             # Сначала создаем контент из новости
@@ -555,8 +560,11 @@ class WebCrawlerWorker:
             ).first()
             
             if not telegram_channel:
-                logger.warning(f"No active Telegram channel found for user {source.user_id}, skipping post creation")
+                logger.warning(f"⚠️ Нет активного Telegram канала для пользователя {source.user_id}, пропускаем создание поста для источника {source.id}")
+                logger.info(f"💡 Подсказка: Добавьте активный Telegram канал в настройках, чтобы посты создавались автоматически")
                 return False
+            
+            logger.info(f"✅ Найден активный Telegram канал {telegram_channel.id} для пользователя {source.user_id}")
             
             # Создаем сервис с сессией БД
             scheduled_service = ScheduledPostService(db)
