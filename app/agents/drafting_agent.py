@@ -762,20 +762,16 @@ class DraftingAgent(BaseAgent):
             # Вызываем OpenAI API напрямую
             try:
                 client = openai.OpenAI(api_key=api_key)
-                # Для новых моделей (gpt-5-mini и выше) используется max_completion_tokens вместо max_tokens
-                api_params = {
-                    "model": "gpt-5-mini",  # Обновлено на GPT-5-mini для лучшего качества при той же цене
-                    "messages": [
+                response = client.chat.completions.create(
+                    model="gpt-5-mini",  # Обновлено на GPT-5-mini для лучшего качества при той же цене
+                    messages=[
                         {"role": "system", "content": prompt.system_message},
                         {"role": "user", "content": final_prompt}
                     ],
-                    "temperature": prompt.temperature,
-                    "n": 1
-                }
-                # Используем max_completion_tokens для новых моделей
-                api_params["max_completion_tokens"] = prompt.max_tokens
-                
-                response = client.chat.completions.create(**api_params)
+                    max_tokens=prompt.max_tokens,  # Используем max_tokens для совместимости
+                    temperature=prompt.temperature,
+                    n=1
+                )
                 
                 if response.choices and len(response.choices) > 0:
                     generated_text = response.choices[0].message.content.strip()
