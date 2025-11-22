@@ -548,10 +548,10 @@ class WebCrawlerWorker:
                     logger.warning(f"Could not find suitable posting time for source {source.id}, scheduled for {scheduled_time}")
             
             # Получаем первый активный Telegram канал пользователя
-            from app.models.telegram_channels import TelegramChannelDB
-            telegram_channel = db.query(TelegramChannelDB).filter(
-                TelegramChannelDB.user_id == source.user_id,
-                TelegramChannelDB.is_active == True
+            from app.models.telegram_channels import TelegramChannel
+            telegram_channel = db.query(TelegramChannel).filter(
+                TelegramChannel.user_id == source.user_id,
+                TelegramChannel.is_active == True
             ).first()
             
             if not telegram_channel:
