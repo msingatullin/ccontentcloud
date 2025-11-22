@@ -151,7 +151,7 @@ class ChiefContentAgent(BaseAgent):
     def can_handle_task(self, task: Task) -> bool:
         """
         Проверяет, может ли ChiefContentAgent выполнить задачу
-        НЕ обрабатывает задачи публикации и создания контента
+        НЕ обрабатывает задачи публикации, создания контента и изображений
         """
         # Сначала проверяем базовые условия
         if not super().can_handle_task(task):
@@ -159,6 +159,17 @@ class ChiefContentAgent(BaseAgent):
         
         # ChiefContentAgent НЕ обрабатывает задачи публикации
         if "Publish" in task.name or "publish" in task.name.lower():
+            return False
+        
+        # ChiefContentAgent НЕ обрабатывает задачи генерации/поиска изображений
+        # Это должны делать MultimediaProducerAgent
+        image_keywords = ["Image", "image", "Stock", "stock", "Generate", "generate", "multimedia"]
+        if any(keyword in task.name for keyword in image_keywords):
+            return False
+        
+        # Также проверяем контекст задачи
+        task_context = task.context if hasattr(task, 'context') else {}
+        if task_context.get("content_type") in ["post_image", "image"] or task_context.get("image_source"):
             return False
         
         # ChiefContentAgent НЕ создает контент напрямую, только стратегию
