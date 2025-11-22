@@ -15,6 +15,7 @@ import os
 from app.services.content_source_service import ContentSourceService, MonitoredItemService, SourceCheckHistoryService
 from app.services.content_extractor import ContentExtractor, ChangeDetector, RSSParser
 from app.services.scheduled_post_service import ScheduledPostService
+from app.services.production_calendar_service import ProductionCalendarService
 
 logger = logging.getLogger(__name__)
 
@@ -380,9 +381,65 @@ class WebCrawlerWorker:
                 if extracted_data.get('url'):
                     post_text += f"\n\n{extracted_data['url']}"
             
-            # Определяем время публикации
+            # Определяем время публикации с учетом расписания
             from datetime import timedelta
-            scheduled_time = datetime.utcnow() + timedelta(minutes=source.post_delay_minutes)
+            
+            # Получаем настройки расписания из config
+            posting_schedule = source.config.get('posting_schedule', {}) if source.config else {}
+            frequency = posting_schedule.get('frequency', '2h')
+            forbidden_hours_start = posting_schedule.get('forbidden_hours_start', '22:00')
+            forbidden_hours_end = posting_schedule.get('forbidden_hours_end', '08:00')
+            weekends_mode = posting_schedule.get('weekends_mode', 'disabled')
+            use_production_calendar = posting_schedule.get('use_production_calendar', True)
+            weekends_schedule = posting_schedule.get('weekends_schedule', {})
+            
+            # Вычисляем базовое время публикации на основе частоты
+            base_time = datetime.utcnow()
+            if frequency == '1h':
+                scheduled_time = base_time + timedelta(hours=1)
+            elif frequency == '2h':
+                scheduled_time = base_time + timedelta(hours=2)
+            elif frequency == '5h':
+                scheduled_time = base_time + timedelta(hours=5)
+            elif frequency == '1d':
+                scheduled_time = base_time + timedelta(days=1)
+            elif frequency == '2d':
+                # Два раза в сутки - утром и вечером
+                scheduled_time = base_time + timedelta(hours=12)
+            else:
+                scheduled_time = base_time + timedelta(minutes=source.post_delay_minutes or 0)
+            
+            # Проверяем, можно ли постить в это время
+            can_post = ProductionCalendarService.can_post_at_time(
+                post_datetime=scheduled_time,
+                forbidden_hours_start=forbidden_hours_start,
+                forbidden_hours_end=forbidden_hours_end,
+                weekends_mode=weekends_mode,
+                use_production_calendar=use_production_calendar,
+                weekends_schedule=weekends_schedule
+            )
+            
+            # Если нельзя постить сейчас, ищем ближайшее разрешенное время
+            if not can_post:
+                # Пробуем сдвинуть время вперед с шагом в 1 час, максимум 24 часа
+                for hours_offset in range(1, 25):
+                    candidate_time = scheduled_time + timedelta(hours=hours_offset)
+                    if ProductionCalendarService.can_post_at_time(
+                        post_datetime=candidate_time,
+                        forbidden_hours_start=forbidden_hours_start,
+                        forbidden_hours_end=forbidden_hours_end,
+                        weekends_mode=weekends_mode,
+                        use_production_calendar=use_production_calendar,
+                        weekends_schedule=weekends_schedule
+                    ):
+                        scheduled_time = candidate_time
+                        logger.info(f"Adjusted posting time for source {source.id} to {scheduled_time} due to schedule restrictions")
+                        break
+                else:
+                    # Если не нашли подходящее время за 24 часа, откладываем на завтра
+                    scheduled_time = scheduled_time + timedelta(days=1)
+                    scheduled_time = scheduled_time.replace(hour=9, minute=0, second=0, microsecond=0)
+                    logger.warning(f"Could not find suitable posting time for source {source.id}, scheduled for {scheduled_time}")
             
             # Если у источника есть правило автопостинга, используем его настройки
             if source.auto_posting_rule_id:

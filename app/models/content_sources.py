@@ -81,6 +81,10 @@ class ContentSource(Base):
     
     def to_dict(self) -> dict:
         """Преобразование в словарь для API"""
+        posting_schedule = {}
+        if self.config and isinstance(self.config, dict):
+            posting_schedule = self.config.get('posting_schedule', {})
+        
         return {
             'id': self.id,
             'user_id': self.user_id,
@@ -89,7 +93,20 @@ class ContentSource(Base):
             'source_type': self.source_type,
             'url': self.url,
             'config': self.config or {},
+            'posting_schedule': posting_schedule,
             'extraction_method': self.extraction_method,
+            'keywords': self.keywords or [],
+            'exclude_keywords': self.exclude_keywords or [],
+            'is_active': self.is_active,
+            'auto_post_enabled': self.auto_post_enabled,
+            'check_interval_minutes': self.check_interval_minutes,
+            'last_check_at': self.last_check_at.isoformat() if self.last_check_at else None,
+            'next_check_at': self.next_check_at.isoformat() if self.next_check_at else None,
+            'total_checks': self.total_checks or 0,
+            'total_items_found': self.total_items_found or 0,
+            'total_posts_created': self.total_posts_created or 0,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'keywords': self.keywords or [],
             'exclude_keywords': self.exclude_keywords or [],
             'categories': self.categories or [],

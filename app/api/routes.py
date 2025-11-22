@@ -18,6 +18,8 @@ from app.auth.services.auth_service import AuthService
 from app.auth.utils.email import EmailService
 from app.database.connection import get_db_session
 from app.orchestrator.main_orchestrator import orchestrator
+from app.services.content_source_service import ContentSourceService
+from app.services.production_calendar_service import ProductionCalendarService
 from .schemas import (
     ContentRequestSchema,
     ContentResponseSchema,
@@ -70,6 +72,7 @@ auth_ns = Namespace('auth', description='Authentication API')
 billing_ns = Namespace('billing', description='Billing API')
 webhook_ns = Namespace('webhook', description='Webhook API')
 health_ns = Namespace('health', description='Health Check API')
+content_sources_ns = Namespace('content-sources', description='Content Sources API')
 
 # ==================== JWT MIDDLEWARE ====================
 
@@ -3830,6 +3833,271 @@ def _handle_refund_succeeded(webhook_data):
     except Exception as e:
         logger.error(f"Ошибка обработки возврата: {e}")
         return False
+
+
+# ==================== CONTENT SOURCES ENDPOINTS ====================
+
+@content_sources_ns.route('')
+@content_sources_ns.route('/')
+class ContentSourcesList(Resource):
+    """Список источников контента пользователя"""
+    
+    @jwt_required
+    @content_sources_ns.doc('list_content_sources', description='Получить список источников контента')
+    def get(self):
+        """Получить список всех источников контента текущего пользователя"""
+        try:
+            user_id = request.user_id
+            
+            sources = ContentSourceService.get_user_sources(user_id)
+            
+            return {
+                'success': True,
+                'data': [source.to_dict() for source in sources]
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Error getting content sources: {e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }, 500
+    
+    @jwt_required
+    @content_sources_ns.doc('create_content_source', description='Создать новый источник контента')
+    def post(self):
+        """Создать новый источник контента"""
+        try:
+            user_id = request.user_id
+            data = request.get_json()
+            
+            # Валидация обязательных полей
+            if not data.get('name'):
+                return {'success': False, 'error': 'Название источника обязательно'}, 400
+            if not data.get('url'):
+                return {'success': False, 'error': 'URL источника обязательно'}, 400
+            
+            # Преобразуем keywords из строки в список, если нужно
+            keywords = data.get('keywords', [])
+            if isinstance(keywords, str):
+                keywords = [k.strip() for k in keywords.split('\n') if k.strip()]
+            
+            # Сохраняем posting_schedule в config
+            config = data.get('posting_schedule', {})
+            
+            source = ContentSourceService.create_source(
+                user_id=user_id,
+                name=data['name'],
+                source_type=data.get('source_type', 'rss'),
+                url=data['url'],
+                keywords=keywords,
+                exclude_keywords=data.get('exclude_keywords', []),
+                check_interval_minutes=data.get('check_interval_minutes', 60),
+                config={'posting_schedule': config},
+                is_active=data.get('is_active', True)
+            )
+            
+            if source:
+                return {
+                    'success': True,
+                    'data': source.to_dict()
+                }, 201
+            else:
+                return {
+                    'success': False,
+                    'error': 'Не удалось создать источник'
+                }, 500
+                
+        except Exception as e:
+            logger.error(f"Error creating content source: {e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }, 500
+
+
+@content_sources_ns.route('/<int:source_id>')
+class ContentSourceDetail(Resource):
+    """Детали источника контента"""
+    
+    @jwt_required
+    @content_sources_ns.doc('get_content_source', description='Получить детали источника')
+    def get(self, source_id):
+        """Получить детали источника контента"""
+        try:
+            user_id = request.user_id
+            
+            source = ContentSourceService.get_source(source_id, user_id)
+            
+            if source:
+                return {
+                    'success': True,
+                    'data': source.to_dict()
+                }, 200
+            else:
+                return {
+                    'success': False,
+                    'error': 'Источник не найден'
+                }, 404
+                
+        except Exception as e:
+            logger.error(f"Error getting content source: {e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }, 500
+    
+    @jwt_required
+    @content_sources_ns.doc('update_content_source', description='Обновить источник контента')
+    def put(self, source_id):
+        """Обновить источник контента"""
+        try:
+            user_id = request.user_id
+            data = request.get_json()
+            
+            # Преобразуем keywords из строки в список, если нужно
+            if 'keywords' in data and isinstance(data['keywords'], str):
+                data['keywords'] = [k.strip() for k in data['keywords'].split('\n') if k.strip()]
+            
+            # Обновляем posting_schedule в config
+            posting_schedule = data.pop('posting_schedule', None)
+            if posting_schedule is not None:
+                # Получаем текущий config или создаем новый
+                db = get_db_session()
+                try:
+                    source = ContentSourceService.get_source(source_id, user_id)
+                    if source:
+                        if not source.config:
+                            source.config = {}
+                        source.config['posting_schedule'] = posting_schedule
+                        db.commit()
+                finally:
+                    db.close()
+            
+            # Обновляем остальные поля через update_source
+            source = ContentSourceService.update_source(source_id, user_id, **data)
+            
+            if source:
+                return {
+                    'success': True,
+                    'data': source.to_dict()
+                }, 200
+            else:
+                return {
+                    'success': False,
+                    'error': 'Источник не найден или нет прав на обновление'
+                }, 404
+                
+        except Exception as e:
+            logger.error(f"Error updating content source: {e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }, 500
+    
+    @jwt_required
+    @content_sources_ns.doc('delete_content_source', description='Удалить источник контента')
+    def delete(self, source_id):
+        """Удалить источник контента"""
+        try:
+            user_id = request.user_id
+            
+            success = ContentSourceService.delete_source(source_id, user_id)
+            
+            if success:
+                return {
+                    'success': True,
+                    'message': 'Источник удален'
+                }, 200
+            else:
+                return {
+                    'success': False,
+                    'error': 'Источник не найден или нет прав на удаление'
+                }, 404
+                
+        except Exception as e:
+            logger.error(f"Error deleting content source: {e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }, 500
+
+
+@content_sources_ns.route('/<int:source_id>/toggle')
+class ContentSourceToggle(Resource):
+    """Включить/выключить источник контента"""
+    
+    @jwt_required
+    @content_sources_ns.doc('toggle_content_source', description='Включить/выключить источник')
+    def post(self, source_id):
+        """Включить/выключить источник контента"""
+        try:
+            user_id = request.user_id
+            data = request.get_json()
+            is_active = data.get('is_active', True)
+            
+            source = ContentSourceService.update_source(
+                source_id, 
+                user_id, 
+                is_active=is_active
+            )
+            
+            if source:
+                return {
+                    'success': True,
+                    'data': source.to_dict()
+                }, 200
+            else:
+                return {
+                    'success': False,
+                    'error': 'Источник не найден'
+                }, 404
+                
+        except Exception as e:
+            logger.error(f"Error toggling content source: {e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }, 500
+
+
+@content_sources_ns.route('/production-calendar/check')
+class ProductionCalendarCheck(Resource):
+    """Проверка даты через производственный календарь"""
+    
+    @jwt_required
+    @content_sources_ns.doc('check_production_calendar', description='Проверить дату через производственный календарь')
+    def post(self):
+        """Проверить, является ли дата рабочим днем"""
+        try:
+            data = request.get_json()
+            date_str = data.get('date')
+            country = data.get('country', 'ru')
+            
+            if not date_str:
+                return {
+                    'success': False,
+                    'error': 'Дата не указана'
+                }, 400
+            
+            check_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            is_working = ProductionCalendarService.is_working_day(check_date, country)
+            
+            return {
+                'success': True,
+                'data': {
+                    'date': date_str,
+                    'is_working_day': is_working,
+                    'is_weekend': not is_working
+                }
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Error checking production calendar: {e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }, 500
 
 
 # ==================== HEALTH ENDPOINTS ====================
