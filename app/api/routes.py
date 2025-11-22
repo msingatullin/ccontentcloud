@@ -140,6 +140,10 @@ def jwt_required(f):
             logger.error(f"JWT verification traceback: {traceback.format_exc()}")
             return {"error": "Token verification failed"}, 401
         
+        # Установить user_id в request для удобства доступа
+        request.user_id = payload.get('user_id') or payload.get('id')
+        request.current_user = payload
+        
         # Передать user info в функцию
         return f(*args, current_user=payload, **kwargs)
     
