@@ -452,7 +452,7 @@ class DraftingAgent(BaseAgent):
     def can_handle_task(self, task: Task) -> bool:
         """
         Проверяет, может ли DraftingAgent выполнить задачу
-        НЕ обрабатывает задачи публикации (с 'Publish' в названии)
+        НЕ обрабатывает задачи публикации (с 'Publish' в названии) и задачи с изображениями
         """
         # Сначала проверяем базовые условия
         if not super().can_handle_task(task):
@@ -461,6 +461,16 @@ class DraftingAgent(BaseAgent):
         # DraftingAgent НЕ обрабатывает задачи публикации
         if "Publish" in task.name or "publish" in task.name.lower():
             return False
+        
+        # DraftingAgent НЕ обрабатывает задачи генерации/поиска изображений
+        # Это должны делать MultimediaProducerAgent
+        image_related_keywords = ["Image", "image", "stock", "Stock", "Generate", "generate", "multimedia"]
+        if any(keyword in task.name for keyword in image_related_keywords):
+            return False  # MultimediaProducerAgent должен обрабатывать
+        
+        # Также проверяем контекст задачи
+        if task.context.get("content_type") in ["post_image", "image"] or task.context.get("image_source"):
+            return False  # MultimediaProducerAgent должен обрабатывать
         
         return True
     
@@ -752,16 +762,20 @@ class DraftingAgent(BaseAgent):
             # Вызываем OpenAI API напрямую
             try:
                 client = openai.OpenAI(api_key=api_key)
-                response = client.chat.completions.create(
-                    model="gpt-5-mini",  # Обновлено на GPT-5-mini для лучшего качества при той же цене
-                    messages=[
+                # Для новых моделей (gpt-5-mini и выше) используется max_completion_tokens вместо max_tokens
+                api_params = {
+                    "model": "gpt-5-mini",  # Обновлено на GPT-5-mini для лучшего качества при той же цене
+                    "messages": [
                         {"role": "system", "content": prompt.system_message},
                         {"role": "user", "content": final_prompt}
                     ],
-                    max_tokens=prompt.max_tokens,
-                    temperature=prompt.temperature,
-                    n=1
-                )
+                    "temperature": prompt.temperature,
+                    "n": 1
+                }
+                # Используем max_completion_tokens для новых моделей
+                api_params["max_completion_tokens"] = prompt.max_tokens
+                
+                response = client.chat.completions.create(**api_params)
                 
                 if response.choices and len(response.choices) > 0:
                     generated_text = response.choices[0].message.content.strip()
