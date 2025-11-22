@@ -263,6 +263,24 @@ class ContentOrchestrator:
                     if user_id and agent_id and 'content' in result:
                         await self._save_task_result_to_db(result, user_id, workflow_id, agent_id, task)
                     
+                    # Если это задача генерации/поиска изображения, добавляем image_url в media_urls существующего контента
+                    if user_id and ('Image' in task.name or task.context.get('image_source')):
+                        image_url = None
+                        if 'image' in result:
+                            image_data = result.get('image', {})
+                            if isinstance(image_data, dict):
+                                image_url = image_data.get('image_url')
+                            elif isinstance(image_data, str):
+                                image_url = image_data
+                        elif 'image_url' in result:
+                            image_url = result.get('image_url')
+                        
+                        if image_url:
+                            brief_id = task.context.get('brief_id')
+                            if brief_id:
+                                await self._add_image_to_content(brief_id, image_url, user_id)
+                                logger.info(f"Добавлено изображение {image_url} в контент для brief_id {brief_id}")
+                    
                     # Если это задача создания контента, передаем результат в задачу публикации
                     if 'content' in result and 'Create' in task.name:
                         platform = task.context.get('platform')
@@ -494,6 +512,47 @@ class ContentOrchestrator:
             
         except Exception as e:
             logger.error(f"❌ Ошибка сохранения результата задачи: {e}")
+    
+    async def _add_image_to_content(self, brief_id: str, image_url: str, user_id: int) -> None:
+        """Добавляет URL изображения в media_urls существующего контента"""
+        try:
+            from app.models.content import ContentPieceDB
+            from app.database.connection import get_db_session
+            
+            db_session = get_db_session()
+            
+            # Находим контент по brief_id
+            content = db_session.query(ContentPieceDB).filter(
+                ContentPieceDB.brief_id == brief_id,
+                ContentPieceDB.user_id == user_id
+            ).first()
+            
+            if content:
+                # Получаем текущие media_urls
+                if not content.media_urls:
+                    content.media_urls = []
+                elif isinstance(content.media_urls, str):
+                    # Если это строка, парсим её
+                    import json
+                    try:
+                        content.media_urls = json.loads(content.media_urls)
+                    except:
+                        content.media_urls = [content.media_urls]
+                
+                # Добавляем новый URL, если его еще нет
+                if image_url not in content.media_urls:
+                    content.media_urls.append(image_url)
+                    db_session.commit()
+                    logger.info(f"✅ URL изображения добавлен в media_urls контента {content.id}")
+                else:
+                    logger.info(f"URL изображения уже есть в media_urls контента {content.id}")
+            else:
+                logger.warning(f"Контент для brief_id {brief_id} не найден, невозможно добавить изображение")
+            
+            db_session.close()
+            
+        except Exception as e:
+            logger.error(f"❌ Ошибка добавления изображения в контент: {e}")
     
     async def process_content_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
         """Обрабатывает запрос на создание контента"""

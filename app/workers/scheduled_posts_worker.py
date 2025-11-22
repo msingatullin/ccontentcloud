@@ -6,6 +6,8 @@ Worker для публикации запланированных постов
 import logging
 import time
 import threading
+import re
+import asyncio
 from datetime import datetime
 from typing import Optional
 
@@ -238,14 +240,30 @@ class ScheduledPostsWorker:
                 logger.warning(f"Formatted message is empty for content {content.id}, using fallback")
                 message_text = content.text or content.title or ""
             
+            # Проверяем наличие изображений
+            image_url = None
+            if content.media_urls and isinstance(content.media_urls, list) and len(content.media_urls) > 0:
+                image_url = content.media_urls[0]  # Берем первое изображение
+                logger.info(f"Найдено изображение для публикации: {image_url}")
+            
             # Публикуем через TelegramChannelService (async метод)
             logger.info(f"Публикация в канал '{channel.channel_name}' (chat_id={channel.chat_id})")
-            result = asyncio.run(service.send_message(
-                chat_id=channel.chat_id,
-                text=message_text,
-                parse_mode="HTML",
-                disable_web_page_preview=False
-            ))
+            
+            # Если есть изображение - отправляем фото с подписью, иначе - просто текст
+            if image_url:
+                result = asyncio.run(service.send_photo(
+                    chat_id=channel.chat_id,
+                    photo_url=image_url,
+                    caption=message_text,
+                    parse_mode="HTML"
+                ))
+            else:
+                result = asyncio.run(service.send_message(
+                    chat_id=channel.chat_id,
+                    text=message_text,
+                    parse_mode="HTML",
+                    disable_web_page_preview=False
+                ))
             
             if result.get('success'):
                 message_data = result.get('data', {})
@@ -345,8 +363,8 @@ class ScheduledPostsWorker:
                 clean_hashtags = []
                 for tag in content.hashtags[:10]:
                     if tag and tag.strip():
-                        # Убираем все # из начала и конца, оставляем только один в начале
-                        clean_tag = tag.strip().lstrip('#').strip()
+                        # Убираем ВСЕ # из начала строки (может быть ## или ###)
+                        clean_tag = re.sub(r'^#+', '', tag.strip()).strip()
                         if clean_tag:
                             clean_hashtags.append(f"#{clean_tag}")
                 
@@ -360,8 +378,8 @@ class ScheduledPostsWorker:
                 if hashtags_list:
                     clean_hashtags = []
                     for tag in hashtags_list[:10]:
-                        # Убираем все # из начала и конца, оставляем только один в начале
-                        clean_tag = tag.strip().lstrip('#').strip()
+                        # Убираем ВСЕ # из начала строки (может быть ## или ###)
+                        clean_tag = re.sub(r'^#+', '', tag.strip()).strip()
                         if clean_tag:
                             clean_hashtags.append(f"#{clean_tag}")
                     if clean_hashtags:

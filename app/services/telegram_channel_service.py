@@ -666,6 +666,86 @@ class TelegramChannelService:
                 "error": error_msg
             }
     
+    async def send_photo(self, chat_id: str, photo_url: str, caption: str = "",
+                          parse_mode: str = "HTML") -> dict:
+        """
+        Отправляет фото в Telegram через Bot API
+        
+        Args:
+            chat_id: ID чата/канала (может быть @username или числовой ID)
+            photo_url: URL изображения
+            caption: Подпись к фото (может быть пустой)
+            parse_mode: Режим парсинга (HTML, Markdown)
+            
+        Returns:
+            Словарь с результатом:
+            {
+                "success": bool,
+                "data": dict,  # Telegram message object
+                "error": str   # В случае ошибки
+            }
+        """
+        try:
+            payload = {
+                'chat_id': chat_id,
+                'photo': photo_url,
+                'parse_mode': parse_mode
+            }
+            
+            # Добавляем подпись только если она не пустая
+            if caption:
+                payload['caption'] = caption
+            
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.post(
+                    f"{self.base_url}/sendPhoto",
+                    json=payload
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    if result.get('ok'):
+                        message_data = result['result']
+                        logger.info(f"✅ Фото отправлено в {chat_id}, message_id={message_data['message_id']}")
+                        return {
+                            "success": True,
+                            "data": message_data,
+                            "error": None
+                        }
+                    else:
+                        error_msg = result.get('description', 'Неизвестная ошибка Telegram API')
+                        logger.error(f"❌ Ошибка Telegram API при отправке фото: {error_msg}")
+                        return {
+                            "success": False,
+                            "data": None,
+                            "error": error_msg
+                        }
+                else:
+                    error_msg = f"HTTP {response.status_code}: {response.text[:200]}"
+                    logger.error(f"❌ HTTP ошибка при отправке фото: {error_msg}")
+                    return {
+                        "success": False,
+                        "data": None,
+                        "error": error_msg
+                    }
+                    
+        except httpx.TimeoutException as e:
+            error_msg = "Timeout: Telegram API не ответил за 30 секунд"
+            logger.error(f"❌ {error_msg}: {e}")
+            return {
+                "success": False,
+                "data": None,
+                "error": error_msg
+            }
+        except Exception as e:
+            error_msg = f"Критическая ошибка отправки фото: {str(e)}"
+            logger.error(f"❌ {error_msg}", exc_info=True)
+            return {
+                "success": False,
+                "data": None,
+                "error": error_msg
+            }
+    
     def update_channel_stats(self, channel_id: int, post_success: bool = True, 
                            error_message: Optional[str] = None) -> None:
         """
