@@ -4195,24 +4195,34 @@ class FetchWebsiteMetadata(Resource):
             
         except requests.exceptions.RequestException as e:
             logger.warning(f"Error fetching metadata for {url}: {e}")
-            # Не возвращаем ошибку, просто возвращаем пустые данные
-            parsed_url = urlparse(url if url else '')
+            # Не возвращаем ошибку, просто возвращаем домен как название
+            try:
+                parsed_url = urlparse(url if url else '')
+                domain = parsed_url.netloc.replace('www.', '') if parsed_url.netloc else url
+            except:
+                domain = url.split('/')[2] if '/' in url else url
+            
             return {
                 'success': True,
                 'data': {
-                    'title': parsed_url.netloc.replace('www.', '') if parsed_url.netloc else url,
+                    'title': domain,
                     'description': None,
                     'url': url
                 }
             }, 200
         except Exception as e:
             logger.error(f"Error fetching metadata: {e}")
-            # Не возвращаем ошибку пользователю
-            parsed_url = urlparse(url if url else '')
+            # Не возвращаем ошибку пользователю, всегда возвращаем успех
+            try:
+                parsed_url = urlparse(url if url else '')
+                domain = parsed_url.netloc.replace('www.', '') if parsed_url.netloc else url
+            except:
+                domain = url.split('/')[2] if '/' in url else url
+            
             return {
                 'success': True,
                 'data': {
-                    'title': parsed_url.netloc.replace('www.', '') if parsed_url.netloc else url,
+                    'title': domain,
                     'description': None,
                     'url': url
                 }
