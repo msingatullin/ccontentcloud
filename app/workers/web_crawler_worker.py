@@ -173,6 +173,14 @@ class WebCrawlerWorker:
                 )
             except Exception as update_error:
                 logger.error(f"Error updating status after error: {update_error}")
+            
+            # Возвращаем пустой результат вместо None
+            return {
+                'items_found': 0,
+                'items_new': 0,
+                'items_duplicate': 0,
+                'items_posted': 0
+            }
     
     async def _check_rss_source(self, source) -> Dict[str, int]:
         """Проверка RSS источника"""
