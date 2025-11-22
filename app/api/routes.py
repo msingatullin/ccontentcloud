@@ -13,6 +13,9 @@ from flask import request, current_app
 from flask_restx import Namespace, Resource, fields
 from pydantic import ValidationError
 from werkzeug.security import generate_password_hash, check_password_hash
+import requests
+from bs4 import BeautifulSoup
+from urllib.parse import urlparse
 
 from app.auth.services.auth_service import AuthService
 from app.auth.utils.email import EmailService
@@ -4120,6 +4123,100 @@ class ProductionCalendarCheck(Resource):
                 'success': False,
                 'error': str(e)
             }, 500
+
+
+@content_sources_ns.route('/fetch-metadata')
+class FetchWebsiteMetadata(Resource):
+    """Получение метаданных сайта (название, описание)"""
+    
+    @jwt_required
+    @content_sources_ns.doc('fetch_metadata', description='Получить метаданные сайта по URL')
+    def post(self, current_user=None):
+        """Получить название и описание сайта по URL"""
+        try:
+            data = request.get_json()
+            url = data.get('url')
+            
+            if not url:
+                return {
+                    'success': False,
+                    'error': 'URL не указан'
+                }, 400
+            
+            # Валидация URL
+            if not url.startswith(('http://', 'https://')):
+                url = 'https://' + url
+            
+            # Загружаем страницу
+            response = requests.get(url, timeout=10, headers={
+                'User-Agent': 'Mozilla/5.0 (compatible; ContentCurator/1.0; +https://content-curator.com)'
+            })
+            response.raise_for_status()
+            
+            # Парсим HTML
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Извлекаем title
+            title = None
+            if soup.title:
+                title = soup.title.string.strip() if soup.title.string else None
+            
+            # Если title не найден, пробуем og:title
+            if not title:
+                og_title = soup.find('meta', property='og:title')
+                if og_title and og_title.get('content'):
+                    title = og_title.get('content').strip()
+            
+            # Если title все еще не найден, используем домен
+            if not title:
+                parsed_url = urlparse(url)
+                title = parsed_url.netloc.replace('www.', '')
+            
+            # Извлекаем описание
+            description = None
+            meta_desc = soup.find('meta', attrs={'name': 'description'})
+            if meta_desc and meta_desc.get('content'):
+                description = meta_desc.get('content').strip()
+            
+            # Если description не найден, пробуем og:description
+            if not description:
+                og_desc = soup.find('meta', property='og:description')
+                if og_desc and og_desc.get('content'):
+                    description = og_desc.get('content').strip()
+            
+            return {
+                'success': True,
+                'data': {
+                    'title': title,
+                    'description': description,
+                    'url': url
+                }
+            }, 200
+            
+        except requests.exceptions.RequestException as e:
+            logger.warning(f"Error fetching metadata for {url}: {e}")
+            # Не возвращаем ошибку, просто возвращаем пустые данные
+            parsed_url = urlparse(url if url else '')
+            return {
+                'success': True,
+                'data': {
+                    'title': parsed_url.netloc.replace('www.', '') if parsed_url.netloc else url,
+                    'description': None,
+                    'url': url
+                }
+            }, 200
+        except Exception as e:
+            logger.error(f"Error fetching metadata: {e}")
+            # Не возвращаем ошибку пользователю
+            parsed_url = urlparse(url if url else '')
+            return {
+                'success': True,
+                'data': {
+                    'title': parsed_url.netloc.replace('www.', '') if parsed_url.netloc else url,
+                    'description': None,
+                    'url': url
+                }
+            }, 200
 
 
 # ==================== HEALTH ENDPOINTS ====================
