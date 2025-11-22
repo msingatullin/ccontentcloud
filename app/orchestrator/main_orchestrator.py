@@ -266,20 +266,37 @@ class ContentOrchestrator:
                     # Если это задача генерации/поиска изображения, добавляем image_url в media_urls существующего контента
                     if user_id and ('Image' in task.name or task.context.get('image_source')):
                         image_url = None
-                        if 'image' in result:
-                            image_data = result.get('image', {})
-                            if isinstance(image_data, dict):
-                                image_url = image_data.get('image_url')
-                            elif isinstance(image_data, str):
-                                image_url = image_data
-                        elif 'image_url' in result:
-                            image_url = result.get('image_url')
+                        
+                        # Результат возвращается в формате {"success": True, "result": GeneratedImage, ...}
+                        task_result = result.get('result')
+                        
+                        if task_result:
+                            # Если result - это объект GeneratedImage, извлекаем image_url
+                            if hasattr(task_result, 'image_url'):
+                                image_url = task_result.image_url
+                            # Если result - это словарь, проверяем ключи
+                            elif isinstance(task_result, dict):
+                                image_url = task_result.get('image_url') or task_result.get('url')
+                        
+                        # Также проверяем прямые ключи в результате (для обратной совместимости)
+                        if not image_url:
+                            if 'image' in result:
+                                image_data = result.get('image', {})
+                                if isinstance(image_data, dict):
+                                    image_url = image_data.get('image_url')
+                                elif isinstance(image_data, str):
+                                    image_url = image_data
+                            elif 'image_url' in result:
+                                image_url = result.get('image_url')
                         
                         if image_url:
                             brief_id = task.context.get('brief_id')
                             if brief_id:
                                 await self._add_image_to_content(brief_id, image_url, user_id)
-                                logger.info(f"Добавлено изображение {image_url} в контент для brief_id {brief_id}")
+                                logger.info(f"✅ Добавлено изображение {image_url} в контент для brief_id {brief_id}")
+                        else:
+                            logger.warning(f"⚠️ image_url не найден в результате задачи {task.id} ({task.name}). "
+                                         f"Результат: {list(result.keys()) if isinstance(result, dict) else type(result)}")
                     
                     # Если это задача создания контента, передаем результат в задачу публикации
                     if 'content' in result and 'Create' in task.name:
