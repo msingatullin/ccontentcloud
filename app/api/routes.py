@@ -4218,7 +4218,10 @@ class CheckSourceNow(Resource):
                         loop = asyncio.new_event_loop()
                         asyncio.set_event_loop(loop)
                         result = loop.run_until_complete(temp_worker._check_source(source))
-                        logger.info(f"✅ Ручная проверка источника {source.id} завершена: найдено {result.get('items_new', 0)} новых новостей, создано {result.get('items_posted', 0)} постов")
+                        if result:
+                            logger.info(f"✅ Ручная проверка источника {source.id} завершена: найдено {result.get('items_new', 0)} новых новостей, создано {result.get('items_posted', 0)} постов")
+                        else:
+                            logger.warning(f"⚠️ Ручная проверка источника {source.id} вернула None (возможно, произошла ошибка)")
                     except Exception as e:
                         logger.error(f"❌ Ошибка при ручной проверке источника {source.id}: {e}", exc_info=True)
                 

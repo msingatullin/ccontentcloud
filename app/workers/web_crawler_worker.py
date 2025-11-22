@@ -138,7 +138,14 @@ class WebCrawlerWorker:
                 execution_time_ms=execution_time
             )
             
-            logger.info(f"Source {source.id} checked successfully: {items_new} new items")
+            logger.info(f"Source {source.id} checked successfully: {items_new} new items, {items_posted} posts created")
+            
+            return {
+                'items_found': items_found,
+                'items_new': items_new,
+                'items_duplicate': items_duplicate,
+                'items_posted': items_posted
+            }
             
         except Exception as e:
             logger.error(f"Error checking source {source.id}: {e}", exc_info=True)
