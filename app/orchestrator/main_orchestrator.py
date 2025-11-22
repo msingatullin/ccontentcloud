@@ -274,19 +274,26 @@ class ContentOrchestrator:
                     if user_id and ('Image' in task.name or task.context.get('image_source')):
                         image_url = None
                         
+                        logger.info(f"🖼️ Обработка результата задачи с изображением: {task.id} ({task.name})")
+                        logger.info(f"🖼️ Результат: {type(result)}, keys: {list(result.keys()) if isinstance(result, dict) else 'N/A'}")
+                        
                         # Результат возвращается в формате {"success": True, "result": GeneratedImage, ...}
                         task_result = result.get('result')
                         
                         if task_result:
+                            logger.info(f"🖼️ task_result type: {type(task_result)}")
                             # Если result - это объект GeneratedImage, извлекаем image_url
                             if hasattr(task_result, 'image_url'):
                                 image_url = task_result.image_url
+                                logger.info(f"🖼️ image_url из объекта GeneratedImage: {image_url}")
                             # Если result - это словарь, проверяем ключи
                             elif isinstance(task_result, dict):
                                 image_url = task_result.get('image_url') or task_result.get('url')
+                                logger.info(f"🖼️ image_url из словаря: {image_url}, keys: {list(task_result.keys())}")
                         
                         # Также проверяем прямые ключи в результате (для обратной совместимости)
                         if not image_url:
+                            logger.info(f"🖼️ Пробуем найти image_url в прямых ключах результата...")
                             if 'image' in result:
                                 image_data = result.get('image', {})
                                 if isinstance(image_data, dict):
@@ -306,7 +313,8 @@ class ContentOrchestrator:
                         else:
                             logger.warning(f"⚠️ image_url не найден в результате задачи {task.id} ({task.name}). "
                                          f"Результат keys: {list(result.keys()) if isinstance(result, dict) else type(result)}, "
-                                         f"task_result type: {type(result.get('result')) if isinstance(result, dict) else 'N/A'}")
+                                         f"task_result type: {type(result.get('result')) if isinstance(result, dict) else 'N/A'}, "
+                                         f"task_result value: {result.get('result') if isinstance(result, dict) else 'N/A'}")
                     
                     # Если это задача создания контента, передаем результат в задачу публикации
                     if 'content' in result and 'Create' in task.name:
