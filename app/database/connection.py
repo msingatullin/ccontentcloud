@@ -57,11 +57,18 @@ def get_db_connection():
                 echo=os.getenv('DB_ECHO', 'false').lower() == 'true'
             )
         else:
+            # Увеличиваем размер пула соединений для PostgreSQL
+            # pool_size - количество постоянных соединений
+            # max_overflow - максимальное количество дополнительных соединений
+            # pool_timeout - время ожидания свободного соединения
             engine = create_engine(
                 database_url,
                 echo=os.getenv('DB_ECHO', 'false').lower() == 'true',
                 pool_pre_ping=True,
-                pool_recycle=300
+                pool_recycle=300,
+                pool_size=20,  # Увеличено с 5 до 20
+                max_overflow=30,  # Увеличено с 10 до 30
+                pool_timeout=60  # Увеличено время ожидания до 60 секунд
             )
         
         SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
