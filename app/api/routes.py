@@ -3911,7 +3911,8 @@ class ContentSourcesList(Resource):
                 exclude_keywords=data.get('exclude_keywords', []),
                 check_interval_minutes=data.get('check_interval_minutes', 60),
                 config={'posting_schedule': config},
-                is_active=data.get('is_active', True)
+                is_active=data.get('is_active', True),
+                auto_post_enabled=True  # По умолчанию включаем автопостинг
             )
             
             if source:
@@ -3927,12 +3928,23 @@ class ContentSourcesList(Resource):
                     # Запускаем проверку в фоне (не блокируем ответ)
                     def check_source_async():
                         try:
+                            # Убеждаемся, что источник активен для проверки
+                            db = get_db_session()
+                            try:
+                                source_obj = db.query(ContentSource).filter(ContentSource.id == source.id).first()
+                                if source_obj and not source_obj.is_active:
+                                    logger.warning(f"⚠️ Источник {source.id} неактивен, активируем для проверки...")
+                                    source_obj.is_active = True
+                                    db.commit()
+                            finally:
+                                db.close()
+                            
                             loop = asyncio.new_event_loop()
                             asyncio.set_event_loop(loop)
                             result = loop.run_until_complete(temp_worker._check_source(source))
                             logger.info(f"✅ Немедленная проверка источника {source.id} завершена: найдено {result.get('items_new', 0)} новых новостей, создано {result.get('items_posted', 0)} постов")
                         except Exception as e:
-                            logger.error(f"❌ Ошибка при немедленной проверке источника {source.id}: {e}")
+                            logger.error(f"❌ Ошибка при немедленной проверке источника {source.id}: {e}", exc_info=True)
                     
                     import threading
                     check_thread = threading.Thread(target=check_source_async, daemon=True)
