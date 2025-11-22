@@ -4173,20 +4173,36 @@ class SuggestKeywords(Resource):
             
             # Вызываем OpenAI для генерации
             try:
-                from app.services.content_extractor import ContentExtractor
-                content_extractor = ContentExtractor()
+                from openai import AsyncOpenAI
+                import os
+                import asyncio
+                import json
+                
+                api_key = os.environ.get('OPENAI_API_KEY')
+                if not api_key:
+                    raise Exception("OPENAI_API_KEY not set")
+                
+                openai_client = AsyncOpenAI(api_key=api_key)
+                
+                # Формируем промпт для генерации ключевых слов
+                system_prompt = "Ты помощник для генерации ключевых слов для мониторинга новостей. Верни только список ключевых слов через запятую, без дополнительных объяснений."
+                
+                async def generate_keywords():
+                    response = await openai_client.chat.completions.create(
+                        model="gpt-4o-mini",
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.7,
+                        max_tokens=200
+                    )
+                    return response.choices[0].message.content
                 
                 # Используем синхронный вызов через asyncio
-                import asyncio
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-                
-                # Используем метод _call_openai из ContentExtractor
-                response_data = loop.run_until_complete(
-                    content_extractor._call_openai(prompt)
-                )
-                
-                response_text = response_data.get('content', '') if isinstance(response_data, dict) else str(response_data)
+                response_text = loop.run_until_complete(generate_keywords())
                 
                 # Парсим ответ - извлекаем ключевые слова
                 generated_keywords = []
