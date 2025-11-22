@@ -406,11 +406,32 @@ class RSSParser:
         try:
             # Если HTML не передан, загружаем страницу
             if not html:
-                response = requests.get(url, timeout=10, headers={
-                    'User-Agent': 'Mozilla/5.0 (compatible; ContentCurator/1.0)'
-                })
-                response.raise_for_status()
-                html = response.text
+                # Пробуем загрузить с разными User-Agent
+                user_agents = [
+                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Mozilla/5.0 (compatible; ContentCurator/1.0)'
+                ]
+                
+                for user_agent in user_agents:
+                    try:
+                        response = requests.get(
+                            url, 
+                            timeout=10, 
+                            headers={
+                                'User-Agent': user_agent,
+                                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                                'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7'
+                            },
+                            allow_redirects=True
+                        )
+                        response.raise_for_status()
+                        html = response.text
+                        break
+                    except requests.exceptions.HTTPError as e:
+                        if e.response.status_code == 403 and user_agent != user_agents[-1]:
+                            continue  # Пробуем следующий User-Agent
+                        raise
             
             # 1. Ищем RSS ссылки в <link> тегах
             rss_link_pattern = r'<link[^>]+rel=["\'](?:alternate|feed)["\'][^>]+type=["\']application/(?:rss|atom)\+xml["\'][^>]+href=["\']([^"\']+)["\']'
