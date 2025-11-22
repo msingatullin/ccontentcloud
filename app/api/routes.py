@@ -22,6 +22,7 @@ from app.auth.utils.email import EmailService
 from app.database.connection import get_db_session
 from app.orchestrator.main_orchestrator import orchestrator
 from app.services.content_source_service import ContentSourceService
+from app.models.content_sources import ContentSource
 from app.services.production_calendar_service import ProductionCalendarService
 from .schemas import (
     ContentRequestSchema,
