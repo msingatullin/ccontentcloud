@@ -474,7 +474,7 @@ class WebCrawlerWorker:
                 content_type='post',
                 platform='telegram',
                 status='draft',
-                metadata={
+                meta_data={
                     'source_id': source.id,
                     'monitored_item_id': monitored_item.id,
                     'url': extracted_data.get('url', ''),
