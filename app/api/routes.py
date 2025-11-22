@@ -537,7 +537,9 @@ class ContentCreate(Resource):
             # Валидируем входные данные
             try:
                 logger.error(f"Request JSON: {request.json}")
-                content_request = ContentRequestSchema(**request.json)
+                request_json = request.json or {}
+                logger.info(f"📥 Получен запрос: title={request_json.get('title')}, generate_image={request_json.get('generate_image')}, image_source={request_json.get('image_source')}")
+                content_request = ContentRequestSchema(**request_json)
             except ValidationError as e:
                 logger.error(f"Validation error: {e}")
                 return handle_validation_error(e)
@@ -552,7 +554,9 @@ class ContentCreate(Resource):
             logger.info(f"Request data prepared: {request_data}")
             
             # Логируем параметры изображения для отладки
-            logger.info(f"🖼️ Параметры изображения: generate_image={request_data.get('generate_image')}, image_source={request_data.get('image_source')}")
+            generate_image_val = request_data.get('generate_image')
+            image_source_val = request_data.get('image_source')
+            logger.info(f"🖼️ Параметры изображения: generate_image={generate_image_val} (type: {type(generate_image_val)}), image_source={image_source_val} (type: {type(image_source_val)})")
             
             # Получаем персональный оркестратор пользователя
             from app.orchestrator.user_orchestrator_factory import UserOrchestratorFactory
