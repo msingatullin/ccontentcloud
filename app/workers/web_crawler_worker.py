@@ -329,12 +329,52 @@ class WebCrawlerWorker:
         items_posted = 0
         
         try:
-            # Загружаем страницу
-            response = requests.get(source.url, timeout=30, headers={
-                'User-Agent': 'Mozilla/5.0 (compatible; ContentCurator/1.0; +https://content-curator.com)'
-            })
-            response.raise_for_status()
-            html = response.text
+            # Пробуем загрузить страницу с разными User-Agent и методами
+            user_agents = [
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Mozilla/5.0 (compatible; ContentCurator/1.0; +https://content-curator.com)'
+            ]
+            
+            html = None
+            last_error = None
+            
+            for user_agent in user_agents:
+                try:
+                    response = requests.get(
+                        source.url, 
+                        timeout=30, 
+                        headers={
+                            'User-Agent': user_agent,
+                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                            'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
+                            'Accept-Encoding': 'gzip, deflate, br',
+                            'Connection': 'keep-alive',
+                            'Upgrade-Insecure-Requests': '1'
+                        },
+                        allow_redirects=True
+                    )
+                    response.raise_for_status()
+                    html = response.text
+                    logger.info(f"Successfully loaded {source.url} with User-Agent: {user_agent[:50]}...")
+                    break
+                except requests.exceptions.HTTPError as e:
+                    if e.response.status_code == 403:
+                        last_error = f"403 Forbidden (попытка с User-Agent: {user_agent[:30]}...)"
+                        logger.warning(f"403 Forbidden for {source.url} with User-Agent: {user_agent[:50]}..., пробуем следующий...")
+                        continue
+                    else:
+                        last_error = str(e)
+                        raise
+                except Exception as e:
+                    last_error = str(e)
+                    if user_agent == user_agents[-1]:  # Последняя попытка
+                        raise
+                    continue
+            
+            if not html:
+                raise Exception(f"Не удалось загрузить страницу после всех попыток. Последняя ошибка: {last_error}")
             
             # Проверяем изменения
             changes = self.change_detector.detect_changes(
