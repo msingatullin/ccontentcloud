@@ -4128,6 +4128,135 @@ class ContentSourceToggle(Resource):
             }, 500
 
 
+@content_sources_ns.route('/suggest-keywords')
+class SuggestKeywords(Resource):
+    """Автогенерация ключевых слов на основе ответов опросника"""
+    
+    @jwt_required
+    @content_sources_ns.doc('suggest_keywords', description='Сгенерировать ключевые слова на основе ответов опросника')
+    def post(self, current_user=None):
+        """Сгенерировать ключевые слова"""
+        try:
+            data = request.get_json()
+            
+            # Формируем промпт для AI
+            business_description = data.get('businessDescription', '')
+            topics = data.get('topics', [])
+            keywords = data.get('keywords', '')
+            audience = data.get('audience', [])
+            hashtags = data.get('hashtags', '')
+            
+            # Если уже есть ключевые слова из формы, используем их как основу
+            existing_keywords = []
+            if keywords:
+                existing_keywords = [k.strip() for k in keywords.split('\n') if k.strip()]
+            
+            # Формируем промпт для OpenAI
+            prompt = f"""
+На основе следующей информации о канале, сгенерируй список из 10-15 релевантных ключевых слов для мониторинга новостей:
+
+О канале: {business_description}
+Темы интересов: {', '.join(topics) if topics else 'не указаны'}
+Указанные слова/бренды: {keywords if keywords else 'не указаны'}
+Аудитория: {', '.join(audience) if audience else 'не указана'}
+Хэштеги: {hashtags if hashtags else 'не указаны'}
+
+Требования:
+1. Включи все указанные пользователем слова/бренды
+2. Добавь релевантные ключевые слова на основе описания канала и тем
+3. Учти целевую аудиторию
+4. Верни только список ключевых слов через запятую, без дополнительных объяснений
+5. Каждое ключевое слово должно быть на отдельной строке
+
+Формат ответа (только ключевые слова, каждое с новой строки):
+"""
+            
+            # Вызываем OpenAI для генерации
+            try:
+                from app.services.content_extractor import ContentExtractor
+                content_extractor = ContentExtractor()
+                
+                # Используем синхронный вызов через asyncio
+                import asyncio
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                
+                # Используем метод _call_openai из ContentExtractor
+                response_data = loop.run_until_complete(
+                    content_extractor._call_openai(prompt)
+                )
+                
+                response_text = response_data.get('content', '') if isinstance(response_data, dict) else str(response_data)
+                
+                # Парсим ответ - извлекаем ключевые слова
+                generated_keywords = []
+                if response_text:
+                    # Разбиваем по строкам и запятым
+                    lines = response_text.replace('\n', ',').split(',')
+                    for line in lines:
+                        keyword = line.strip()
+                        if keyword and len(keyword) > 1:
+                            generated_keywords.append(keyword)
+                
+                # Объединяем существующие и сгенерированные, убираем дубликаты
+                all_keywords = list(set(existing_keywords + generated_keywords))
+                
+                # Ограничиваем до 20 ключевых слов
+                all_keywords = all_keywords[:20]
+                
+                logger.info(f"Generated {len(all_keywords)} keywords for user")
+                
+                return {
+                    'success': True,
+                    'data': {
+                        'keywords': all_keywords
+                    }
+                }, 200
+                
+            except Exception as e:
+                logger.error(f"Error generating keywords with AI: {e}")
+                # Fallback: возвращаем существующие ключевые слова или базовые
+                if existing_keywords:
+                    return {
+                        'success': True,
+                        'data': {
+                            'keywords': existing_keywords
+                        }
+                    }, 200
+                else:
+                    # Генерируем базовые ключевые слова на основе тем
+                    basic_keywords = []
+                    topic_keywords_map = {
+                        'beauty': ['красота', 'маникюр', 'прически', 'стиль'],
+                        'finance': ['финансы', 'инвестиции', 'экономика', 'биржа'],
+                        'pets': ['собаки', 'кошки', 'домашние животные', 'питомцы'],
+                        'cooking': ['кулинария', 'рецепты', 'готовка', 'еда'],
+                        'sport': ['спорт', 'здоровье', 'фитнес', 'тренировки'],
+                        'tech': ['технологии', 'гаджеты', 'инновации', 'IT'],
+                    }
+                    
+                    for topic in topics:
+                        if topic in topic_keywords_map:
+                            basic_keywords.extend(topic_keywords_map[topic])
+                    
+                    if not basic_keywords:
+                        basic_keywords = ['новости', 'актуальное']
+                    
+                    return {
+                        'success': True,
+                        'data': {
+                            'keywords': list(set(basic_keywords))
+                        }
+                    }, 200
+                    
+        except Exception as e:
+            logger.error(f"Error in suggest_keywords: {e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }, 500
+
+
 @content_sources_ns.route('/production-calendar/check')
 class ProductionCalendarCheck(Resource):
     """Проверка даты через производственный календарь"""
