@@ -4137,6 +4137,11 @@ class SuggestKeywords(Resource):
     def post(self, current_user=None):
         """Сгенерировать ключевые слова"""
         try:
+            # Получаем user_id из request (установлен в jwt_required) или из current_user
+            user_id = request.user_id or (current_user.get('user_id') if current_user else None)
+            if not user_id:
+                return {'success': False, 'error': 'User not authenticated'}, 401
+            
             data = request.get_json()
             
             # Формируем промпт для AI
