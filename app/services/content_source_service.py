@@ -328,12 +328,26 @@ class MonitoredItemService:
             
             logger.debug(f"Filtered kwargs keys: {list(filtered_kwargs.keys())}")
             
-            item = MonitoredItem(
-                source_id=source_id,
-                user_id=user_id,
-                title=title,
-                **filtered_kwargs
-            )
+            # Создаем объект напрямую, избегая автоматической обработки relationships
+            # Используем __init__ напрямую, чтобы избежать проблем с relationships
+            item = MonitoredItem.__new__(MonitoredItem)
+            
+            # Устанавливаем обязательные поля
+            item.source_id = source_id
+            item.user_id = user_id
+            item.title = title
+            item.status = filtered_kwargs.get('status', 'new')
+            item.relevance_score = filtered_kwargs.get('relevance_score', 0.0)
+            
+            # Устанавливаем опциональные поля
+            for key, value in filtered_kwargs.items():
+                if hasattr(MonitoredItem, key) and key not in ['source_id', 'user_id', 'title', 'status', 'relevance_score']:
+                    setattr(item, key, value)
+            
+            # Устанавливаем значения по умолчанию для полей, которые не были переданы
+            if not hasattr(item, 'created_at') or item.created_at is None:
+                from datetime import datetime
+                item.created_at = datetime.utcnow()
             
             db.add(item)
             db.commit()
