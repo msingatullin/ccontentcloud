@@ -268,13 +268,25 @@ class MonitoredItemService:
             source_id = int(source_id) if source_id else None
             user_id = int(user_id) if user_id else None
             
+            # Логируем входные данные для отладки
+            logger.debug(f"Creating monitored item: source_id={source_id}, user_id={user_id}, title={title[:50]}")
+            logger.debug(f"kwargs keys: {list(kwargs.keys())}")
+            
             # Обрабатываем extracted_data - убеждаемся, что это словарь
-            if 'extracted_data' in kwargs and isinstance(kwargs['extracted_data'], str):
-                try:
-                    import json
-                    kwargs['extracted_data'] = json.loads(kwargs['extracted_data'])
-                except:
-                    kwargs['extracted_data'] = {}
+            if 'extracted_data' in kwargs:
+                if isinstance(kwargs['extracted_data'], str):
+                    try:
+                        import json
+                        kwargs['extracted_data'] = json.loads(kwargs['extracted_data'])
+                    except:
+                        kwargs['extracted_data'] = {}
+                elif not isinstance(kwargs['extracted_data'], dict):
+                    # Если это не словарь и не строка, конвертируем в словарь или убираем
+                    logger.warning(f"extracted_data is not dict or str: {type(kwargs['extracted_data'])}, converting to dict")
+                    try:
+                        kwargs['extracted_data'] = dict(kwargs['extracted_data']) if kwargs['extracted_data'] else {}
+                    except:
+                        kwargs['extracted_data'] = {}
             
             # Обрабатываем ai_keywords - убеждаемся, что это список
             if 'ai_keywords' in kwargs:
@@ -286,10 +298,35 @@ class MonitoredItemService:
                     except:
                         kwargs['ai_keywords'] = [k.strip() for k in kwargs['ai_keywords'].split(',') if k.strip()]
                 elif not isinstance(kwargs['ai_keywords'], list):
+                    logger.warning(f"ai_keywords is not list or str: {type(kwargs['ai_keywords'])}, converting to list")
                     kwargs['ai_keywords'] = []
             
-            # Убираем None значения для опциональных полей
-            filtered_kwargs = {k: v for k, v in kwargs.items() if v is not None or k in ['extracted_data', 'ai_keywords']}
+            # Проверяем все kwargs на наличие объектов SQLAlchemy или строк, которые могут быть ошибочно переданы
+            # Убираем любые объекты, которые не являются примитивными типами
+            filtered_kwargs = {}
+            for k, v in kwargs.items():
+                if v is None:
+                    # Пропускаем None для опциональных полей, кроме extracted_data и ai_keywords
+                    if k in ['extracted_data', 'ai_keywords']:
+                        filtered_kwargs[k] = v if v is not None else ({} if k == 'extracted_data' else [])
+                    continue
+                
+                # Проверяем, что значение не является объектом SQLAlchemy
+                if hasattr(v, '_sa_instance_state'):
+                    logger.error(f"WARNING: {k} is a SQLAlchemy object, not a primitive value: {type(v)}")
+                    # Преобразуем в ID, если это объект с id
+                    if hasattr(v, 'id'):
+                        filtered_kwargs[k] = v.id
+                    else:
+                        continue  # Пропускаем объекты без id
+                
+                # Проверяем, что это примитивный тип или JSON-сериализуемый
+                if isinstance(v, (str, int, float, bool, list, dict, type(None))):
+                    filtered_kwargs[k] = v
+                else:
+                    logger.warning(f"Skipping {k} with non-primitive type: {type(v)}")
+            
+            logger.debug(f"Filtered kwargs keys: {list(filtered_kwargs.keys())}")
             
             item = MonitoredItem(
                 source_id=source_id,
@@ -308,6 +345,8 @@ class MonitoredItemService:
         except Exception as e:
             db.rollback()
             logger.error(f"Error creating monitored item: {e}", exc_info=True)
+            logger.error(f"source_id={source_id}, user_id={user_id}, title={title}")
+            logger.error(f"kwargs: {kwargs}")
             return None
         finally:
             db.close()
