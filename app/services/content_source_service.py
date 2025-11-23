@@ -264,11 +264,38 @@ class MonitoredItemService:
         """Создание нового найденного элемента"""
         db = get_db_session()
         try:
+            # Преобразуем source_id и user_id в int, если они строки
+            source_id = int(source_id) if source_id else None
+            user_id = int(user_id) if user_id else None
+            
+            # Обрабатываем extracted_data - убеждаемся, что это словарь
+            if 'extracted_data' in kwargs and isinstance(kwargs['extracted_data'], str):
+                try:
+                    import json
+                    kwargs['extracted_data'] = json.loads(kwargs['extracted_data'])
+                except:
+                    kwargs['extracted_data'] = {}
+            
+            # Обрабатываем ai_keywords - убеждаемся, что это список
+            if 'ai_keywords' in kwargs:
+                if isinstance(kwargs['ai_keywords'], str):
+                    # Если строка, пытаемся распарсить как JSON или разделить по запятой
+                    try:
+                        import json
+                        kwargs['ai_keywords'] = json.loads(kwargs['ai_keywords'])
+                    except:
+                        kwargs['ai_keywords'] = [k.strip() for k in kwargs['ai_keywords'].split(',') if k.strip()]
+                elif not isinstance(kwargs['ai_keywords'], list):
+                    kwargs['ai_keywords'] = []
+            
+            # Убираем None значения для опциональных полей
+            filtered_kwargs = {k: v for k, v in kwargs.items() if v is not None or k in ['extracted_data', 'ai_keywords']}
+            
             item = MonitoredItem(
                 source_id=source_id,
                 user_id=user_id,
                 title=title,
-                **kwargs
+                **filtered_kwargs
             )
             
             db.add(item)
@@ -280,7 +307,7 @@ class MonitoredItemService:
             
         except Exception as e:
             db.rollback()
-            logger.error(f"Error creating monitored item: {e}")
+            logger.error(f"Error creating monitored item: {e}", exc_info=True)
             return None
         finally:
             db.close()
