@@ -193,7 +193,8 @@ class ContentOrchestrator:
                     "user_id": user_id,
                     "platform": "telegram",
                     "image_format": "square",
-                    "image_source": "stock"
+                    "image_source": "stock",
+                    "task_type": "find_stock_image"  # Указываем тип задачи для агента
                 }
             
             self.workflow_engine.add_task(
