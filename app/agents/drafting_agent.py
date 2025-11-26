@@ -741,24 +741,33 @@ class DraftingAgent(BaseAgent):
                 keywords=keywords
             )
             
-            # Добавляем полное описание в промпт если оно есть
-            if description and len(description) > 50:
-                # Обрезаем описание если оно слишком длинное (чтобы не превысить лимиты токенов)
-                # Но оставляем достаточно для полноценного контента
-                max_desc_length = 800  # Примерно 600 токенов на описание
-                description_to_use = description[:max_desc_length] if len(description) > max_desc_length else description
-                final_prompt += f"\n\nКонтекст и информация о бизнесе (используй для понимания, но НЕ копируй в текст поста):\n{description_to_use}"
-                if len(description) > max_desc_length:
-                    final_prompt += f"\n\n(описание обрезано, но используй ключевые моменты из начала)"
+            # Добавляем полное описание в промпт
+            # Даже если description короткий, он содержит тему
+            if description:
+                final_prompt += f"\n\nТвоя задача - написать пост на тему: {description}"
                 
+                # Добавляем дополнительные параметры если они есть в brief_data
+                call_to_action = brief_data.get("call_to_action", [])
+                if call_to_action:
+                     final_prompt += f"\nЦелевое действие (CTA): {', '.join(call_to_action) if isinstance(call_to_action, list) else call_to_action}"
+                
+                content_focus = brief_data.get("content_focus", "")
+                if content_focus:
+                    final_prompt += f"\nФокус контента: {content_focus}"
+
+                post_length = brief_data.get("post_length", "")
+                if post_length:
+                    final_prompt += f"\nЖелаемая длина: {post_length}"
+
                 # Добавляем важное напоминание
                 final_prompt += """
 
 КРИТИЧЕСКИ ВАЖНО:
-1. НЕ копируй метаданные в текст поста (никаких "Тип бизнеса:", "Ниша/продукт:", "Целевая аудитория:", "Пример поста:")
-2. НЕ включай примеры постов из описания - создай СВОЙ уникальный текст
-3. Используй информацию из контекста для понимания темы, но пиши СВОЙ оригинальный пост
-4. Пиши естественно, как эксперт, а не как маркетолог или ИИ-ассистент"""
+1. НЕ копируй метаданные в текст поста.
+2. Твой ответ должен быть ГОТОВЫМ постом для публикации.
+3. Развей тему подробно и интересно для читателя.
+4. Пиши естественно, как эксперт, а не как ИИ.
+"""
             
             # Добавляем бизнес-цели если есть (но НЕ добавляем их в текст поста!)
             if business_goals:
