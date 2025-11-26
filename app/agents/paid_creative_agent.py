@@ -707,7 +707,7 @@ class PaidCreativeAgent(BaseAgent):
         brief_id = task_data.get("brief_id", "")
         
         # Пробуем Unsplash API
-        unsplash_key = os.getenv('UNSPLASH_ACCESS_KEY')
+        unsplash_key = os.getenv('UNSPLASH_API_KEY') or os.getenv('UNSPLASH_ACCESS_KEY')
         
         if unsplash_key:
             try:
