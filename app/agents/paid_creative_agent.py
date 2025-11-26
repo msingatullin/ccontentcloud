@@ -710,6 +710,9 @@ class PaidCreativeAgent(BaseAgent):
         unsplash_key = os.getenv('UNSPLASH_API_KEY') or os.getenv('UNSPLASH_ACCESS_KEY')
         
         if unsplash_key:
+            masked_key = f"{unsplash_key[:4]}...{unsplash_key[-4:]}" if len(unsplash_key) > 8 else "***"
+            logger.info(f"🔍 Searching Unsplash for '{search_query}' with key {masked_key}")
+            
             try:
                 response = requests.get(
                     'https://api.unsplash.com/search/photos',
@@ -744,8 +747,15 @@ class PaidCreativeAgent(BaseAgent):
                             "status": "success",
                             "timestamp": datetime.now().isoformat()
                         }
+                    else:
+                        logger.warning(f"Unsplash returned 0 results for '{search_query}'")
+                else:
+                    logger.error(f"Unsplash API returned {response.status_code}: {response.text}")
+
             except Exception as e:
                 logger.warning(f"Unsplash API error: {e}")
+        else:
+            logger.warning("UNSPLASH_API_KEY is missing or empty")
         
         # Fallback: Pexels API
         pexels_key = os.getenv('PEXELS_API_KEY')
