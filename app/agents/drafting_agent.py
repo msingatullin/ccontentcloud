@@ -763,12 +763,12 @@ class DraftingAgent(BaseAgent):
             try:
                 client = openai.OpenAI(api_key=api_key)
                 response = client.chat.completions.create(
-                    model="gpt-5-mini",  # Обновлено на GPT-5-mini для лучшего качества при той же цене
+                    model="gpt-4o-mini",  # Используем GPT-4o-mini
                     messages=[
                         {"role": "system", "content": prompt.system_message},
                         {"role": "user", "content": final_prompt}
                     ],
-                    max_tokens=prompt.max_tokens,  # Используем max_tokens для совместимости
+                    max_completion_tokens=prompt.max_tokens,  # Для новых моделей используем max_completion_tokens
                     temperature=prompt.temperature,
                     n=1
                 )
@@ -778,7 +778,7 @@ class DraftingAgent(BaseAgent):
                     
                     # Логируем использование токенов если доступно
                     if response.usage:
-                        logger.info(f"✅ Контент сгенерирован через GPT-5-mini для {platform}: "
+                        logger.info(f"✅ Контент сгенерирован через GPT-4o-mini для {platform}: "
                                   f"prompt={response.usage.prompt_tokens}, "
                                   f"completion={response.usage.completion_tokens}, "
                                   f"total={response.usage.total_tokens}")
