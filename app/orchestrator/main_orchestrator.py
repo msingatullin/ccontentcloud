@@ -108,56 +108,7 @@ class ContentOrchestrator:
             "constraints": brief.constraints
         }
         
-        # Добавляем задачи для каждого платформы и типа контента
-        for platform in platforms:
-            for content_type in content_types:
-                # Задача создания контента
-                task_name = f"Create {content_type.value} for {platform.value}"
-                
-                self.workflow_engine.add_task(
-                    workflow_id=workflow.id,
-                    task_name=task_name,
-                    task_type=TaskType.PLANNED,
-                    priority=TaskPriority.MEDIUM,
-                    context={
-                        "brief_id": brief.id,
-                        "brief_data": brief_data,  # Передаем полные данные брифа
-                        "platform": platform.value,
-                        "content_type": content_type.value,
-                        "user_id": user_id,
-                        "test_mode": test_mode  # Передаем test_mode в каждую задачу
-                    }
-                )
-                
-                # Задача публикации контента - создаем только если publish_immediately = True
-                if publish_immediately:
-                    publish_task_name = f"Publish {content_type.value} to {platform.value}"
-                    
-                    # Формируем контекст публикации с account_id
-                    publish_context = {
-                        "brief_id": brief.id,
-                        "platform": platform.value,
-                        "content_type": content_type.value,
-                        "user_id": user_id,
-                        "test_mode": test_mode,
-                        # content будет добавлен после создания контента
-                    }
-                    
-                    # Добавляем account_id если указан channel_id
-                    if channel_id:
-                        publish_context["account_id"] = channel_id
-                    
-                    self.workflow_engine.add_task(
-                        workflow_id=workflow.id,
-                        task_name=publish_task_name,
-                        task_type=TaskType.PLANNED,
-                        priority=TaskPriority.HIGH,
-                        context=publish_context
-                    )
-                else:
-                    logger.info(f"Пропущена задача публикации для {content_type.value} на {platform.value} (publish_immediately=False)")
-        
-        # Добавляем задачу добавления изображения если запрошено
+        # Добавляем задачу добавления изображения если запрошено (ПЕРЕД созданием контента)
         if generate_image:
             logger.info(f"🖼️ Создание задачи генерации изображения для бриф {brief.id}, generate_image={generate_image}")
             # Получаем источник изображения из контекста workflow
@@ -206,6 +157,55 @@ class ContentOrchestrator:
             )
             
             logger.info(f"Добавлена задача добавления изображения ({image_source}) для бриф {brief.id}")
+
+        # Добавляем задачи для каждого платформы и типа контента
+        for platform in platforms:
+            for content_type in content_types:
+                # Задача создания контента
+                task_name = f"Create {content_type.value} for {platform.value}"
+                
+                self.workflow_engine.add_task(
+                    workflow_id=workflow.id,
+                    task_name=task_name,
+                    task_type=TaskType.PLANNED,
+                    priority=TaskPriority.MEDIUM,
+                    context={
+                        "brief_id": brief.id,
+                        "brief_data": brief_data,  # Передаем полные данные брифа
+                        "platform": platform.value,
+                        "content_type": content_type.value,
+                        "user_id": user_id,
+                        "test_mode": test_mode  # Передаем test_mode в каждую задачу
+                    }
+                )
+                
+                # Задача публикации контента - создаем только если publish_immediately = True
+                if publish_immediately:
+                    publish_task_name = f"Publish {content_type.value} to {platform.value}"
+                    
+                    # Формируем контекст публикации с account_id
+                    publish_context = {
+                        "brief_id": brief.id,
+                        "platform": platform.value,
+                        "content_type": content_type.value,
+                        "user_id": user_id,
+                        "test_mode": test_mode,
+                        # content будет добавлен после создания контента
+                    }
+                    
+                    # Добавляем account_id если указан channel_id
+                    if channel_id:
+                        publish_context["account_id"] = channel_id
+                    
+                    self.workflow_engine.add_task(
+                        workflow_id=workflow.id,
+                        task_name=publish_task_name,
+                        task_type=TaskType.PLANNED,
+                        priority=TaskPriority.HIGH,
+                        context=publish_context
+                    )
+                else:
+                    logger.info(f"Пропущена задача публикации для {content_type.value} на {platform.value} (publish_immediately=False)")
         
         logger.info(f"Создан workflow {workflow.id} для бриф {brief.id} с задачами создания и публикации")
         return workflow.id

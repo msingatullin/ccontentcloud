@@ -787,7 +787,7 @@ class DraftingAgent(BaseAgent):
                         {"role": "system", "content": prompt.system_message},
                         {"role": "user", "content": final_prompt}
                     ],
-                    max_completion_tokens=prompt.max_tokens,  # Для новых моделей используем max_completion_tokens
+                    max_tokens=prompt.max_tokens,  # Используем старый параметр для совместимости
                     temperature=prompt.temperature,
                     n=1
                 )
