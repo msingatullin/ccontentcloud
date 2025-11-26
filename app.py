@@ -45,7 +45,7 @@ from app.api.schemas import (
     AgentStatusSchema,
     ErrorResponseSchema
 )
-from app.api.routes import api, auth_ns, billing_ns, webhook_ns, health_ns
+from app.api.routes import api, auth_ns, billing_ns, webhook_ns, health_ns, ai_ns
 from app.api.social_media_ns import social_media_ns
 from app.api.telegram_ns import telegram_ns
 from app.api.instagram_ns import instagram_ns
@@ -213,6 +213,7 @@ def create_app():
     swagger_api.add_namespace(scheduled_posts_ns, path='/scheduled-posts')
     swagger_api.add_namespace(auto_posting_ns, path='/auto-posting')
     swagger_api.add_namespace(content_sources_ns, path='/content-sources')
+    swagger_api.add_namespace(ai_ns, path='/ai')
     
     # Регистрируем swagger_api в Flask app
     # swagger_api уже зарегистрирован в Flask app через create_swagger_api(app)

@@ -77,6 +77,7 @@ billing_ns = Namespace('billing', description='Billing API')
 webhook_ns = Namespace('webhook', description='Webhook API')
 health_ns = Namespace('health', description='Health Check API')
 content_sources_ns = Namespace('content-sources', description='Content Sources API')
+ai_ns = Namespace('ai', description='AI-powered onboarding and content generation')
 
 # ==================== JWT MIDDLEWARE ====================
 
@@ -4500,6 +4501,436 @@ class FetchWebsiteMetadata(Resource):
                     'url': url
                 }
             }, 200
+
+
+# ==================== AI ONBOARDING ENDPOINTS ====================
+
+@ai_ns.route('/generate-questions')
+class GenerateOnboardingQuestions(Resource):
+    """AI генерация персонализированных вопросов для опросника"""
+    
+    @jwt_required
+    @ai_ns.doc('generate_questions', description='Генерировать персонализированные вопросы на основе типа бизнеса и ниши')
+    def post(self, current_user=None):
+        """Генерировать персонализированные вопросы"""
+        try:
+            import openai
+            
+            data = request.get_json()
+            business_type = data.get('businessType', '')
+            niche = data.get('niche', '')
+            previous_answers = data.get('previousAnswers', [])
+            
+            if not niche:
+                return {
+                    'success': False,
+                    'error': 'Ниша не указана'
+                }, 400
+            
+            # Проверяем наличие OpenAI API ключа
+            api_key = os.getenv('OPENAI_API_KEY')
+            if not api_key:
+                logger.warning("OPENAI_API_KEY не установлен, используем fallback вопросы")
+                return {
+                    'success': True,
+                    'data': {
+                        'questions': get_fallback_questions(business_type)
+                    }
+                }, 200
+            
+            # Формируем промпт
+            business_type_ru = {
+                'product': 'продажа товаров',
+                'service': 'оказание услуг',
+                'personal_brand': 'личный бренд',
+                'company_brand': 'бренд компании'
+            }.get(business_type, 'бизнес')
+            
+            prev_answers_text = ""
+            if previous_answers:
+                prev_answers_text = "Предыдущие ответы пользователя:\n"
+                for ans in previous_answers:
+                    prev_answers_text += f"- {ans.get('questionId', '')}: {ans.get('answer', '')}\n"
+            
+            prompt = f"""Ты - AI-ассистент для создания контент-стратегии.
+
+Контекст пользователя:
+- Тип бизнеса: {business_type_ru}
+- Ниша: {niche}
+{prev_answers_text}
+
+Сгенерируй 5 уточняющих вопросов для создания контент-плана в Telegram.
+
+Требования к вопросам:
+1. Вопросы должны быть короткими (до 15 слов)
+2. Понятными для человека без маркетингового образования
+3. Каждый вопрос должен иметь 4-5 вариантов ответа
+4. Последний вариант всегда "Свой вариант"
+5. Варианты должны быть конкретными, не абстрактными
+
+Вопросы должны помочь понять:
+- Целевую аудиторию и её боли
+- Тон общения (деловой, дружелюбный, с юмором)
+- Цели канала (продажи, экспертность, вовлечение)
+- Предпочтительный формат контента
+- Призыв к действию
+
+Ответ ТОЛЬКО в формате JSON без markdown:
+{{"questions": [
+  {{"id": "tone", "title": "Вопрос?", "hint": "Подсказка", "options": ["Вариант 1", "Вариант 2", "Вариант 3", "Свой вариант"]}}
+]}}"""
+
+            client = openai.OpenAI(api_key=api_key)
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "Ты генерируешь вопросы для опросника. Отвечай только валидным JSON без markdown."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=2000,
+                temperature=0.7
+            )
+            
+            if response.choices and len(response.choices) > 0:
+                content = response.choices[0].message.content.strip()
+                # Очищаем от markdown если есть
+                if content.startswith('```'):
+                    content = content.split('```')[1]
+                    if content.startswith('json'):
+                        content = content[4:]
+                
+                import json
+                result = json.loads(content)
+                
+                logger.info(f"AI сгенерировал {len(result.get('questions', []))} вопросов для {niche}")
+                
+                return {
+                    'success': True,
+                    'data': result
+                }, 200
+            else:
+                return {
+                    'success': True,
+                    'data': {
+                        'questions': get_fallback_questions(business_type)
+                    }
+                }, 200
+                
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON parse error: {e}")
+            return {
+                'success': True,
+                'data': {
+                    'questions': get_fallback_questions(business_type)
+                }
+            }, 200
+        except Exception as e:
+            logger.error(f"Error generating questions: {e}")
+            return {
+                'success': True,
+                'data': {
+                    'questions': get_fallback_questions(data.get('businessType', ''))
+                }
+            }, 200
+
+
+@ai_ns.route('/generate-sample-posts')
+class GenerateSamplePosts(Resource):
+    """AI генерация примеров постов для выбора стиля"""
+    
+    @jwt_required
+    @ai_ns.doc('generate_sample_posts', description='Генерировать примеры постов в разных стилях')
+    def post(self, current_user=None):
+        """Генерировать примеры постов"""
+        try:
+            import openai
+            import json
+            
+            data = request.get_json()
+            business_type = data.get('businessType', '')
+            niche = data.get('niche', '')
+            answers = data.get('answers', [])
+            
+            if not niche:
+                return {
+                    'success': False,
+                    'error': 'Ниша не указана'
+                }, 400
+            
+            # Проверяем наличие OpenAI API ключа
+            api_key = os.getenv('OPENAI_API_KEY')
+            if not api_key:
+                logger.warning("OPENAI_API_KEY не установлен, используем fallback посты")
+                return {
+                    'success': True,
+                    'data': {
+                        'posts': get_fallback_posts(niche)
+                    }
+                }, 200
+            
+            # Собираем контекст из ответов
+            answers_context = ""
+            for ans in answers:
+                answers_context += f"- {ans.get('questionId', '')}: {ans.get('answer', '')}\n"
+            
+            prompt = f"""Ты - копирайтер для Telegram-каналов.
+
+Контекст:
+- Ниша: {niche}
+- Тип бизнеса: {business_type}
+- Ответы пользователя:
+{answers_context}
+
+Создай 3 примера постов для Telegram в РАЗНЫХ стилях:
+
+1. Профессиональный - деловой тон, факты, экспертность
+2. Дружелюбный - тёплый, эмоциональный, с обращением к читателю
+3. История - сторителлинг, конкретный случай, эмоции
+
+Требования к каждому посту:
+- Длина 500-800 символов
+- Начинается с hook (зацепка)
+- Содержит основную мысль
+- Заканчивается призывом к действию
+- Используй эмодзи умеренно
+
+Ответ ТОЛЬКО в формате JSON без markdown:
+{{"posts": [
+  {{"id": "professional", "style": "Профессиональный", "content": "Текст поста..."}},
+  {{"id": "friendly", "style": "Дружелюбный", "content": "Текст поста..."}},
+  {{"id": "story", "style": "История", "content": "Текст поста..."}}
+]}}"""
+
+            client = openai.OpenAI(api_key=api_key)
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "Ты генерируешь примеры постов для Telegram. Отвечай только валидным JSON без markdown."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=3000,
+                temperature=0.8
+            )
+            
+            if response.choices and len(response.choices) > 0:
+                content = response.choices[0].message.content.strip()
+                # Очищаем от markdown если есть
+                if content.startswith('```'):
+                    content = content.split('```')[1]
+                    if content.startswith('json'):
+                        content = content[4:]
+                
+                result = json.loads(content)
+                
+                logger.info(f"AI сгенерировал {len(result.get('posts', []))} примеров постов для {niche}")
+                
+                return {
+                    'success': True,
+                    'data': result
+                }, 200
+            else:
+                return {
+                    'success': True,
+                    'data': {
+                        'posts': get_fallback_posts(niche)
+                    }
+                }, 200
+                
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON parse error for posts: {e}")
+            return {
+                'success': True,
+                'data': {
+                    'posts': get_fallback_posts(niche)
+                }
+            }, 200
+        except Exception as e:
+            logger.error(f"Error generating sample posts: {e}")
+            return {
+                'success': True,
+                'data': {
+                    'posts': get_fallback_posts(data.get('niche', ''))
+                }
+            }, 200
+
+
+@ai_ns.route('/save-progress')
+class SaveOnboardingProgress(Resource):
+    """Сохранение прогресса опросника"""
+    
+    @jwt_required
+    @ai_ns.doc('save_progress', description='Сохранить прогресс опросника')
+    def post(self, current_user=None):
+        """Сохранить прогресс опросника"""
+        try:
+            data = request.get_json()
+            user_id = current_user.get('user_id') if current_user else None
+            
+            if not user_id:
+                return {
+                    'success': False,
+                    'error': 'Пользователь не авторизован'
+                }, 401
+            
+            # Сохраняем в БД (можно использовать отдельную таблицу или JSON поле)
+            db = get_db_session()
+            from app.models.user import OnboardingProgress
+            
+            progress = db.query(OnboardingProgress).filter_by(user_id=user_id).first()
+            if progress:
+                progress.data = data
+                progress.updated_at = datetime.now()
+            else:
+                progress = OnboardingProgress(
+                    user_id=user_id,
+                    data=data,
+                    created_at=datetime.now(),
+                    updated_at=datetime.now()
+                )
+                db.add(progress)
+            
+            db.commit()
+            
+            return {
+                'success': True,
+                'message': 'Прогресс сохранён'
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Error saving progress: {e}")
+            # Не ломаем UX если БД недоступна
+            return {
+                'success': True,
+                'message': 'Прогресс сохранён локально'
+            }, 200
+
+
+@ai_ns.route('/get-progress')
+class GetOnboardingProgress(Resource):
+    """Получение сохранённого прогресса опросника"""
+    
+    @jwt_required
+    @ai_ns.doc('get_progress', description='Получить сохранённый прогресс опросника')
+    def get(self, current_user=None):
+        """Получить сохранённый прогресс"""
+        try:
+            user_id = current_user.get('user_id') if current_user else None
+            
+            if not user_id:
+                return {
+                    'success': False,
+                    'error': 'Пользователь не авторизован'
+                }, 401
+            
+            db = get_db_session()
+            from app.models.user import OnboardingProgress
+            
+            progress = db.query(OnboardingProgress).filter_by(user_id=user_id).first()
+            
+            if progress:
+                return {
+                    'success': True,
+                    'data': progress.data
+                }, 200
+            else:
+                return {
+                    'success': True,
+                    'data': None
+                }, 200
+            
+        except Exception as e:
+            logger.error(f"Error getting progress: {e}")
+            return {
+                'success': True,
+                'data': None
+            }, 200
+
+
+def get_fallback_questions(business_type):
+    """Fallback вопросы если AI недоступен"""
+    return [
+        {
+            "id": "tone",
+            "title": "Какой тон общения вам ближе?",
+            "hint": "Выберите стиль, который отражает вас как автора",
+            "options": [
+                "Деловой и экспертный",
+                "Тёплый и дружелюбный",
+                "С юмором и легкостью",
+                "Мотивирующий и энергичный",
+                "Свой вариант"
+            ]
+        },
+        {
+            "id": "content_focus",
+            "title": "На чём фокусироваться в постах?",
+            "hint": "Выберите приоритет",
+            "options": [
+                "Кейсы и результаты",
+                "Полезные советы и инструкции",
+                "Личные истории и опыт",
+                "Разбор ошибок и мифов",
+                "Свой вариант"
+            ]
+        },
+        {
+            "id": "goals",
+            "title": "Главная цель вашего канала?",
+            "hint": "Выберите одну основную цель",
+            "options": [
+                "Больше подписчиков и вовлечения",
+                "Генерация заявок и лидов",
+                "Прямые продажи",
+                "Узнаваемость и доверие",
+                "Свой вариант"
+            ]
+        },
+        {
+            "id": "cta",
+            "title": "К какому действию вести аудиторию?",
+            "hint": "Основной призыв к действию",
+            "options": [
+                "Подписка на канал",
+                "Переход на сайт",
+                "Заявка на консультацию",
+                "Покупка товара/услуги",
+                "Свой вариант"
+            ]
+        },
+        {
+            "id": "post_length",
+            "title": "Предпочтительная длина постов?",
+            "hint": "Какой формат вам удобнее создавать",
+            "options": [
+                "Короткие (до 500 символов)",
+                "Средние (500-1500 символов)",
+                "Длинные (от 1500 символов)",
+                "Разные - зависит от темы",
+                "Свой вариант"
+            ]
+        }
+    ]
+
+
+def get_fallback_posts(niche):
+    """Fallback посты если AI недоступен"""
+    return [
+        {
+            "id": "professional",
+            "style": "Профессиональный",
+            "content": f"🎯 {niche or 'Ваш бизнес'}: 5 ключевых ошибок, которые стоят вам клиентов\n\nЗа последний год мы проанализировали более 100 проектов и выявили типичные ошибки:\n\n1. Отсутствие чёткого позиционирования\n2. Игнорирование обратной связи\n3. Сложный путь клиента\n4. Нет системы повторных продаж\n5. Слабая работа с возражениями\n\nКакую ошибку вы замечали у себя? Напишите в комментариях 👇"
+        },
+        {
+            "id": "friendly",
+            "style": "Дружелюбный",
+            "content": f"Привет! 👋\n\nЗнаете, что меня всегда удивляет в {niche or 'нашей сфере'}?\n\nЛюди часто думают, что это сложно и дорого. А на самом деле...\n\nВчера клиент сказал: \"Почему я не обратился раньше?!\"\n\nИ знаете что? Это самый частый отзыв 😊\n\nРасскажите, что вас останавливает? Может, я смогу помочь разобраться?"
+        },
+        {
+            "id": "story",
+            "style": "История",
+            "content": f"Это было 3 года назад...\n\nКо мне пришёл клиент с \"безнадёжной\" ситуацией. Все говорили: \"Забудь, ничего не получится\".\n\nНо мы попробовали. И через месяц...\n\nРезультат превзошёл все ожидания. {niche and f'В сфере {niche}' or 'В бизнесе'} нет безвыходных ситуаций — есть недостаток информации.\n\nХотите узнать, что мы сделали? Напишите \"+\" в комментариях, расскажу подробно 💬"
+        }
+    ]
 
 
 # ==================== HEALTH ENDPOINTS ====================
