@@ -281,17 +281,17 @@ class MultimediaProducerAgent(BaseAgent):
                 result = await self._find_stock_image(task_data)
             elif "Generate Image" in task_name or image_source == "ai":
                 # Генерация через ИИ
-            content_type = ContentType(task_data.get("content_type", "image"))
-            if content_type == ContentType.IMAGE:
-                result = await self._generate_image(task_data)
-            elif content_type == ContentType.INFOGRAPHIC:
-                result = await self._create_infographic(task_data)
-            elif content_type == ContentType.CAROUSEL_POST:
-                result = await self._create_carousel_post(task_data)
-            elif content_type == ContentType.VIDEO_COVER:
-                result = await self._create_video_cover(task_data)
-            else:
-                raise ValueError(f"Неподдерживаемый тип контента: {content_type}")
+                content_type = ContentType(task_data.get("content_type", "image"))
+                if content_type == ContentType.IMAGE:
+                    result = await self._generate_image(task_data)
+                elif content_type == ContentType.INFOGRAPHIC:
+                    result = await self._create_infographic(task_data)
+                elif content_type == ContentType.CAROUSEL_POST:
+                    result = await self._create_carousel_post(task_data)
+                elif content_type == ContentType.VIDEO_COVER:
+                    result = await self._create_video_cover(task_data)
+                else:
+                    raise ValueError(f"Неподдерживаемый тип контента: {content_type}")
             else:
                 # Дефолтное поведение - генерация через ИИ
                 content_type = ContentType(task_data.get("content_type", "image"))
