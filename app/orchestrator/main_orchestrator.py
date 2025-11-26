@@ -309,6 +309,25 @@ class ContentOrchestrator:
                             if brief_id:
                                 await self._add_image_to_content(brief_id, image_url, user_id)
                                 logger.info(f"✅ Добавлено изображение {image_url} в контент для brief_id {brief_id}")
+                                
+                                # Inject image_url into pending Publish tasks
+                                for pub_task in workflow.tasks:
+                                    if (pub_task.status == TaskStatus.PENDING and 
+                                        'Publish' in pub_task.name):
+                                        
+                                        # Initialize content dict if missing
+                                        if 'content' not in pub_task.context:
+                                            pub_task.context['content'] = {}
+                                        
+                                        # Initialize media_urls list if missing
+                                        if 'media_urls' not in pub_task.context['content']:
+                                            pub_task.context['content']['media_urls'] = []
+                                            
+                                        # Add image_url if not present
+                                        current_media = pub_task.context['content']['media_urls']
+                                        if image_url not in current_media:
+                                            current_media.append(image_url)
+                                            logger.info(f"📸 Image URL injected into Publish task {pub_task.id}")
                             else:
                                 logger.warning(f"⚠️ brief_id не найден в контексте задачи {task.id} ({task.name})")
                         else:

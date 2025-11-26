@@ -170,6 +170,7 @@ class PublisherAgent(BaseAgent):
                 title=content_data.get("title", ""),
                 text=content_data.get("text", ""),
                 hashtags=content_data.get("hashtags", []),
+                media_urls=content_data.get("media_urls", []),
                 call_to_action=content_data.get("call_to_action", ""),
                 platform=Platform(platform),
                 status=ContentStatus.DRAFT,
@@ -458,13 +459,26 @@ class PublisherAgent(BaseAgent):
             
             logger.info(f"Публикация в канал '{channel.channel_name}' (user_id={user_id}, chat_id={channel.chat_id})")
             
+            # Проверяем наличие изображения
+            has_image = content.media_urls and len(content.media_urls) > 0
+            
             # Отправляем через TelegramChannelService (прямо через Bot API)
-            result = await service.send_message(
-                chat_id=channel.chat_id,
-                text=message_text,
-                parse_mode="HTML",
-                disable_web_page_preview=False
-            )
+            if has_image:
+                image_url = content.media_urls[0]
+                logger.info(f"Отправка фото в канал '{channel.channel_name}': {image_url}")
+                result = await service.send_photo(
+                    chat_id=channel.chat_id,
+                    photo_url=image_url,
+                    caption=message_text,
+                    parse_mode="HTML"
+                )
+            else:
+                result = await service.send_message(
+                    chat_id=channel.chat_id,
+                    text=message_text,
+                    parse_mode="HTML",
+                    disable_web_page_preview=False
+                )
             
             if result["success"]:
                 message_data = result["data"]
