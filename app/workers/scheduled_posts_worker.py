@@ -274,7 +274,7 @@ class ScheduledPostsWorker:
                 ))
             else:
                 result = asyncio.run(service.send_message(
-                    chat_id=channel.chat_id,
+                chat_id=channel.chat_id,
                     text=message_text,
                     parse_mode="HTML",
                     disable_web_page_preview=False

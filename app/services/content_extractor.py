@@ -387,7 +387,7 @@ class RSSParser:
         except Exception as e:
             logger.error(f"Error parsing RSS feed: {e}")
             return []
-    
+
     @staticmethod
     def discover_rss_feed(url: str, html: Optional[str] = None) -> Optional[str]:
         """

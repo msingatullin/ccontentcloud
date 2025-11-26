@@ -153,24 +153,24 @@ class WebCrawlerWorker:
             # Обновляем статус, но не показываем технические ошибки пользователю
             # Вместо этого просто отмечаем как "нет новых новостей"
             try:
-                ContentSourceService.update_check_status(
-                    source.id,
+            ContentSourceService.update_check_status(
+                source.id,
                     status='success',  # Показываем как успех, чтобы не пугать пользователя
                     items_found=0,
                     items_new=0
-                )
-                
+            )
+            
                 # Сохраняем историю
-                execution_time = int((time.time() - start_time) * 1000)
-                SourceCheckHistoryService.create_history(
-                    source_id=source.id,
-                    items_found=0,
-                    items_new=0,
-                    items_duplicate=0,
-                    items_posted=0,
+            execution_time = int((time.time() - start_time) * 1000)
+            SourceCheckHistoryService.create_history(
+                source_id=source.id,
+                items_found=0,
+                items_new=0,
+                items_duplicate=0,
+                items_posted=0,
                     status='success',  # Не показываем ошибку пользователю
-                    execution_time_ms=execution_time
-                )
+                execution_time_ms=execution_time
+            )
             except Exception as update_error:
                 logger.error(f"Error updating status after error: {update_error}")
             
@@ -355,8 +355,8 @@ class WebCrawlerWorker:
                         },
                         allow_redirects=True
                     )
-                    response.raise_for_status()
-                    html = response.text
+            response.raise_for_status()
+            html = response.text
                     logger.info(f"Successfully loaded {source.url} with User-Agent: {user_agent[:50]}...")
                     break
                 except requests.exceptions.HTTPError as e:
@@ -463,9 +463,9 @@ class WebCrawlerWorker:
                     if source.auto_post_enabled:
                         if relevance_score >= 0.5:
                             logger.info(f"🚀 Автопостинг включен, relevance_score {relevance_score:.2f} >= 0.5, создаем пост...")
-                            posted = await self._create_scheduled_post(source, monitored_item, extracted_data)
-                            if posted:
-                                items_posted += 1
+                        posted = await self._create_scheduled_post(source, monitored_item, extracted_data)
+                        if posted:
+                            items_posted += 1
                             else:
                                 logger.warning(f"⚠️ Не удалось создать пост для monitored_item {monitored_item.id}")
                         else:
@@ -677,10 +677,10 @@ class WebCrawlerWorker:
                 else:
                     logger.warning(f"Failed to create scheduled post for monitored item {monitored_item.id}")
                     return False
-                    
+            
             except Exception as e:
                 logger.error(f"Error creating scheduled post via service: {e}", exc_info=True)
-                return False
+            return False
             
         except Exception as e:
             logger.error(f"Error creating scheduled post: {e}", exc_info=True)

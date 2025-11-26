@@ -272,6 +272,7 @@ class ContentOrchestrator:
                         await self._save_task_result_to_db(result, user_id, workflow_id, agent_id, task)
                     
                     # Если это задача генерации/поиска изображения, добавляем image_url в media_urls существующего контента
+                    logger.info(f"🔍 Проверка задачи {task.id}: name='{task.name}', user_id={user_id}, image_source={task.context.get('image_source')}, 'Image' in name={'Image' in task.name}")
                     if user_id and ('Image' in task.name or task.context.get('image_source')):
                         image_url = None
                         
