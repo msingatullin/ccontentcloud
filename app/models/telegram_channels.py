@@ -16,6 +16,7 @@ class TelegramChannel(Base):
     
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    project_id = Column(Integer, ForeignKey('projects.id', ondelete='SET NULL'), nullable=True, index=True)
     
     # Информация о канале
     channel_name = Column(String(255), nullable=False)  # "Мой канал о финансах"
@@ -43,6 +44,7 @@ class TelegramChannel(Base):
     
     # Связи
     user = relationship("User", back_populates="telegram_channels")
+    project = relationship("Project", back_populates="telegram_channels")
     
     # Индексы для оптимизации запросов
     __table_args__ = (
@@ -61,6 +63,7 @@ class TelegramChannel(Base):
         
         return {
             'id': self.id,
+            'project_id': self.project_id,
             'channel_name': self.channel_name,
             'channel_username': self.channel_username,
             'channel_link': channel_link,

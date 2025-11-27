@@ -75,6 +75,7 @@ class User(Base):
     subscriptions = relationship("Subscription", back_populates="user", cascade="all, delete-orphan")
     usage_records = relationship("UsageRecord", back_populates="user", cascade="all, delete-orphan")
     payments = relationship("Payment", back_populates="user", cascade="all, delete-orphan")
+    projects = relationship("Project", back_populates="user", cascade="all, delete-orphan")
     content_pieces = relationship("ContentPieceDB", back_populates="user", cascade="all, delete-orphan")
     token_usage_records = relationship("TokenUsageDB", back_populates="user", cascade="all, delete-orphan")
     uploads = relationship("FileUploadDB", back_populates="user", cascade="all, delete-orphan")

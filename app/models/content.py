@@ -215,6 +215,7 @@ class ContentPieceDB(Base):
     
     id = Column(String(36), primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
+    project_id = Column(Integer, ForeignKey('projects.id', ondelete='SET NULL'), nullable=True, index=True)
     workflow_id = Column(String(36), nullable=True, index=True)
     brief_id = Column(String(36), nullable=True)
     
@@ -258,6 +259,7 @@ class ContentPieceDB(Base):
     
     # Связи
     user = relationship("User", back_populates="content_pieces")
+    project = relationship("Project", back_populates="content_pieces")
     token_usage_records = relationship("TokenUsageDB", back_populates="content_piece")
     history_records = relationship("ContentHistoryDB", back_populates="content_piece")
     scheduled_posts = relationship("ScheduledPostDB", back_populates="content", cascade="all, delete-orphan")

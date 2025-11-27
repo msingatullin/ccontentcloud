@@ -52,6 +52,7 @@ from app.api.instagram_ns import instagram_ns
 from app.api.twitter_ns import twitter_ns
 from app.api.scheduled_posts_ns import scheduled_posts_ns
 from app.api.auto_posting_ns import auto_posting_ns
+from app.api.projects_ns import projects_ns
 from app.api.routes import content_sources_ns
 from app.api.swagger_config import create_swagger_api
 from app.workers import ScheduledPostsWorker, AutoPostingWorker
@@ -213,6 +214,7 @@ def create_app():
     swagger_api.add_namespace(scheduled_posts_ns, path='/scheduled-posts')
     swagger_api.add_namespace(auto_posting_ns, path='/auto-posting')
     swagger_api.add_namespace(content_sources_ns, path='/content-sources')
+    swagger_api.add_namespace(projects_ns, path='/projects')
     swagger_api.add_namespace(ai_ns, path='/ai')
     
     # Регистрируем swagger_api в Flask app

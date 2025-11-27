@@ -14,6 +14,7 @@ class ScheduledPostDB(Base):
     
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    project_id = Column(Integer, ForeignKey('projects.id', ondelete='SET NULL'), nullable=True, index=True)
     
     # Связь с контентом
     content_id = Column(String(36), ForeignKey('content_pieces.id', ondelete='CASCADE'), nullable=False, index=True)
@@ -43,6 +44,7 @@ class ScheduledPostDB(Base):
     
     # Связи
     user = relationship("User", back_populates="scheduled_posts")
+    project = relationship("Project", back_populates="scheduled_posts")
     content = relationship("ContentPieceDB", back_populates="scheduled_posts")
     
     # Индексы
@@ -57,6 +59,7 @@ class ScheduledPostDB(Base):
         return {
             'id': self.id,
             'user_id': self.user_id,
+            'project_id': self.project_id,
             'content_id': self.content_id,
             'platform': self.platform,
             'account_id': self.account_id,
