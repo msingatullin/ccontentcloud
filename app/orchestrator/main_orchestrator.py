@@ -341,15 +341,32 @@ class ContentOrchestrator:
                     if 'content' in result and 'Create' in task.name:
                         platform = task.context.get('platform')
                         content_type = task.context.get('content_type')
+                        new_content = result.get('content', {})
+                        
                         # Ищем соответствующую задачу публикации
                         for pub_task in workflow.tasks:
                             if (pub_task.status == TaskStatus.PENDING and 
                                 'Publish' in pub_task.name and 
                                 pub_task.context.get('platform') == platform and
                                 pub_task.context.get('content_type') == content_type):
-                                # Добавляем контент в контекст задачи публикации
-                                pub_task.context['content'] = result.get('content', {})
-                                logger.info(f"Передан контент из задачи {task.id} в задачу публикации {pub_task.id}")
+                                
+                                # ВАЖНО: Сохраняем существующие media_urls перед обновлением
+                                existing_content = pub_task.context.get('content', {})
+                                existing_media_urls = existing_content.get('media_urls', [])
+                                
+                                # Обновляем контент, а не перезаписываем полностью
+                                if 'content' not in pub_task.context:
+                                    pub_task.context['content'] = {}
+                                
+                                pub_task.context['content'].update(new_content)
+                                
+                                # Восстанавливаем media_urls если они были
+                                if existing_media_urls:
+                                    pub_task.context['content']['media_urls'] = existing_media_urls
+                                    logger.info(f"📸 Сохранены media_urls при обновлении контента: {existing_media_urls}")
+                                
+                                logger.info(f"Передан контент из задачи {task.id} в задачу публикации {pub_task.id}, "
+                                           f"media_urls: {pub_task.context['content'].get('media_urls', [])}")
                                 break
             
             # Проверяем статус workflow
