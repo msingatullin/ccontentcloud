@@ -172,7 +172,12 @@ content_request_model = api.model('ContentRequest', {
     'constraints': fields.Raw(description='Дополнительные ограничения'),
     'test_mode': fields.Boolean(description='Тестовый режим (по умолчанию False - реальная публикация)', default=False),
     'uploaded_files': fields.List(fields.String, description='IDs загруженных файлов', max_items=10),
-    'reference_urls': fields.List(fields.String, description='URLs референсных материалов', max_items=5)
+    'reference_urls': fields.List(fields.String, description='URLs референсных материалов', max_items=5),
+    'publish_immediately': fields.Boolean(description='Публиковать сразу после создания', default=True),
+    'generate_image': fields.Boolean(description='Добавить изображение к посту', default=False),
+    'image_source': fields.String(description='Источник изображения: stock или ai', enum=['stock', 'ai']),
+    'project_id': fields.Integer(description='ID проекта для привязки контента'),
+    'channel_id': fields.Integer(description='ID канала для публикации')
 })
 
 content_response_model = api.model('ContentResponse', {
