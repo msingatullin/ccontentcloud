@@ -135,11 +135,49 @@ async def test_fact_check():
         print(f"❌ Ошибка: {e}")
 
 
+async def test_image_generation():
+    """Тест генерации изображений через Gemini"""
+    print("\n" + "=" * 60)
+    print("🎨 Тест генерации изображений (gemini-2.5-flash-image)")
+    print("=" * 60)
+    
+    try:
+        from app.mcp.integrations.vertex_ai import VertexAIIntegration
+        
+        vertex = VertexAIIntegration()
+        await vertex.connect()
+        
+        prompt = "A beautiful sunset over mountains with a lake reflection"
+        print(f"\n🖼️ Промпт: {prompt}")
+        print("-" * 40)
+        
+        result = await vertex.generate_image(prompt)
+        
+        if result.success:
+            print("\n✅ Изображение сгенерировано!")
+            images = result.data.get('images', [])
+            for img in images:
+                print(f"   📁 Файл: {img.get('file_path')}")
+                print(f"   📏 Размер: {img.get('bytes_length')} bytes")
+                print(f"   🎨 Формат: {img.get('format')}")
+            print(f"\n📊 Метаданные: {result.metadata}")
+        else:
+            print(f"❌ Ошибка: {result.error}")
+            
+    except Exception as e:
+        print(f"❌ Ошибка: {e}")
+        import traceback
+        traceback.print_exc()
+
+
 if __name__ == "__main__":
     print("\n🚀 Запуск тестов Vertex AI\n")
     
     # Запускаем основной тест
     asyncio.run(test_gemini_with_grounding())
+    
+    # Тест генерации изображений
+    asyncio.run(test_image_generation())
     
     # Опционально: тест фактчека
     # asyncio.run(test_fact_check())

@@ -50,7 +50,7 @@ class VertexAIIntegration(BaseMCPIntegration):
         
         # Модели по умолчанию
         self.default_text_model = os.getenv('VERTEX_AI_TEXT_MODEL', 'gemini-2.5-flash')
-        self.default_image_model = os.getenv('VERTEX_AI_IMAGE_MODEL', 'imagegeneration@006')
+        self.default_image_model = os.getenv('VERTEX_AI_IMAGE_MODEL', 'gemini-2.5-flash-image')
         
         # Флаг инициализации
         self._initialized = False
@@ -311,14 +311,14 @@ class VertexAIIntegration(BaseMCPIntegration):
         model: Optional[str] = None
     ) -> MCPResponse:
         """
-        Генерация изображения через Imagen
+        Генерация изображения через Gemini или Imagen
         
         Args:
             prompt: Описание изображения
             aspect_ratio: Соотношение сторон ("1:1", "16:9", "9:16", "4:3", "3:4")
             number_of_images: Количество изображений (1-4)
             negative_prompt: Что НЕ должно быть на изображении
-            model: Название модели (по умолчанию imagegeneration@006)
+            model: Название модели (по умолчанию gemini-2.5-flash-image)
         
         Returns:
             MCPResponse с байтами изображения или путем к файлу
@@ -334,77 +334,28 @@ class VertexAIIntegration(BaseMCPIntegration):
         
         model_name = model or self.default_image_model
         
+        # Определяем тип модели
+        is_gemini_image = 'gemini' in model_name.lower()
+        
         try:
-            from vertexai.preview.vision_models import ImageGenerationModel
             from google.api_core.exceptions import GoogleAPICallError, RetryError
             
-            # Загружаем модель Imagen
-            imagen_model = ImageGenerationModel.from_pretrained(model_name)
-            
-            # Генерируем изображения
-            response = imagen_model.generate_images(
-                prompt=prompt,
-                number_of_images=min(number_of_images, 4),
-                aspect_ratio=aspect_ratio,
-                negative_prompt=negative_prompt,
-                # safety_filter_level="block_few",  # Минимальная фильтрация
-                # person_generation="allow_adult"  # Разрешить взрослых людей
-            )
-            
-            if not response.images:
-                return MCPResponse.error_response(
-                    MCPError(
-                        service="vertex_ai",
-                        error_type="no_images_generated",
-                        message="Imagen не сгенерировал изображения"
-                    )
+            if is_gemini_image:
+                # Используем Gemini для генерации изображений (gemini-2.5-flash-image)
+                return await self._generate_image_gemini(prompt, model_name, negative_prompt)
+            else:
+                # Используем Imagen (imagegeneration@006 и т.д.)
+                return await self._generate_image_imagen(
+                    prompt, model_name, aspect_ratio, number_of_images, negative_prompt
                 )
-            
-            # Сохраняем изображения
-            images_data = []
-            for idx, image in enumerate(response.images):
-                # Получаем байты изображения
-                image_bytes = image._image_bytes
                 
-                # Сохраняем во временный файл
-                temp_file = tempfile.NamedTemporaryFile(
-                    delete=False,
-                    suffix=".png",
-                    prefix=f"imagen_{idx}_"
-                )
-                temp_file.write(image_bytes)
-                temp_file.close()
-                
-                images_data.append({
-                    "index": idx,
-                    "file_path": temp_file.name,
-                    "bytes_length": len(image_bytes),
-                    "format": "png"
-                })
-            
-            logger.info(f"Imagen сгенерировал {len(images_data)} изображений")
-            
-            return MCPResponse.success_response(
-                data={
-                    "images": images_data,
-                    "primary_image_path": images_data[0]["file_path"] if images_data else None,
-                    "primary_image_bytes": response.images[0]._image_bytes if response.images else None
-                },
-                metadata={
-                    "model": model_name,
-                    "aspect_ratio": aspect_ratio,
-                    "prompt": prompt[:100],
-                    "count": len(images_data)
-                }
-            )
-            
         except GoogleAPICallError as e:
             logger.error(f"Google API ошибка при генерации изображения: {e}")
             return MCPResponse.error_response(
                 MCPError(
                     service="vertex_ai",
                     error_type="api_error",
-                    message=f"Imagen API ошибка: {str(e)}",
+                    message=f"Image API ошибка: {str(e)}",
                     details={"model": model_name}
                 )
             )
@@ -427,6 +378,157 @@ class VertexAIIntegration(BaseMCPIntegration):
                     details={"model": model_name, "prompt": prompt[:50]}
                 )
             )
+    
+    async def _generate_image_gemini(
+        self,
+        prompt: str,
+        model_name: str,
+        negative_prompt: Optional[str] = None
+    ) -> MCPResponse:
+        """Генерация изображения через Gemini (gemini-2.5-flash-image)"""
+        from vertexai.generative_models import GenerativeModel
+        
+        # Формируем промпт
+        full_prompt = f"Generate an image: {prompt}"
+        if negative_prompt:
+            full_prompt += f". Avoid: {negative_prompt}"
+        
+        model = GenerativeModel(model_name)
+        
+        response = model.generate_content(
+            full_prompt,
+            generation_config={'response_modalities': ['IMAGE', 'TEXT']}
+        )
+        
+        images_data = []
+        for candidate in response.candidates:
+            for idx, part in enumerate(candidate.content.parts):
+                if hasattr(part, 'inline_data') and part.inline_data:
+                    image_bytes = part.inline_data.data
+                    mime_type = part.inline_data.mime_type
+                    
+                    # Определяем расширение
+                    ext = '.png' if 'png' in mime_type else '.jpg'
+                    
+                    # Сохраняем во временный файл
+                    temp_file = tempfile.NamedTemporaryFile(
+                        delete=False,
+                        suffix=ext,
+                        prefix=f"gemini_img_{idx}_"
+                    )
+                    temp_file.write(image_bytes)
+                    temp_file.close()
+                    
+                    images_data.append({
+                        "index": idx,
+                        "file_path": temp_file.name,
+                        "bytes_length": len(image_bytes),
+                        "format": ext.replace('.', ''),
+                        "mime_type": mime_type
+                    })
+        
+        if not images_data:
+            return MCPResponse.error_response(
+                MCPError(
+                    service="vertex_ai",
+                    error_type="no_images_generated",
+                    message="Gemini не сгенерировал изображения"
+                )
+            )
+        
+        logger.info(f"Gemini сгенерировал {len(images_data)} изображений")
+        
+        # Получаем байты первого изображения
+        primary_bytes = None
+        for candidate in response.candidates:
+            for part in candidate.content.parts:
+                if hasattr(part, 'inline_data') and part.inline_data:
+                    primary_bytes = part.inline_data.data
+                    break
+            if primary_bytes:
+                break
+        
+        return MCPResponse.success_response(
+            data={
+                "images": images_data,
+                "primary_image_path": images_data[0]["file_path"] if images_data else None,
+                "primary_image_bytes": primary_bytes
+            },
+            metadata={
+                "model": model_name,
+                "prompt": prompt[:100],
+                "count": len(images_data),
+                "generator": "gemini"
+            }
+        )
+    
+    async def _generate_image_imagen(
+        self,
+        prompt: str,
+        model_name: str,
+        aspect_ratio: str,
+        number_of_images: int,
+        negative_prompt: Optional[str]
+    ) -> MCPResponse:
+        """Генерация изображения через Imagen (legacy)"""
+        from vertexai.preview.vision_models import ImageGenerationModel
+        
+        # Загружаем модель Imagen
+        imagen_model = ImageGenerationModel.from_pretrained(model_name)
+        
+        # Генерируем изображения
+        response = imagen_model.generate_images(
+            prompt=prompt,
+            number_of_images=min(number_of_images, 4),
+            aspect_ratio=aspect_ratio,
+            negative_prompt=negative_prompt,
+        )
+        
+        if not response.images:
+            return MCPResponse.error_response(
+                MCPError(
+                    service="vertex_ai",
+                    error_type="no_images_generated",
+                    message="Imagen не сгенерировал изображения"
+                )
+            )
+        
+        # Сохраняем изображения
+        images_data = []
+        for idx, image in enumerate(response.images):
+            image_bytes = image._image_bytes
+            
+            temp_file = tempfile.NamedTemporaryFile(
+                delete=False,
+                suffix=".png",
+                prefix=f"imagen_{idx}_"
+            )
+            temp_file.write(image_bytes)
+            temp_file.close()
+            
+            images_data.append({
+                "index": idx,
+                "file_path": temp_file.name,
+                "bytes_length": len(image_bytes),
+                "format": "png"
+            })
+        
+        logger.info(f"Imagen сгенерировал {len(images_data)} изображений")
+        
+        return MCPResponse.success_response(
+            data={
+                "images": images_data,
+                "primary_image_path": images_data[0]["file_path"] if images_data else None,
+                "primary_image_bytes": response.images[0]._image_bytes if response.images else None
+            },
+            metadata={
+                "model": model_name,
+                "aspect_ratio": aspect_ratio,
+                "prompt": prompt[:100],
+                "count": len(images_data),
+                "generator": "imagen"
+            }
+        )
     
     async def fact_check(
         self,
@@ -472,13 +574,14 @@ class VertexAIIntegration(BaseMCPIntegration):
         """Возвращает список поддерживаемых моделей"""
         return {
             "text": [
-                "gemini-2.5-flash",      # Gemini 2.5 Flash (рекомендуемая, самая новая)
+                "gemini-2.5-flash",      # Gemini 2.5 Flash (рекомендуемая)
                 "gemini-2.5-pro",        # Gemini 2.5 Pro (более мощная)
                 "gemini-2.0-flash-001",  # Gemini 2.0 Flash
             ],
             "image": [
-                "imagegeneration@006",  # Imagen 3
-                "imagegeneration@005",  # Imagen 2
+                "gemini-2.5-flash-image",  # Gemini для изображений (рекомендуемая)
+                "imagegeneration@006",     # Imagen 3 (legacy)
+                "imagegeneration@005",     # Imagen 2 (legacy)
             ],
             "embedding": [
                 "textembedding-gecko@003",

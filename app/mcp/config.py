@@ -223,7 +223,7 @@ class MCPConfigManager:
                 'project_id': os.getenv('GOOGLE_CLOUD_PROJECT', os.getenv('GCP_PROJECT_ID')),
                 'location': os.getenv('GOOGLE_CLOUD_LOCATION', 'us-central1'),
                 'text_model': os.getenv('VERTEX_AI_TEXT_MODEL', 'gemini-2.5-flash'),
-                'image_model': os.getenv('VERTEX_AI_IMAGE_MODEL', 'imagegeneration@006'),
+                'image_model': os.getenv('VERTEX_AI_IMAGE_MODEL', 'gemini-2.5-flash-image'),
                 'grounding_enabled': os.getenv('VERTEX_AI_GROUNDING', 'true').lower() == 'true'
             }
         )
