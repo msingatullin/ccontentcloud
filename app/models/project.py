@@ -58,6 +58,7 @@ class Project(Base):
     # Связи
     user = relationship("User", back_populates="projects")
     telegram_channels = relationship("TelegramChannel", back_populates="project", lazy="dynamic")
+    instagram_accounts = relationship("InstagramAccount", back_populates="project", lazy="dynamic")
     content_pieces = relationship("ContentPieceDB", back_populates="project", lazy="dynamic")
     scheduled_posts = relationship("ScheduledPostDB", back_populates="project", lazy="dynamic")
     

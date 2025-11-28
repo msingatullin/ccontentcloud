@@ -113,6 +113,58 @@ class InstagramAccountItem(Resource):
                 db.close()
 
     @jwt_required
+    @instagram_ns.doc('update_instagram_account', security='BearerAuth')
+    def put(self, current_user, account_id: int):
+        """Обновить аккаунт Instagram (включая привязку к проекту)"""
+        try:
+            user_id = current_user.get('user_id')
+            data = request.get_json() or {}
+            
+            project_id = data.get('project_id')
+            has_project_id = 'project_id' in data
+            
+            if not has_project_id:
+                return {'success': False, 'error': 'Укажите project_id для обновления'}, 400
+            
+            db = get_db_session()
+            from app.models.instagram_accounts import InstagramAccount
+            
+            account = db.query(InstagramAccount).filter(
+                InstagramAccount.id == account_id,
+                InstagramAccount.user_id == user_id
+            ).first()
+            
+            if not account:
+                return {'success': False, 'error': 'Аккаунт не найден'}, 404
+            
+            # Проверяем что project принадлежит пользователю (если не null)
+            if project_id is not None:
+                from app.models.project import Project
+                project = db.query(Project).filter(
+                    Project.id == project_id,
+                    Project.user_id == user_id
+                ).first()
+                if not project:
+                    return {'success': False, 'error': 'Проект не найден'}, 404
+            
+            account.project_id = project_id
+            db.commit()
+            db.refresh(account)
+            
+            action = 'привязан к проекту' if project_id else 'отвязан от проекта'
+            return {
+                'success': True,
+                'message': f'Аккаунт успешно {action}',
+                'account': account.to_dict()
+            }, 200
+        except Exception as e:
+            logger.error(f"Ошибка обновления Instagram аккаунта: {e}")
+            return {'success': False, 'error': 'Ошибка обновления'}, 500
+        finally:
+            if 'db' in locals() and db:
+                db.close()
+
+    @jwt_required
     @instagram_ns.doc('delete_instagram_account', security='BearerAuth')
     def delete(self, current_user, account_id: int):
         try:

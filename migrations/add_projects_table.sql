@@ -60,6 +60,15 @@ ADD COLUMN IF NOT EXISTS project_id INTEGER REFERENCES projects(id) ON DELETE SE
 CREATE INDEX IF NOT EXISTS ix_scheduled_posts_project_id ON scheduled_posts(project_id);
 
 -- ============================================
+-- 4.1. Добавление project_id в instagram_accounts
+-- ============================================
+
+ALTER TABLE instagram_accounts 
+ADD COLUMN IF NOT EXISTS project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS ix_instagram_accounts_project_id ON instagram_accounts(project_id);
+
+-- ============================================
 -- 5. Триггер для обновления updated_at
 -- ============================================
 

@@ -186,11 +186,47 @@ class TelegramChannelItem(Resource):
             channel_link = data.get('channel_link', '').strip() if data.get('channel_link') else None
             channel_name = data.get('channel_name', '').strip() if data.get('channel_name') else None
             is_active = data.get('is_active') if 'is_active' in data else None
+            project_id = data.get('project_id')  # может быть int или null для отвязки
+            has_project_id = 'project_id' in data
             
-            if not any([channel_link, channel_name, is_active is not None]):
-                return {'success': False, 'error': 'Укажите хотя бы одно поле для обновления: channel_link, channel_name или is_active'}, 400
+            if not any([channel_link, channel_name, is_active is not None, has_project_id]):
+                return {'success': False, 'error': 'Укажите хотя бы одно поле для обновления: channel_link, channel_name, is_active или project_id'}, 400
             
             db = get_db_session()
+            
+            # Если нужно обновить project_id — делаем это напрямую
+            if has_project_id:
+                from app.models.telegram_channels import TelegramChannel
+                channel = db.query(TelegramChannel).filter(
+                    TelegramChannel.id == channel_id,
+                    TelegramChannel.user_id == user_id
+                ).first()
+                
+                if not channel:
+                    return {'success': False, 'error': 'Канал не найден'}, 404
+                
+                # Проверяем что project принадлежит пользователю (если не null)
+                if project_id is not None:
+                    from app.models.project import Project
+                    project = db.query(Project).filter(
+                        Project.id == project_id,
+                        Project.user_id == user_id
+                    ).first()
+                    if not project:
+                        return {'success': False, 'error': 'Проект не найден'}, 404
+                
+                channel.project_id = project_id
+                db.commit()
+                db.refresh(channel)
+                
+                action = 'привязан к проекту' if project_id else 'отвязан от проекта'
+                return {
+                    'success': True,
+                    'message': f'Канал успешно {action}',
+                    'channel': channel.to_dict()
+                }, 200
+            
+            # Остальные поля обновляем через сервис
             service = TelegramChannelService(db)
             
             import asyncio

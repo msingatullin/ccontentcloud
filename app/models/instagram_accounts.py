@@ -16,6 +16,7 @@ class InstagramAccount(Base):
     
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    project_id = Column(Integer, ForeignKey('projects.id', ondelete='SET NULL'), nullable=True, index=True)
     
     # Учетные данные (ЗАШИФРОВАНЫ!)
     instagram_username = Column(String(255), nullable=False)
@@ -56,6 +57,7 @@ class InstagramAccount(Base):
     
     # Связи
     user = relationship("User", back_populates="instagram_accounts")
+    project = relationship("Project", back_populates="instagram_accounts")
     
     # Индексы для оптимизации
     __table_args__ = (
@@ -83,7 +85,8 @@ class InstagramAccount(Base):
             'last_error': self.last_error,
             'daily_posts_limit': self.daily_posts_limit,
             'posts_today': self.posts_today,
-            'created_at': self.created_at.isoformat() if self.created_at else None
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'project_id': self.project_id
         }
     
     def __repr__(self):
