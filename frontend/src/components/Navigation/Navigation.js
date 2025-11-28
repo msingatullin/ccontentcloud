@@ -15,6 +15,7 @@ import {
   Bell
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { ProjectSelector } from './ProjectSelector';
 
 const NavigationContainer = styled.nav`
   position: fixed;
@@ -329,6 +330,9 @@ export const Navigation = () => {
             {isOpen ? <X size={20} /> : <Menu size={20} />}
           </MobileMenuButton>
         </Header>
+
+        {/* Селектор проекта */}
+        <ProjectSelector />
 
         <NavList>
           {navigationItems.map((item) => {

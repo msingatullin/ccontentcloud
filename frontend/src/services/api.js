@@ -102,7 +102,18 @@ export const agentsAPI = {
 
 // API методы для работы с контентом
 export const contentAPI = {
-  // Создать контент
+  /**
+   * Создать контент
+   * @param {Object} contentData - Данные для создания контента
+   * @param {string} contentData.title - Заголовок
+   * @param {string} contentData.description - Описание
+   * @param {string} contentData.target_audience - Целевая аудитория
+   * @param {string[]} contentData.business_goals - Бизнес-цели
+   * @param {string} [contentData.tone] - Тон контента
+   * @param {number} [contentData.project_id] - ID проекта (опционально, применяет настройки проекта)
+   * @param {boolean} [contentData.generate_image] - Добавить изображение
+   * @param {string} [contentData.image_source] - Источник изображения: 'stock' или 'ai'
+   */
   createContent: async (contentData) => {
     const response = await api.post('/api/v1/content/create', contentData);
     return response.data;
@@ -162,6 +173,45 @@ export const notificationsAPI = {
   // Отметить уведомление как прочитанное
   markAsRead: async (notificationId) => {
     const response = await api.patch(`/api/v1/notifications/${notificationId}/read`);
+    return response.data;
+  },
+};
+
+// API методы для работы с проектами
+export const projectsAPI = {
+  // Получить все проекты пользователя
+  getAll: async () => {
+    const response = await api.get('/api/v1/projects/');
+    return response.data;
+  },
+
+  // Создать новый проект
+  create: async (data) => {
+    const response = await api.post('/api/v1/projects/', data);
+    return response.data;
+  },
+
+  // Получить проект по ID
+  get: async (id) => {
+    const response = await api.get(`/api/v1/projects/${id}`);
+    return response.data;
+  },
+
+  // Обновить проект
+  update: async (id, data) => {
+    const response = await api.put(`/api/v1/projects/${id}`, data);
+    return response.data;
+  },
+
+  // Удалить проект
+  delete: async (id) => {
+    const response = await api.delete(`/api/v1/projects/${id}`);
+    return response.data;
+  },
+
+  // Получить проект по умолчанию
+  getDefault: async () => {
+    const response = await api.get('/api/v1/projects/default');
     return response.data;
   },
 };

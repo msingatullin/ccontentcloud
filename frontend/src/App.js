@@ -15,6 +15,7 @@ import ForgotPassword from './components/Auth/ForgotPassword';
 import UserProfile from './components/Auth/UserProfile';
 import ProtectedRoute, { PublicRoute } from './components/Auth/ProtectedRoute';
 import { AuthProvider } from './contexts/AuthContext';
+import { ProjectProvider } from './contexts/ProjectContext';
 import { theme } from './styles/theme';
 
 // Глобальные стили
@@ -119,42 +120,44 @@ function App() {
       <ThemeProvider theme={theme}>
         <GlobalStyle />
         <AuthProvider>
-          <Routes>
-            {/* Публичные маршруты */}
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/login" element={
-              <PublicRoute>
-                <Login />
-              </PublicRoute>
-            } />
-            <Route path="/register" element={
-              <PublicRoute>
-                <Register />
-              </PublicRoute>
-            } />
-            <Route path="/verify-email" element={<VerifyEmail />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            
-            {/* Защищенные маршруты */}
-            <Route path="/dashboard/*" element={
-              <ProtectedRoute>
-                <AppContainer>
-                  <Navigation />
-                  <MainContent>
-                    <ContentArea>
-                      <Routes>
-                        <Route path="/" element={<Dashboard />} />
-                        <Route path="/agents" element={<Agents />} />
-                        <Route path="/content" element={<Content />} />
-                        <Route path="/settings" element={<Settings />} />
-                        <Route path="/profile" element={<UserProfile />} />
-                      </Routes>
-                    </ContentArea>
-                  </MainContent>
-                </AppContainer>
-              </ProtectedRoute>
-            } />
-          </Routes>
+          <ProjectProvider>
+            <Routes>
+              {/* Публичные маршруты */}
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/login" element={
+                <PublicRoute>
+                  <Login />
+                </PublicRoute>
+              } />
+              <Route path="/register" element={
+                <PublicRoute>
+                  <Register />
+                </PublicRoute>
+              } />
+              <Route path="/verify-email" element={<VerifyEmail />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              
+              {/* Защищенные маршруты */}
+              <Route path="/dashboard/*" element={
+                <ProtectedRoute>
+                  <AppContainer>
+                    <Navigation />
+                    <MainContent>
+                      <ContentArea>
+                        <Routes>
+                          <Route path="/" element={<Dashboard />} />
+                          <Route path="/agents" element={<Agents />} />
+                          <Route path="/content" element={<Content />} />
+                          <Route path="/settings" element={<Settings />} />
+                          <Route path="/profile" element={<UserProfile />} />
+                        </Routes>
+                      </ContentArea>
+                    </MainContent>
+                  </AppContainer>
+                </ProtectedRoute>
+              } />
+            </Routes>
+          </ProjectProvider>
         </AuthProvider>
       </ThemeProvider>
     </HelmetProvider>
