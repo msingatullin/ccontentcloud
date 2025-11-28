@@ -49,7 +49,7 @@ class VertexAIIntegration(BaseMCPIntegration):
         self.location = os.getenv('GOOGLE_CLOUD_LOCATION', 'us-central1')
         
         # Модели по умолчанию
-        self.default_text_model = os.getenv('VERTEX_AI_TEXT_MODEL', 'gemini-1.5-flash-001')
+        self.default_text_model = os.getenv('VERTEX_AI_TEXT_MODEL', 'gemini-2.0-flash-001')
         self.default_image_model = os.getenv('VERTEX_AI_IMAGE_MODEL', 'imagegeneration@006')
         
         # Флаг инициализации
@@ -205,26 +205,44 @@ class VertexAIIntegration(BaseMCPIntegration):
             
             gemini_model = GenerativeModel(**model_kwargs)
             
-            # Настройка Grounding (Google Search)
+            # Настройка Grounding (Google Search / Enterprise Web Search)
             tools = None
             if use_grounding:
                 try:
-                    # Grounding через Google Search
-                    tools = [
-                        Tool.from_google_search_retrieval(
-                            grounding.GoogleSearchRetrieval()
-                        )
-                    ]
-                    logger.info("Grounding через Google Search включен")
+                    # Для Gemini 2.0+ используем EnterpriseWebSearch через gapic types
+                    from google.cloud.aiplatform_v1beta1.types import Tool as ToolProto
+                    from google.cloud.aiplatform_v1beta1.types import EnterpriseWebSearch
+                    
+                    tool_proto = ToolProto(
+                        enterprise_web_search=EnterpriseWebSearch()
+                    )
+                    tools = [Tool._from_gapic(tool_proto)]
+                    logger.info("Grounding через Enterprise Web Search включен")
+                except ImportError:
+                    # Fallback на старый метод для legacy моделей
+                    try:
+                        tools = [
+                            Tool.from_google_search_retrieval(
+                                grounding.GoogleSearchRetrieval()
+                            )
+                        ]
+                        logger.info("Grounding через Google Search Retrieval включен (legacy)")
+                    except Exception as e2:
+                        logger.warning(f"Не удалось включить Grounding (legacy): {e2}")
                 except Exception as e:
                     logger.warning(f"Не удалось включить Grounding: {e}")
             
             # Генерация
             if tools:
-                response = gemini_model.generate_content(
-                    prompt,
-                    tools=tools
-                )
+                try:
+                    response = gemini_model.generate_content(
+                        prompt,
+                        tools=tools
+                    )
+                except Exception as grounding_err:
+                    # Если Grounding не работает - пробуем без него
+                    logger.warning(f"Grounding не сработал, пробуем без него: {grounding_err}")
+                    response = gemini_model.generate_content(prompt)
             else:
                 response = gemini_model.generate_content(prompt)
             
@@ -454,10 +472,10 @@ class VertexAIIntegration(BaseMCPIntegration):
         """Возвращает список поддерживаемых моделей"""
         return {
             "text": [
-                "gemini-1.5-flash-001",
-                "gemini-1.5-pro-001",
-                "gemini-1.0-pro",
-                "gemini-1.0-pro-vision"
+                "gemini-2.0-flash-001",  # Gemini 2.0 Flash (рекомендуемая)
+                "gemini-2.0-flash",
+                "gemini-1.5-flash",
+                "gemini-1.5-pro",
             ],
             "image": [
                 "imagegeneration@006",  # Imagen 3
