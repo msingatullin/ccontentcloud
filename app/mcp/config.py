@@ -206,6 +206,27 @@ class MCPConfigManager:
                 'region': 'RU'
             }
         )
+        
+        # Google Vertex AI (Gemini + Imagen)
+        # Использует Application Default Credentials в Cloud Run
+        self.configs['vertex_ai'] = MCPConfig(
+            enabled=bool(os.getenv('GOOGLE_CLOUD_PROJECT')),
+            api_key=None,  # Не нужен - используем ADC
+            base_url=None,  # SDK сам определяет URL
+            timeout=60,
+            max_retries=3,
+            retry_delay=2.0,
+            rate_limit=60,  # 60 запросов в минуту
+            fallback_enabled=True,
+            test_mode=os.getenv('TEST_MODE', 'False').lower() == 'true',
+            custom_params={
+                'project_id': os.getenv('GOOGLE_CLOUD_PROJECT', os.getenv('GCP_PROJECT_ID')),
+                'location': os.getenv('GOOGLE_CLOUD_LOCATION', 'us-central1'),
+                'text_model': os.getenv('VERTEX_AI_TEXT_MODEL', 'gemini-1.5-flash-001'),
+                'image_model': os.getenv('VERTEX_AI_IMAGE_MODEL', 'imagegeneration@006'),
+                'grounding_enabled': os.getenv('VERTEX_AI_GROUNDING', 'true').lower() == 'true'
+            }
+        )
     
     def get_config(self, service_name: str) -> Optional[MCPConfig]:
         """Получает конфигурацию для сервиса"""
