@@ -4846,6 +4846,121 @@ class GetOnboardingProgress(Resource):
             }, 200
 
 
+@ai_ns.route('/enrich-project-profile')
+class EnrichProjectProfile(Resource):
+    """AI-генератор профиля проекта по короткому описанию"""
+    
+    @jwt_required
+    @ai_ns.doc('enrich_project_profile', description='Генерировать детальный маркетинговый профиль по короткому описанию бизнеса')
+    def post(self, current_user=None):
+        """Генерировать профиль проекта"""
+        try:
+            import openai
+            import json
+            
+            data = request.get_json()
+            short_description = data.get('short_description', '').strip()
+            
+            if not short_description:
+                return {
+                    'success': False,
+                    'error': 'Описание бизнеса не указано'
+                }, 400
+            
+            if len(short_description) < 3:
+                return {
+                    'success': False,
+                    'error': 'Описание слишком короткое'
+                }, 400
+            
+            # Проверяем наличие OpenAI API ключа
+            api_key = os.getenv('OPENAI_API_KEY')
+            if not api_key:
+                logger.warning("OPENAI_API_KEY не установлен")
+                return {
+                    'success': False,
+                    'error': 'AI-сервис временно недоступен'
+                }, 503
+            
+            # Системный промпт
+            system_prompt = """Ты опытный маркетолог и копирайтер. Твоя задача - на основе короткого описания бизнеса создать детальный профиль бренда для создания контента в социальных сетях.
+
+ВАЖНО: Отвечай на том же языке, на котором написано описание бизнеса (обычно русский).
+
+Ты должен вернуть JSON со следующими полями:
+- business_description: Развернутое, красивое описание бизнеса на 2-3 абзаца. Опиши уникальность, ценности, миссию.
+- target_audience: Детальное описание целевой аудитории (пол, возраст, интересы, боли, мотивации, где живут, чем занимаются). 3-4 предложения.
+- tone_of_voice: Рекомендуемый тон коммуникации (например: "Дружелюбный и экспертный", "Профессиональный с элементами юмора"). Одна фраза.
+- keywords: Массив из 8-12 ключевых слов/тегов для контента (на языке описания).
+
+Отвечай ТОЛЬКО валидным JSON без markdown-разметки."""
+
+            user_prompt = f"""Создай маркетинговый профиль для бизнеса:
+
+"{short_description}"
+
+Верни JSON с полями: business_description, target_audience, tone_of_voice, keywords"""
+
+            client = openai.OpenAI(api_key=api_key)
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                max_tokens=2000,
+                temperature=0.7
+            )
+            
+            if response.choices and len(response.choices) > 0:
+                content = response.choices[0].message.content.strip()
+                
+                # Очищаем от markdown если есть
+                if content.startswith('```'):
+                    lines = content.split('\n')
+                    # Убираем первую и последнюю строки с ```
+                    content = '\n'.join(lines[1:-1] if lines[-1].strip() == '```' else lines[1:])
+                    if content.startswith('json'):
+                        content = content[4:].strip()
+                
+                result = json.loads(content)
+                
+                # Валидируем наличие всех полей
+                required_fields = ['business_description', 'target_audience', 'tone_of_voice', 'keywords']
+                for field in required_fields:
+                    if field not in result:
+                        result[field] = '' if field != 'keywords' else []
+                
+                # Убедимся что keywords - это массив
+                if isinstance(result.get('keywords'), str):
+                    result['keywords'] = [k.strip() for k in result['keywords'].split(',')]
+                
+                logger.info(f"AI сгенерировал профиль для: {short_description[:50]}...")
+                
+                return {
+                    'success': True,
+                    'data': result
+                }, 200
+            else:
+                return {
+                    'success': False,
+                    'error': 'AI не вернул ответ'
+                }, 500
+                
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON parse error in enrich-project-profile: {e}")
+            return {
+                'success': False,
+                'error': 'Ошибка парсинга ответа AI'
+            }, 500
+        except Exception as e:
+            logger.error(f"Error in enrich-project-profile: {e}")
+            return {
+                'success': False,
+                'error': f'Ошибка генерации: {str(e)}'
+            }, 500
+
+
 def get_fallback_questions(business_type):
     """Fallback вопросы если AI недоступен"""
     return [
