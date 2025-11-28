@@ -243,18 +243,53 @@ class ContentOrchestrator:
                         if user_id and 'content' in result:
                             await self._save_task_result_to_db(result, user_id, workflow_id, agent_id, task)
                         
+                        # Если это задача поиска/генерации изображения, инжектим URL в задачу публикации
+                        if 'Image' in task.name or task.context.get('image_source'):
+                            image_url = result.get('image_url')
+                            if image_url:
+                                logger.info(f"🖼️ Найдено изображение: {image_url[:80]}...")
+                                brief_id = task.context.get('brief_id')
+                                if brief_id:
+                                    await self._add_image_to_content(brief_id, image_url, user_id)
+                                
+                                # Инжектим image_url в задачи публикации
+                                for pub_task in workflow.tasks:
+                                    if 'Publish' in pub_task.name:
+                                        if 'content' not in pub_task.context:
+                                            pub_task.context['content'] = {}
+                                        if 'media_urls' not in pub_task.context['content']:
+                                            pub_task.context['content']['media_urls'] = []
+                                        if image_url not in pub_task.context['content']['media_urls']:
+                                            pub_task.context['content']['media_urls'].append(image_url)
+                                            logger.info(f"📸 Image URL injected into Publish task {pub_task.id}")
+                        
                         # Если это задача создания контента, передаем результат в задачу публикации
                         if 'content' in result and 'Create' in task.name:
                             platform = task.context.get('platform')
                             content_type = task.context.get('content_type')
+                            new_content = result.get('content', {})
+                            
                             # Ищем соответствующую задачу публикации
                             for pub_task in workflow.tasks:
                                 if (pub_task.status == TaskStatus.PENDING and 
                                     'Publish' in pub_task.name and 
                                     pub_task.context.get('platform') == platform and
                                     pub_task.context.get('content_type') == content_type):
-                                    # Добавляем контент в контекст задачи публикации
-                                    pub_task.context['content'] = result.get('content', {})
+                                    
+                                    # ВАЖНО: Сохраняем существующие media_urls перед обновлением
+                                    existing_content = pub_task.context.get('content', {})
+                                    existing_media_urls = existing_content.get('media_urls', [])
+                                    
+                                    # Обновляем контент
+                                    if 'content' not in pub_task.context:
+                                        pub_task.context['content'] = {}
+                                    pub_task.context['content'].update(new_content)
+                                    
+                                    # Восстанавливаем media_urls
+                                    if existing_media_urls:
+                                        pub_task.context['content']['media_urls'] = existing_media_urls
+                                        logger.info(f"📸 Сохранены media_urls: {existing_media_urls}")
+                                    
                                     logger.info(f"Передан контент из задачи {task.id} в задачу публикации {pub_task.id}")
                                     break
                     else:
