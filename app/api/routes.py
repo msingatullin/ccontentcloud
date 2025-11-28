@@ -4848,29 +4848,27 @@ class GetOnboardingProgress(Resource):
 
 @ai_ns.route('/enrich-project-profile')
 class EnrichProjectProfile(Resource):
-    """AI-генератор профиля проекта по короткому описанию"""
+    """AI-генератор профиля проекта по короткому описанию или анализу сайта"""
     
     @jwt_required
-    @ai_ns.doc('enrich_project_profile', description='Генерировать детальный маркетинговый профиль по короткому описанию бизнеса')
+    @ai_ns.doc('enrich_project_profile', description='Генерировать детальный маркетинговый профиль по короткому описанию бизнеса или URL сайта')
     def post(self, current_user=None):
         """Генерировать профиль проекта"""
         try:
             import openai
             import json
+            import requests
+            from bs4 import BeautifulSoup
             
             data = request.get_json()
             short_description = data.get('short_description', '').strip()
+            url = data.get('url', '').strip()
             
-            if not short_description:
+            # Нужен либо URL, либо описание
+            if not short_description and not url:
                 return {
                     'success': False,
-                    'error': 'Описание бизнеса не указано'
-                }, 400
-            
-            if len(short_description) < 3:
-                return {
-                    'success': False,
-                    'error': 'Описание слишком короткое'
+                    'error': 'Укажите описание бизнеса или URL сайта'
                 }, 400
             
             # Проверяем наличие OpenAI API ключа
@@ -4882,24 +4880,78 @@ class EnrichProjectProfile(Resource):
                     'error': 'AI-сервис временно недоступен'
                 }, 503
             
+            # Если есть URL — скачиваем и анализируем сайт
+            site_content = ""
+            if url:
+                try:
+                    # Добавляем протокол если нет
+                    if not url.startswith('http'):
+                        url = 'https://' + url
+                    
+                    logger.info(f"Загружаем сайт: {url}")
+                    
+                    headers = {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                    }
+                    response = requests.get(url, headers=headers, timeout=15)
+                    response.raise_for_status()
+                    
+                    # Парсим HTML
+                    soup = BeautifulSoup(response.text, 'html.parser')
+                    
+                    # Удаляем скрипты и стили
+                    for script in soup(['script', 'style', 'nav', 'footer', 'header', 'aside']):
+                        script.decompose()
+                    
+                    # Извлекаем текст
+                    text = soup.get_text(separator=' ', strip=True)
+                    
+                    # Очищаем и обрезаем
+                    import re
+                    text = re.sub(r'\s+', ' ', text)
+                    site_content = text[:3000]  # Ограничиваем для контекста
+                    
+                    logger.info(f"Извлечено {len(site_content)} символов с сайта")
+                    
+                except requests.RequestException as e:
+                    logger.warning(f"Не удалось загрузить сайт {url}: {e}")
+                    if not short_description:
+                        return {
+                            'success': False,
+                            'error': f'Не удалось загрузить сайт: {str(e)}'
+                        }, 400
+            
             # Системный промпт
-            system_prompt = """Ты опытный маркетолог и копирайтер. Твоя задача - на основе короткого описания бизнеса создать детальный профиль бренда для создания контента в социальных сетях.
+            system_prompt = """Ты опытный маркетолог и копирайтер. Твоя задача - создать детальный профиль бренда для создания контента в социальных сетях.
 
-ВАЖНО: Отвечай на том же языке, на котором написано описание бизнеса (обычно русский).
+ВАЖНО: Отвечай на русском языке.
 
 Ты должен вернуть JSON со следующими полями:
 - business_description: Развернутое, красивое описание бизнеса на 2-3 абзаца. Опиши уникальность, ценности, миссию.
-- target_audience: Детальное описание целевой аудитории (пол, возраст, интересы, боли, мотивации, где живут, чем занимаются). 3-4 предложения.
-- tone_of_voice: Рекомендуемый тон коммуникации (например: "Дружелюбный и экспертный", "Профессиональный с элементами юмора"). Одна фраза.
-- keywords: Массив из 8-12 ключевых слов/тегов для контента (на языке описания).
+- target_audience: Детальное описание целевой аудитории (пол, возраст, интересы, боли, мотивации). 3-4 предложения.
+- tone_of_voice: Рекомендуемый тон коммуникации (например: "Дружелюбный и экспертный"). Одна фраза.
+- keywords: Массив из 8-12 ключевых слов/тегов для контента.
+- products_services: Краткий список основных товаров/услуг (если можно определить).
+- usp: Уникальное торговое предложение - что отличает от конкурентов.
 
 Отвечай ТОЛЬКО валидным JSON без markdown-разметки."""
 
-            user_prompt = f"""Создай маркетинговый профиль для бизнеса:
+            # Формируем user prompt
+            if site_content:
+                user_prompt = f"""Проанализируй контент с сайта клиента и создай маркетинговый профиль.
+
+КОНТЕНТ САЙТА:
+{site_content}
+
+{f'ДОПОЛНИТЕЛЬНОЕ ОПИСАНИЕ: {short_description}' if short_description else ''}
+
+Верни JSON с полями: business_description, target_audience, tone_of_voice, keywords, products_services, usp"""
+            else:
+                user_prompt = f"""Создай маркетинговый профиль для бизнеса:
 
 "{short_description}"
 
-Верни JSON с полями: business_description, target_audience, tone_of_voice, keywords"""
+Верни JSON с полями: business_description, target_audience, tone_of_voice, keywords, products_services, usp"""
 
             client = openai.OpenAI(api_key=api_key)
             response = client.chat.completions.create(
@@ -4908,7 +4960,7 @@ class EnrichProjectProfile(Resource):
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                max_tokens=2000,
+                max_tokens=2500,
                 temperature=0.7
             )
             
@@ -4935,7 +4987,7 @@ class EnrichProjectProfile(Resource):
                 if isinstance(result.get('keywords'), str):
                     result['keywords'] = [k.strip() for k in result['keywords'].split(',')]
                 
-                logger.info(f"AI сгенерировал профиль для: {short_description[:50]}...")
+                logger.info(f"AI сгенерировал профиль {'по сайту ' + url if url else 'по описанию'}")
                 
                 return {
                     'success': True,
