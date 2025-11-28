@@ -13,6 +13,7 @@ from .workflow_engine import WorkflowEngine, Task, TaskType, TaskPriority, TaskS
 from .agent_manager import AgentManager, BaseAgent, AgentCapability, AgentStatus
 from ..models.content import ContentBrief, ContentPiece, Platform, ContentType, ContentPieceDB, TokenUsageDB, ContentHistoryDB
 from ..models.workflow import WorkflowInstance, WorkflowStatus
+from ..models.project import Project
 from ..database.connection import get_db_session
 
 # Настройка логирования
@@ -75,10 +76,55 @@ class ContentOrchestrator:
                                     channel_id: Optional[int] = None,
                                     publish_immediately: bool = True,
                                     generate_image: bool = False,
-                                    image_source: Optional[str] = None) -> str:
+                                    image_source: Optional[str] = None,
+                                    project_id: Optional[int] = None) -> str:
         """Создает workflow для создания контента"""
         platforms = platforms or [Platform.TELEGRAM, Platform.VK]
         content_types = content_types or [ContentType.POST]
+        
+        # === Загрузка настроек проекта ===
+        project = None
+        project_channels = []
+        if project_id:
+            try:
+                db = get_db_session()
+                project = db.query(Project).filter_by(id=project_id, user_id=user_id).first()
+                if project:
+                    logger.info(f"📁 Загружен проект: {project.name} (id={project.id})")
+                    settings = project.settings or {}
+                    
+                    # Применяем настройки проекта к brief если не указаны явно
+                    if not brief.target_audience and settings.get('target_audience'):
+                        brief.target_audience = settings['target_audience']
+                        logger.info(f"📁 Применена target_audience из проекта: {brief.target_audience}")
+                    
+                    if not brief.tone and settings.get('tone_of_voice'):
+                        brief.tone = settings['tone_of_voice']
+                        logger.info(f"📁 Применен tone из проекта: {brief.tone}")
+                    
+                    # Объединяем business_goals
+                    project_goals = settings.get('business_goals', [])
+                    if project_goals:
+                        brief.business_goals = list(set(brief.business_goals or []) | set(project_goals))
+                    
+                    # Объединяем constraints
+                    project_constraints = settings.get('constraints', {})
+                    if project_constraints:
+                        brief.constraints = {**(brief.constraints or {}), **project_constraints}
+                    
+                    # Добавляем ключевые слова проекта
+                    project_keywords = settings.get('keywords', [])
+                    if project_keywords:
+                        brief.keywords = list(set(brief.keywords or []) | set(project_keywords))
+                    
+                    # Получаем каналы, привязанные к проекту
+                    if project.telegram_channels:
+                        project_channels = [ch.id for ch in project.telegram_channels.filter_by(is_active=True).all()]
+                        logger.info(f"📁 Найдено {len(project_channels)} каналов проекта: {project_channels}")
+                else:
+                    logger.warning(f"⚠️ Проект {project_id} не найден для пользователя {user_id}")
+            except Exception as e:
+                logger.error(f"❌ Ошибка загрузки проекта {project_id}: {e}")
         
         # Создаем workflow
         workflow = self.workflow_engine.create_workflow(
@@ -88,10 +134,12 @@ class ContentOrchestrator:
                 "brief_id": brief.id,
                 "platforms": [p.value for p in platforms],
                 "content_types": [ct.value for ct in content_types],
-                "user_id": user_id,  # Добавляем user_id для сохранения в БД
-                "test_mode": test_mode,  # Добавляем test_mode для передачи в задачи
-                "channel_id": channel_id,  # ID конкретного канала для публикации
-                "image_source": image_source or "stock"  # Источник изображения
+                "user_id": user_id,
+                "test_mode": test_mode,
+                "channel_id": channel_id,
+                "image_source": image_source or "stock",
+                "project_id": project_id,  # Добавляем project_id в контекст
+                "project_channels": project_channels  # Каналы проекта для публикации
             }
         )
         
@@ -105,7 +153,8 @@ class ContentOrchestrator:
             "call_to_action": brief.call_to_action,
             "tone": brief.tone,
             "keywords": brief.keywords,
-            "constraints": brief.constraints
+            "constraints": brief.constraints,
+            "project_id": project_id
         }
         
         # Добавляем задачу добавления изображения если запрошено (ПЕРЕД созданием контента)
@@ -181,29 +230,45 @@ class ContentOrchestrator:
                 
                 # Задача публикации контента - создаем только если publish_immediately = True
                 if publish_immediately:
-                    publish_task_name = f"Publish {content_type.value} to {platform.value}"
+                    # Определяем каналы для публикации
+                    channels_to_publish = []
                     
-                    # Формируем контекст публикации с account_id
-                    publish_context = {
-                        "brief_id": brief.id,
-                        "platform": platform.value,
-                        "content_type": content_type.value,
-                        "user_id": user_id,
-                        "test_mode": test_mode,
-                        # content будет добавлен после создания контента
-                    }
-                    
-                    # Добавляем account_id если указан channel_id
+                    # Приоритет 1: Явно указанный channel_id
                     if channel_id:
-                        publish_context["account_id"] = channel_id
+                        channels_to_publish = [channel_id]
+                    # Приоритет 2: Каналы проекта (если project_id передан)
+                    elif project_channels and platform.value == 'telegram':
+                        channels_to_publish = project_channels
+                        logger.info(f"📁 Используем каналы проекта для публикации: {channels_to_publish}")
+                    # Приоритет 3: Без указания канала (будет выбран дефолтный в publisher_agent)
+                    else:
+                        channels_to_publish = [None]
                     
-                    self.workflow_engine.add_task(
-                        workflow_id=workflow.id,
-                        task_name=publish_task_name,
-                        task_type=TaskType.PLANNED,
-                        priority=TaskPriority.HIGH,
-                        context=publish_context
-                    )
+                    # Создаём задачу публикации для каждого канала
+                    for ch_id in channels_to_publish:
+                        publish_task_name = f"Publish {content_type.value} to {platform.value}"
+                        if ch_id and len(channels_to_publish) > 1:
+                            publish_task_name += f" (channel {ch_id})"
+                        
+                        publish_context = {
+                            "brief_id": brief.id,
+                            "platform": platform.value,
+                            "content_type": content_type.value,
+                            "user_id": user_id,
+                            "test_mode": test_mode,
+                            "project_id": project_id,
+                        }
+                        
+                        if ch_id:
+                            publish_context["account_id"] = ch_id
+                        
+                        self.workflow_engine.add_task(
+                            workflow_id=workflow.id,
+                            task_name=publish_task_name,
+                            task_type=TaskType.PLANNED,
+                            priority=TaskPriority.HIGH,
+                            context=publish_context
+                        )
                 else:
                     logger.info(f"Пропущена задача публикации для {content_type.value} на {platform.value} (publish_immediately=False)")
         
@@ -681,19 +746,23 @@ class ContentOrchestrator:
             platforms = [Platform(p) for p in request.get("platforms", ["telegram", "vk"])]
             content_types = [ContentType(ct) for ct in request.get("content_types", ["post"])]
             
-            # Получаем user_id, test_mode, channel_id, publish_immediately, generate_image и image_source из запроса
+            # Получаем параметры из запроса
             user_id = request.get("user_id")
             test_mode = request.get("test_mode", False)
             channel_id = request.get("channel_id")  # ID конкретного канала для публикации
             publish_immediately = request.get("publish_immediately", True)  # По умолчанию публикуем сразу
             generate_image = request.get("generate_image", False)  # Добавление изображения
             image_source = request.get("image_source", "stock")  # Источник изображения: 'stock' или 'ai'
+            project_id = request.get("project_id")  # ID проекта для применения настроек
             
             # Логируем параметры для отладки
-            logger.info(f"📝 Параметры создания контента: generate_image={generate_image}, image_source={image_source}, publish_immediately={publish_immediately}")
+            logger.info(f"📝 Параметры создания контента: generate_image={generate_image}, image_source={image_source}, publish_immediately={publish_immediately}, project_id={project_id}")
             
             # Создаем workflow с передачей всех параметров
-            workflow_id = await self.create_content_workflow(brief, platforms, content_types, user_id, test_mode, channel_id, publish_immediately, generate_image, image_source)
+            workflow_id = await self.create_content_workflow(
+                brief, platforms, content_types, user_id, test_mode, 
+                channel_id, publish_immediately, generate_image, image_source, project_id
+            )
             
             # Проверяем нужен ли фактчекинг
             constraints = request.get("constraints", {})
