@@ -111,9 +111,40 @@ def init_database():
         logger.error(f"Failed to initialize database: {e}")
         return False
 
+def run_migrations():
+    """Run database migrations for missing columns"""
+    try:
+        engine, _ = get_db_connection()
+        
+        with engine.connect() as conn:
+            # Check and add project_id to instagram_accounts if missing
+            result = conn.execute(text("""
+                SELECT column_name FROM information_schema.columns 
+                WHERE table_name = 'instagram_accounts' AND column_name = 'project_id'
+            """))
+            if not result.fetchone():
+                logger.info("Adding project_id column to instagram_accounts...")
+                conn.execute(text("""
+                    ALTER TABLE instagram_accounts 
+                    ADD COLUMN project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL
+                """))
+                conn.execute(text("""
+                    CREATE INDEX IF NOT EXISTS ix_instagram_accounts_project_id 
+                    ON instagram_accounts(project_id)
+                """))
+                conn.commit()
+                logger.info("Migration completed: project_id added to instagram_accounts")
+            
+    except Exception as e:
+        logger.warning(f"Migration check failed (may be expected on first run): {e}")
+
+
 def init_default_data():
     """Initialize default data (tariff plans, etc.)"""
     try:
+        # Run migrations first
+        run_migrations()
+        
         from app.billing.services.subscription_service import SubscriptionService
         from app.database.connection import get_db_session
         
