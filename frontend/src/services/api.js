@@ -197,7 +197,7 @@ export const projectsAPI = {
     return response.data;
   },
 
-  // Обновить проект
+  // Обновить проект (включая settings)
   update: async (id, data) => {
     const response = await api.put(`/api/v1/projects/${id}`, data);
     return response.data;
@@ -212,6 +212,94 @@ export const projectsAPI = {
   // Получить проект по умолчанию
   getDefault: async () => {
     const response = await api.get('/api/v1/projects/default');
+    return response.data;
+  },
+};
+
+// API методы для работы с Telegram каналами
+export const telegramAPI = {
+  // Получить список каналов пользователя
+  getChannels: async (projectId = null) => {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await api.get('/api/v1/telegram/channels', { params });
+    return response.data;
+  },
+
+  // Получить канал по ID
+  getChannel: async (channelId) => {
+    const response = await api.get(`/api/v1/telegram/channels/${channelId}`);
+    return response.data;
+  },
+
+  // Добавить канал
+  addChannel: async (data) => {
+    const response = await api.post('/api/v1/telegram/channels', data);
+    return response.data;
+  },
+
+  // Обновить канал (включая привязку к проекту)
+  updateChannel: async (channelId, data) => {
+    const response = await api.put(`/api/v1/telegram/channels/${channelId}`, data);
+    return response.data;
+  },
+
+  // Удалить канал
+  deleteChannel: async (channelId) => {
+    const response = await api.delete(`/api/v1/telegram/channels/${channelId}`);
+    return response.data;
+  },
+
+  // Привязать канал к проекту
+  assignToProject: async (channelId, projectId) => {
+    const response = await api.put(`/api/v1/telegram/channels/${channelId}`, {
+      project_id: projectId
+    });
+    return response.data;
+  },
+
+  // Отвязать канал от проекта
+  unassignFromProject: async (channelId) => {
+    const response = await api.put(`/api/v1/telegram/channels/${channelId}`, {
+      project_id: null
+    });
+    return response.data;
+  },
+};
+
+// API методы для работы с Instagram аккаунтами
+export const instagramAPI = {
+  // Получить список аккаунтов пользователя
+  getAccounts: async (projectId = null) => {
+    const params = projectId ? { project_id: projectId } : {};
+    const response = await api.get('/api/v1/instagram/accounts', { params });
+    return response.data;
+  },
+
+  // Получить аккаунт по ID
+  getAccount: async (accountId) => {
+    const response = await api.get(`/api/v1/instagram/accounts/${accountId}`);
+    return response.data;
+  },
+
+  // Обновить аккаунт (включая привязку к проекту)
+  updateAccount: async (accountId, data) => {
+    const response = await api.put(`/api/v1/instagram/accounts/${accountId}`, data);
+    return response.data;
+  },
+
+  // Привязать аккаунт к проекту
+  assignToProject: async (accountId, projectId) => {
+    const response = await api.put(`/api/v1/instagram/accounts/${accountId}`, {
+      project_id: projectId
+    });
+    return response.data;
+  },
+
+  // Отвязать аккаунт от проекта
+  unassignFromProject: async (accountId) => {
+    const response = await api.put(`/api/v1/instagram/accounts/${accountId}`, {
+      project_id: null
+    });
     return response.data;
   },
 };

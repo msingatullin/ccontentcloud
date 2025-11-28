@@ -7,6 +7,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Agents } from './pages/Agents';
 import { Content } from './pages/Content';
 import { Settings } from './pages/Settings';
+import { ProjectSettings } from './pages/ProjectSettings';
 import LandingPage from './pages/landing/LandingPage';
 import Login from './components/Auth/Login';
 import Register from './components/Auth/Register';
@@ -148,8 +149,9 @@ function App() {
                           <Route path="/" element={<Dashboard />} />
                           <Route path="/agents" element={<Agents />} />
                           <Route path="/content" element={<Content />} />
-                          <Route path="/settings" element={<Settings />} />
-                          <Route path="/profile" element={<UserProfile />} />
+                        <Route path="/settings" element={<Settings />} />
+                        <Route path="/profile" element={<UserProfile />} />
+                        <Route path="/projects/:id/settings" element={<ProjectSettings />} />
                         </Routes>
                       </ContentArea>
                     </MainContent>

@@ -85,3 +85,4 @@ COMMENT ON TABLE projects IS 'Проекты пользователей для �
 COMMENT ON COLUMN projects.settings IS 'Настройки проекта: tone_of_voice, target_audience, brand_name и т.д.';
 COMMENT ON COLUMN projects.ai_settings IS 'AI настройки: preferred_style, content_length, emoji_usage и т.д.';
 
+

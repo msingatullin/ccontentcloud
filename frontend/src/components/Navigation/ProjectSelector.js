@@ -3,8 +3,9 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
-import { ChevronDown, FolderOpen, Plus, Check } from 'lucide-react';
+import { ChevronDown, FolderOpen, Plus, Check, Settings } from 'lucide-react';
 import { useProject } from '../../contexts/ProjectContext';
 
 const SelectorContainer = styled.div`
@@ -74,6 +75,26 @@ const ChevronIcon = styled(ChevronDown)`
   flex-shrink: 0;
   transition: transform 0.2s ease;
   transform: ${props => props.$isOpen ? 'rotate(180deg)' : 'rotate(0)'};
+`;
+
+const SettingsButton = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  color: ${props => props.theme.colors.textSecondary};
+  cursor: pointer;
+  border-radius: ${props => props.theme.borderRadius.sm};
+  transition: all ${props => props.theme.transitions.fast};
+  flex-shrink: 0;
+
+  &:hover {
+    background: ${props => props.theme.colors.backgroundTertiary};
+    color: ${props => props.theme.colors.primary};
+  }
 `;
 
 const Dropdown = styled.div`
@@ -197,6 +218,7 @@ export const ProjectSelector = () => {
   const { projects, currentProject, isLoading, selectProject, createProject } = useProject();
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
+  const navigate = useNavigate();
 
   // Закрытие при клике вне компонента
   useEffect(() => {
@@ -224,6 +246,13 @@ export const ProjectSelector = () => {
       }
     }
     setIsOpen(false);
+  };
+
+  const handleOpenSettings = (e) => {
+    e.stopPropagation();
+    if (currentProject) {
+      navigate(`/dashboard/projects/${currentProject.id}/settings`);
+    }
   };
 
   if (isLoading) {
@@ -257,6 +286,11 @@ export const ProjectSelector = () => {
             </ProjectMeta>
           )}
         </ProjectInfo>
+        {currentProject && (
+          <SettingsButton onClick={handleOpenSettings} title="Настройки проекта">
+            <Settings size={16} />
+          </SettingsButton>
+        )}
         <ChevronIcon size={16} $isOpen={isOpen} />
       </SelectorButton>
 
@@ -301,4 +335,5 @@ export const ProjectSelector = () => {
 };
 
 export default ProjectSelector;
+
 
