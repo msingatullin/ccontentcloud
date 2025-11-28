@@ -49,7 +49,7 @@ class VertexAIIntegration(BaseMCPIntegration):
         self.location = os.getenv('GOOGLE_CLOUD_LOCATION', 'us-central1')
         
         # Модели по умолчанию
-        self.default_text_model = os.getenv('VERTEX_AI_TEXT_MODEL', 'gemini-2.0-flash-001')
+        self.default_text_model = os.getenv('VERTEX_AI_TEXT_MODEL', 'gemini-2.5-flash')
         self.default_image_model = os.getenv('VERTEX_AI_IMAGE_MODEL', 'imagegeneration@006')
         
         # Флаг инициализации
@@ -472,10 +472,9 @@ class VertexAIIntegration(BaseMCPIntegration):
         """Возвращает список поддерживаемых моделей"""
         return {
             "text": [
-                "gemini-2.0-flash-001",  # Gemini 2.0 Flash (рекомендуемая)
-                "gemini-2.0-flash",
-                "gemini-1.5-flash",
-                "gemini-1.5-pro",
+                "gemini-2.5-flash",      # Gemini 2.5 Flash (рекомендуемая, самая новая)
+                "gemini-2.5-pro",        # Gemini 2.5 Pro (более мощная)
+                "gemini-2.0-flash-001",  # Gemini 2.0 Flash
             ],
             "image": [
                 "imagegeneration@006",  # Imagen 3
