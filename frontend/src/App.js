@@ -6,6 +6,8 @@ import { Navigation } from './components/Navigation/Navigation';
 import { Dashboard } from './pages/Dashboard';
 import { Agents } from './pages/Agents';
 import { Content } from './pages/Content';
+import { CreateContent } from './pages/CreateContent';
+import { News } from './pages/News';
 import { Settings } from './pages/Settings';
 import { ProjectSettings } from './pages/ProjectSettings';
 import LandingPage from './pages/landing/LandingPage';
@@ -149,6 +151,8 @@ function App() {
                           <Route path="/" element={<Dashboard />} />
                           <Route path="/agents" element={<Agents />} />
                           <Route path="/content" element={<Content />} />
+                          <Route path="/create-content" element={<CreateContent />} />
+                          <Route path="/news" element={<News />} />
                         <Route path="/settings" element={<Settings />} />
                         <Route path="/profile" element={<UserProfile />} />
                         <Route path="/projects/:id/settings" element={<ProjectSettings />} />
