@@ -76,6 +76,7 @@ def init_database():
         # Import all models to ensure they are registered
         from app.auth.models.user import User, UserSession
         from app.billing.models.subscription import Subscription, Payment, UsageRecord
+        from app.models.project import Project
         
         # Create all tables
         Base.metadata.create_all(bind=engine)

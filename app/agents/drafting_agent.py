@@ -73,6 +73,7 @@ class DraftingAgent(BaseAgent):
         
         # AI интеграции
         self.huggingface_mcp = None
+        self.vertex_ai_mcp = None
         self.openai_mcp = None
         self.ai_prompts = self._load_ai_prompts()
         self._initialize_ai_integrations()
@@ -322,16 +323,25 @@ class DraftingAgent(BaseAgent):
             else:
                 logger.warning("HuggingFaceMCP недоступен - будет использоваться fallback")
             
-            # Инициализируем OpenAIMCP если доступен
+            # Инициализируем Vertex AI (приоритет) если доступен
+            if is_mcp_enabled('vertex_ai'):
+                from ..mcp.integrations.vertex_ai import VertexAIMCP
+                self.vertex_ai_mcp = VertexAIMCP()
+                logger.info("VertexAIMCP (Gemini) инициализирован в DraftingAgent")
+            else:
+                logger.warning("VertexAIMCP недоступен - будет использоваться fallback")
+            
+            # Инициализируем OpenAIMCP как fallback если доступен
             if is_mcp_enabled('openai'):
                 self.openai_mcp = OpenAIMCP()
-                logger.info("OpenAIMCP инициализирован в DraftingAgent")
+                logger.info("OpenAIMCP инициализирован в DraftingAgent (fallback)")
             else:
                 logger.warning("OpenAIMCP недоступен - будет использоваться fallback")
                 
         except Exception as e:
             logger.error(f"Ошибка инициализации AI интеграций: {e}")
             self.huggingface_mcp = None
+            self.vertex_ai_mcp = None
             self.openai_mcp = None
     
     async def execute_task(self, task: Task) -> Dict[str, Any]:
@@ -539,7 +549,19 @@ class DraftingAgent(BaseAgent):
                 keywords=keywords
             )
             
-            # Пытаемся использовать HuggingFace
+            # Приоритет 1: Vertex AI Gemini
+            if hasattr(self, 'vertex_ai_mcp') and self.vertex_ai_mcp is not None:
+                result = await self.vertex_ai_mcp.execute_with_retry(
+                    'generate_content',
+                    prompt=final_prompt,
+                    max_tokens=prompt.max_tokens,
+                    temperature=prompt.temperature
+                )
+                
+                if result.success and result.data:
+                    return result.data.get('generated_text', '')
+            
+            # Приоритет 2: HuggingFace
             if self.huggingface_mcp is not None:
                 result = await self.huggingface_mcp.execute_with_retry(
                     'generate_text',

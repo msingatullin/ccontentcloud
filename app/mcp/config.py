@@ -206,6 +206,25 @@ class MCPConfigManager:
                 'region': 'RU'
             }
         )
+        
+        # Vertex AI (Google Cloud)
+        self.configs['vertex_ai'] = MCPConfig(
+            enabled=bool(os.getenv('GOOGLE_CLOUD_PROJECT')),
+            api_key=None,  # Используется Application Default Credentials
+            base_url=None,  # Используется SDK
+            timeout=120,
+            max_retries=2,
+            retry_delay=2.0,
+            rate_limit=60,  # 60 запросов в минуту
+            fallback_enabled=True,
+            test_mode=os.getenv('TEST_MODE', 'True').lower() == 'true',
+            custom_params={
+                'project_id': os.getenv('GOOGLE_CLOUD_PROJECT'),
+                'location': os.getenv('VERTEX_AI_LOCATION', 'us-central1'),
+                'gemini_model': os.getenv('VERTEX_AI_GEMINI_MODEL', 'gemini-1.5-pro'),
+                'imagen_model': os.getenv('VERTEX_AI_IMAGEN_MODEL', 'imagegeneration@006')
+            }
+        )
     
     def get_config(self, service_name: str) -> Optional[MCPConfig]:
         """Получает конфигурацию для сервиса"""

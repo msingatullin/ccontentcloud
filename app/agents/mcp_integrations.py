@@ -12,7 +12,6 @@ from dataclasses import dataclass
 from datetime import datetime
 import aiohttp
 import aiofiles
-
 import logging
 
 logger = logging.getLogger(__name__)
@@ -417,10 +416,83 @@ class ImageOptimizationMCP:
         return self.optimization_settings.get(platform, self.optimization_settings["web"])
 
 
+class VertexAIImageClient:
+    """Клиент для генерации изображений через Vertex AI Imagen"""
+    
+    def __init__(self):
+        self.vertex_ai_mcp = None
+        self._initialize_client()
+    
+    def _initialize_client(self):
+        """Инициализирует Vertex AI клиент"""
+        try:
+            from app.mcp.integrations.vertex_ai import VertexAIMCP
+            from app.mcp.config import is_mcp_enabled
+            
+            if is_mcp_enabled('vertex_ai'):
+                self.vertex_ai_mcp = VertexAIMCP()
+                logger.info("Vertex AI Imagen клиент инициализирован")
+            else:
+                logger.warning("Vertex AI не включен в конфигурации")
+        except Exception as e:
+            logger.error(f"Ошибка инициализации Vertex AI клиента: {e}")
+    
+    async def generate_image(
+        self, 
+        prompt: str, 
+        config: ImageGenerationConfig
+    ) -> GenerationResult:
+        """Генерирует изображение через Vertex AI Imagen"""
+        if not self.vertex_ai_mcp:
+            return GenerationResult(
+                success=False,
+                error="Vertex AI не настроен"
+            )
+        
+        try:
+            # Конвертируем размер в width/height
+            size_parts = config.size.split('x')
+            width = int(size_parts[0]) if len(size_parts) > 0 else 1024
+            height = int(size_parts[1]) if len(size_parts) > 1 else 1024
+            
+            response = await self.vertex_ai_mcp.generate_image(
+                prompt=prompt,
+                n=config.n,
+                width=width,
+                height=height,
+                guidance_scale=7.5
+            )
+            
+            if response.success and response.data:
+                images = response.data.get('images', [])
+                if images:
+                    # Берем первое изображение
+                    image_data = base64.b64decode(images[0]['image_data'])
+                    return GenerationResult(
+                        success=True,
+                        image_data=image_data,
+                        model_used="vertex_ai_imagen",
+                        generation_time=0.0  # TODO: добавить измерение времени
+                    )
+            
+            return GenerationResult(
+                success=False,
+                error=response.error.message if response.error else "Неизвестная ошибка"
+            )
+            
+        except Exception as e:
+            logger.error(f"Ошибка генерации через Vertex AI Imagen: {e}")
+            return GenerationResult(
+                success=False,
+                error=str(e)
+            )
+
+
 class MCPIntegrationManager:
     """Менеджер MCP интеграций для Multimedia Producer Agent"""
     
     def __init__(self):
+        self.vertex_ai_client = None
         self.dalle_client = None
         self.stable_diffusion_client = None
         self.unsplash_client = None
@@ -431,6 +503,10 @@ class MCPIntegrationManager:
     def _initialize_clients(self):
         """Инициализирует MCP клиенты"""
         try:
+            # Приоритет: Vertex AI Imagen (если доступен)
+            self.vertex_ai_client = VertexAIImageClient()
+            
+            # Fallback: DALL-E и Stable Diffusion
             self.dalle_client = DalleMCPClient()
             self.stable_diffusion_client = StableDiffusionMCPClient()
             self.unsplash_client = UnsplashMCPClient()
@@ -442,24 +518,36 @@ class MCPIntegrationManager:
         self, 
         prompt: str, 
         config: ImageGenerationConfig,
-        preferred_model: str = "dalle"
+        preferred_model: str = "vertex_ai"
     ) -> GenerationResult:
         """Генерирует изображение с fallback на другие модели"""
         
-        # Пробуем предпочтительную модель
-        if preferred_model == "dalle" and self.dalle_client:
+        # Приоритет 1: Vertex AI Imagen (если доступен)
+        if (preferred_model == "vertex_ai" or preferred_model == "imagen") and self.vertex_ai_client:
+            result = await self.vertex_ai_client.generate_image(prompt, config)
+            if result.success:
+                return result
+        
+        # Приоритет 2: DALL-E
+        if (preferred_model == "dalle" or preferred_model == "openai") and self.dalle_client:
             async with self.dalle_client as client:
                 result = await client.generate_image(prompt, config)
                 if result.success:
                     return result
         
-        elif preferred_model == "stable_diffusion" and self.stable_diffusion_client:
+        # Приоритет 3: Stable Diffusion
+        if preferred_model == "stable_diffusion" and self.stable_diffusion_client:
             async with self.stable_diffusion_client as client:
                 result = await client.generate_image(prompt, config)
                 if result.success:
                     return result
         
-        # Fallback на другие модели
+        # Fallback: пробуем все доступные модели по порядку
+        if self.vertex_ai_client and preferred_model != "vertex_ai":
+            result = await self.vertex_ai_client.generate_image(prompt, config)
+            if result.success:
+                return result
+        
         if self.dalle_client and preferred_model != "dalle":
             async with self.dalle_client as client:
                 result = await client.generate_image(prompt, config)

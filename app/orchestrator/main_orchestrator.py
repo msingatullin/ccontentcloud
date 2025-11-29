@@ -88,7 +88,7 @@ class ContentOrchestrator:
             for content_type in content_types:
                 task_name = f"Create {content_type.value} for {platform.value}"
                 
-                self.workflow_engine.add_task(
+                content_task = self.workflow_engine.add_task(
                     workflow_id=workflow.id,
                     task_name=task_name,
                     task_type=TaskType.PLANNED,
@@ -99,6 +99,27 @@ class ContentOrchestrator:
                         "content_type": content_type.value
                     }
                 )
+                
+                # Для постов добавляем задачу генерации изображения
+                if content_type == ContentType.POST:
+                    image_task_name = f"Generate image for {content_type.value} on {platform.value}"
+                    image_task = self.workflow_engine.add_task(
+                        workflow_id=workflow.id,
+                        task_name=image_task_name,
+                        task_type=TaskType.PLANNED,
+                        priority=TaskPriority.MEDIUM,
+                        context={
+                            "brief_id": brief.id,
+                            "platform": platform.value,
+                            "content_type": "image",
+                            "format": "square",  # По умолчанию квадратный формат
+                            "style": brief.tone or "professional",
+                            "prompt": f"{brief.title}. {brief.description[:200]}",
+                            "parent_task_id": content_task.id  # Связь с задачей создания контента
+                        },
+                        dependencies=[content_task.id]  # Изображение генерируется после создания текста
+                    )
+                    logger.info(f"Добавлена задача генерации изображения {image_task.id} для поста на {platform.value}")
         
         logger.info(f"Создан workflow {workflow.id} для бриф {brief.id}")
         return workflow.id

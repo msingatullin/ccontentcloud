@@ -864,6 +864,270 @@ class TrendsAnalyze(Resource):
             }, 500
 
 
+# ==================== PROJECT ENDPOINTS ====================
+
+project_model = api.model('Project', {
+    'id': fields.Integer(description='ID проекта'),
+    'name': fields.String(required=True, min_length=1, max_length=255, description='Название проекта'),
+    'description': fields.String(description='Описание проекта'),
+    'user_id': fields.Integer(description='ID пользователя'),
+    'status': fields.String(description='Статус проекта', enum=['active', 'archived', 'paused', 'deleted']),
+    'settings': fields.Raw(description='Настройки проекта'),
+    'created_at': fields.String(description='Дата создания'),
+    'updated_at': fields.String(description='Дата обновления')
+})
+
+create_project_model = api.model('CreateProjectRequest', {
+    'name': fields.String(required=True, min_length=1, max_length=255, description='Название проекта'),
+    'description': fields.String(description='Описание проекта'),
+    'settings': fields.Raw(description='Настройки проекта')
+})
+
+update_project_model = api.model('UpdateProjectRequest', {
+    'name': fields.String(min_length=1, max_length=255, description='Название проекта'),
+    'description': fields.String(description='Описание проекта'),
+    'status': fields.String(description='Статус проекта', enum=['active', 'archived', 'paused', 'deleted']),
+    'settings': fields.Raw(description='Настройки проекта')
+})
+
+@api.route('/projects')
+class ProjectsList(Resource):
+    @api.doc('list_projects', description='Получает список проектов пользователя')
+    @api.marshal_with(api.model('ProjectsListResponse', {
+        'success': fields.Boolean(description='Успешность операции'),
+        'projects': fields.List(fields.Nested(project_model), description='Список проектов'),
+        'total': fields.Integer(description='Общее количество проектов')
+    }), code=200)
+    @api.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    def get(self):
+        """Получает список проектов пользователя"""
+        try:
+            from app.models.project import Project, ProjectStatus
+            from app.database.connection import get_db_session
+            
+            db = get_db_session()
+            
+            # TODO: Получать user_id из токена аутентификации
+            user_id = request.args.get('user_id', type=int)
+            if not user_id:
+                return {
+                    "error": "Bad Request",
+                    "message": "user_id required",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            projects = db.query(Project).filter(
+                Project.user_id == user_id,
+                Project.status != ProjectStatus.DELETED.value
+            ).order_by(Project.created_at.desc()).all()
+            
+            db.close()
+            
+            return {
+                "success": True,
+                "projects": [project.to_dict() for project in projects],
+                "total": len(projects)
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Ошибка получения списка проектов: {e}")
+            return {
+                "error": "Internal server error",
+                "message": f"Ошибка получения списка проектов: {str(e)}",
+                "status_code": 500,
+                "timestamp": datetime.now().isoformat()
+            }, 500
+    
+    @api.doc('create_project', description='Создает новый проект')
+    @api.expect(create_project_model, validate=True)
+    @api.marshal_with(project_model, code=201, description='Проект создан')
+    @api.marshal_with(common_models['error'], code=400, description='Ошибка валидации')
+    @api.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    def post(self):
+        """Создает новый проект"""
+        try:
+            from app.models.project import Project, ProjectStatus
+            from app.database.connection import get_db_session
+            
+            data = request.json
+            db = get_db_session()
+            
+            user_id = data.get('user_id')
+            if not user_id:
+                return {
+                    "error": "Bad Request",
+                    "message": "user_id required",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            project = Project(
+                name=data.get('name'),
+                description=data.get('description'),
+                user_id=user_id,
+                status=ProjectStatus.ACTIVE.value,
+                settings=data.get('settings', {})
+            )
+            
+            db.add(project)
+            db.commit()
+            db.refresh(project)
+            db.close()
+            
+            logger.info(f"Создан проект {project.id}: {project.name}")
+            return project.to_dict(), 201
+            
+        except Exception as e:
+            logger.error(f"Ошибка создания проекта: {e}")
+            return {
+                "error": "Internal server error",
+                "message": f"Ошибка создания проекта: {str(e)}",
+                "status_code": 500,
+                "timestamp": datetime.now().isoformat()
+            }, 500
+
+
+@api.route('/projects/<int:project_id>')
+class ProjectDetail(Resource):
+    @api.doc('get_project', description='Получает проект по ID')
+    @api.marshal_with(project_model, code=200, description='Проект найден')
+    @api.marshal_with(common_models['error'], code=404, description='Проект не найден')
+    @api.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    def get(self, project_id):
+        """Получает проект по ID"""
+        try:
+            from app.models.project import Project, ProjectStatus
+            from app.database.connection import get_db_session
+            
+            db = get_db_session()
+            project = db.query(Project).filter(
+                Project.id == project_id,
+                Project.status != ProjectStatus.DELETED.value
+            ).first()
+            db.close()
+            
+            if not project:
+                return {
+                    "error": "Not Found",
+                    "message": f"Проект {project_id} не найден",
+                    "status_code": 404,
+                    "timestamp": datetime.now().isoformat()
+                }, 404
+            
+            return project.to_dict(), 200
+            
+        except Exception as e:
+            logger.error(f"Ошибка получения проекта: {e}")
+            return {
+                "error": "Internal server error",
+                "message": f"Ошибка получения проекта: {str(e)}",
+                "status_code": 500,
+                "timestamp": datetime.now().isoformat()
+            }, 500
+    
+    @api.doc('update_project', description='Обновляет проект')
+    @api.expect(update_project_model, validate=False)
+    @api.marshal_with(project_model, code=200, description='Проект обновлен')
+    @api.marshal_with(common_models['error'], code=404, description='Проект не найден')
+    @api.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    def put(self, project_id):
+        """Обновляет проект"""
+        try:
+            from app.models.project import Project, ProjectStatus
+            from app.database.connection import get_db_session
+            
+            data = request.json
+            db = get_db_session()
+            
+            project = db.query(Project).filter(
+                Project.id == project_id,
+                Project.status != ProjectStatus.DELETED.value
+            ).first()
+            
+            if not project:
+                db.close()
+                return {
+                    "error": "Not Found",
+                    "message": f"Проект {project_id} не найден",
+                    "status_code": 404,
+                    "timestamp": datetime.now().isoformat()
+                }, 404
+            
+            if 'name' in data:
+                project.name = data['name']
+            if 'description' in data:
+                project.description = data.get('description')
+            if 'status' in data:
+                project.status = data['status']
+            if 'settings' in data:
+                project.settings = data['settings']
+            
+            db.commit()
+            db.refresh(project)
+            db.close()
+            
+            logger.info(f"Обновлен проект {project.id}: {project.name}")
+            return project.to_dict(), 200
+            
+        except Exception as e:
+            logger.error(f"Ошибка обновления проекта: {e}")
+            return {
+                "error": "Internal server error",
+                "message": f"Ошибка обновления проекта: {str(e)}",
+                "status_code": 500,
+                "timestamp": datetime.now().isoformat()
+            }, 500
+    
+    @api.doc('delete_project', description='Удаляет проект (soft delete)')
+    @api.marshal_with(common_models['success'], code=200, description='Проект удален')
+    @api.marshal_with(common_models['error'], code=404, description='Проект не найден')
+    @api.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    def delete(self, project_id):
+        """Удаляет проект (soft delete)"""
+        try:
+            from app.models.project import Project, ProjectStatus
+            from app.database.connection import get_db_session
+            from datetime import datetime as dt
+            
+            db = get_db_session()
+            project = db.query(Project).filter(
+                Project.id == project_id,
+                Project.status != ProjectStatus.DELETED.value
+            ).first()
+            
+            if not project:
+                db.close()
+                return {
+                    "error": "Not Found",
+                    "message": f"Проект {project_id} не найден",
+                    "status_code": 404,
+                    "timestamp": datetime.now().isoformat()
+                }, 404
+            
+            project.status = ProjectStatus.DELETED.value
+            project.deleted_at = dt.utcnow()
+            
+            db.commit()
+            db.close()
+            
+            logger.info(f"Удален проект {project_id}")
+            return {
+                "success": True,
+                "message": f"Проект {project_id} успешно удален",
+                "timestamp": datetime.now().isoformat()
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Ошибка удаления проекта: {e}")
+            return {
+                "error": "Internal server error",
+                "message": f"Ошибка удаления проекта: {str(e)}",
+                "status_code": 500,
+                "timestamp": datetime.now().isoformat()
+            }, 500
+
+
 @api.route('/trends/viral')
 class ViralTrends(Resource):
     @api.doc('get_viral_trends', description='Получает вирусные тренды')
@@ -968,6 +1232,13 @@ class ApiDocs(Resource):
                 "trends": {
                     "POST /trends/analyze": "Анализ трендов",
                     "GET /trends/viral": "Вирусные тренды"
+                },
+                "projects": {
+                    "GET /projects": "Список проектов",
+                    "POST /projects": "Создать проект",
+                    "GET /projects/{id}": "Получить проект",
+                    "PUT /projects/{id}": "Обновить проект",
+                    "DELETE /projects/{id}": "Удалить проект"
                 }
             },
             "schemas": {

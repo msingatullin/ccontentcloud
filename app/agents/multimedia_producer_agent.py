@@ -344,11 +344,11 @@ class MultimediaProducerAgent(BaseAgent):
             style=style
         )
         
-        # Генерируем изображение через MCP
+        # Генерируем изображение через MCP (приоритет: Vertex AI Imagen)
         result = await self.mcp_manager.generate_image_with_fallback(
             prompt=prompt,
             config=config,
-            preferred_model="dalle"
+            preferred_model="vertex_ai"  # Используем Vertex AI Imagen по умолчанию
         )
         
         if result.success and result.image_data:
