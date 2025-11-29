@@ -416,8 +416,11 @@ class PaidCreativeAgent(BaseAgent):
                 result = await self._optimize_creative(task_data)
             elif task_type == "check_compliance":
                 result = await self._check_compliance(task_data)
+            elif task_type == "find_stock_image":
+                result = await self._find_stock_image(task_data)
             else:
-                raise ValueError(f"Неизвестный тип задачи: {task_type}")
+                # По умолчанию пробуем найти стоковое изображение
+                result = await self._find_stock_image(task_data)
             
             self.status = AgentStatus.IDLE
             self.completed_tasks.append(task.id)
@@ -434,7 +437,18 @@ class PaidCreativeAgent(BaseAgent):
     
     async def _create_ad_creative(self, task_data: Dict[str, Any]) -> Dict[str, Any]:
         """Создает рекламный креатив"""
-        platform = AdPlatform(task_data.get("platform", "telegram_ads"))
+        # Маппинг платформ контента на рекламные платформы
+        platform_mapping = {
+            'telegram': 'telegram_ads',
+            'vk': 'vk_ads',
+            'instagram': 'instagram_ads',
+            'facebook': 'facebook_ads',
+            'youtube': 'youtube_ads',
+            'tiktok': 'tiktok_ads',
+        }
+        raw_platform = task_data.get("platform", "telegram_ads")
+        mapped_platform = platform_mapping.get(raw_platform, raw_platform)
+        platform = AdPlatform(mapped_platform)
         objective = AdObjective(task_data.get("objective", "awareness"))
         product = task_data.get("product", "продукт")
         target_audience = task_data.get("target_audience", "общая аудитория")
@@ -684,6 +698,122 @@ class PaidCreativeAgent(BaseAgent):
         
         return recommendations
     
+    async def _find_stock_image(self, task_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Поиск стокового изображения"""
+        import os
+        import requests
+        
+        search_query = task_data.get("search_query", "business")
+        brief_id = task_data.get("brief_id", "")
+        
+        # Пробуем Unsplash API
+        unsplash_key = os.getenv('UNSPLASH_API_KEY') or os.getenv('UNSPLASH_ACCESS_KEY')
+        
+        if unsplash_key:
+            masked_key = f"{unsplash_key[:4]}...{unsplash_key[-4:]}" if len(unsplash_key) > 8 else "***"
+            logger.info(f"🔍 Searching Unsplash for '{search_query}' with key {masked_key}")
+            
+            try:
+                response = requests.get(
+                    'https://api.unsplash.com/search/photos',
+                    params={
+                        'query': search_query,
+                        'per_page': 1,
+                        'orientation': 'landscape'
+                    },
+                    headers={
+                        'Authorization': f'Client-ID {unsplash_key}'
+                    },
+                    timeout=10
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get('results') and len(data['results']) > 0:
+                        photo = data['results'][0]
+                        image_url = photo['urls'].get('regular', photo['urls'].get('small'))
+                        
+                        logger.info(f"✅ Найдено стоковое изображение для '{search_query}': {image_url}")
+                        
+                        return {
+                            "task_id": task_data.get("task_id", ""),
+                            "agent_id": self.agent_id,
+                            "image_url": image_url,
+                            "image_source": "unsplash",
+                            "photographer": photo.get('user', {}).get('name', 'Unknown'),
+                            "photographer_url": photo.get('user', {}).get('links', {}).get('html', ''),
+                            "search_query": search_query,
+                            "brief_id": brief_id,
+                            "status": "success",
+                            "timestamp": datetime.now().isoformat()
+                        }
+                    else:
+                        logger.warning(f"Unsplash returned 0 results for '{search_query}'")
+                else:
+                    logger.error(f"Unsplash API returned {response.status_code}: {response.text}")
+
+            except Exception as e:
+                logger.warning(f"Unsplash API error: {e}")
+        else:
+            logger.warning("UNSPLASH_API_KEY is missing or empty")
+        
+        # Fallback: Pexels API
+        pexels_key = os.getenv('PEXELS_API_KEY')
+        
+        if pexels_key:
+            try:
+                response = requests.get(
+                    'https://api.pexels.com/v1/search',
+                    params={
+                        'query': search_query,
+                        'per_page': 1,
+                        'orientation': 'landscape'
+                    },
+                    headers={
+                        'Authorization': pexels_key
+                    },
+                    timeout=10
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get('photos') and len(data['photos']) > 0:
+                        photo = data['photos'][0]
+                        image_url = photo['src'].get('large', photo['src'].get('medium'))
+                        
+                        logger.info(f"✅ Найдено стоковое изображение (Pexels) для '{search_query}': {image_url}")
+                        
+                        return {
+                            "task_id": task_data.get("task_id", ""),
+                            "agent_id": self.agent_id,
+                            "image_url": image_url,
+                            "image_source": "pexels",
+                            "photographer": photo.get('photographer', 'Unknown'),
+                            "photographer_url": photo.get('photographer_url', ''),
+                            "search_query": search_query,
+                            "brief_id": brief_id,
+                            "status": "success",
+                            "timestamp": datetime.now().isoformat()
+                        }
+            except Exception as e:
+                logger.warning(f"Pexels API error: {e}")
+        
+        # Если API не настроены, возвращаем placeholder
+        logger.warning(f"Stock image APIs not configured, using placeholder for '{search_query}'")
+        
+        return {
+            "task_id": task_data.get("task_id", ""),
+            "agent_id": self.agent_id,
+            "image_url": f"https://placehold.co/1200x630/1a1a2e/6366f1?text={search_query.replace(' ', '+')}",
+            "image_source": "placeholder",
+            "photographer": "Placeholder",
+            "photographer_url": "",
+            "search_query": search_query,
+            "brief_id": brief_id,
+            "status": "fallback",
+            "timestamp": datetime.now().isoformat()
+        }
+
     async def _check_compliance(self, task_data: Dict[str, Any]) -> Dict[str, Any]:
         """Проверяет соответствие политикам"""
         creative_id = task_data.get("creative_id")

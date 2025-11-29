@@ -7,10 +7,8 @@ from enum import Enum
 from typing import Optional, Dict, Any
 from dataclasses import dataclass, field
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, JSON, ForeignKey
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-
-Base = declarative_base()
+from app.database.connection import Base
 
 
 class SubscriptionStatus(Enum):
@@ -71,7 +69,7 @@ class Subscription(Base):
     __tablename__ = 'subscriptions'
     
     id = Column(Integer, primary_key=True)
-    user_id = Column(String(255), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
     plan_id = Column(String(50), nullable=False)
     status = Column(String(20), nullable=False, default=SubscriptionStatus.ACTIVE.value)
     
@@ -92,6 +90,7 @@ class Subscription(Base):
     meta_data = Column(JSON, default=dict)
     
     # Связи
+    user = relationship("User", back_populates="subscriptions")
     payments = relationship("Payment", back_populates="subscription")
     usage_records = relationship("UsageRecord", back_populates="subscription")
 
@@ -99,10 +98,10 @@ class Subscription(Base):
 class Payment(Base):
     """Модель платежа"""
     __tablename__ = 'payments'
-    
+
     id = Column(Integer, primary_key=True)
     subscription_id = Column(Integer, ForeignKey('subscriptions.id'), nullable=False)
-    user_id = Column(String(255), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
     
     # ЮКасса данные
     yookassa_payment_id = Column(String(255), nullable=True, unique=True)
@@ -125,16 +124,17 @@ class Payment(Base):
     meta_data = Column(JSON, default=dict)
     
     # Связи
+    user = relationship("User", back_populates="payments")
     subscription = relationship("Subscription", back_populates="payments")
 
 
 class UsageRecord(Base):
     """Модель записи использования"""
     __tablename__ = 'usage_records'
-    
+
     id = Column(Integer, primary_key=True)
     subscription_id = Column(Integer, ForeignKey('subscriptions.id'), nullable=False)
-    user_id = Column(String(255), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
     
     # Тип использования
     resource_type = Column(String(50), nullable=False)  # posts, api_calls, storage
@@ -153,6 +153,7 @@ class UsageRecord(Base):
     
     # Связи
     subscription = relationship("Subscription", back_populates="usage_records")
+    user = relationship("User", back_populates="usage_records")
 
 
 class BillingEvent(Base):

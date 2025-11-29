@@ -11,7 +11,9 @@ import {
   Trash2
 } from 'lucide-react';
 import { useQuery } from 'react-query';
+import { toast } from 'react-hot-toast';
 import { contentAPI } from '../services/api';
+import { useProject } from '../contexts/ProjectContext';
 
 const Container = styled.div`
   display: flex;
@@ -203,6 +205,30 @@ const EmptyState = styled.div`
 
 export const Content = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const { currentProject } = useProject();
+
+  // Пример создания контента с project_id
+  const handleCreateContent = async () => {
+    if (!currentProject) {
+      toast.error('Сначала выберите проект');
+      return;
+    }
+
+    // Здесь будет открытие модального окна создания контента
+    // Пока просто показываем alert с информацией
+    toast.success(`Создание контента для проекта: ${currentProject.name}`);
+    
+    // Пример вызова API с project_id:
+    // const result = await contentAPI.createContent({
+    //   title: 'Новый пост',
+    //   description: 'Описание поста',
+    //   target_audience: 'Целевая аудитория',
+    //   business_goals: ['Увеличение продаж'],
+    //   project_id: currentProject.id,  // <-- Передаём ID проекта
+    //   generate_image: true,
+    //   image_source: 'stock'
+    // });
+  };
 
   // Моковые данные для демонстрации
   const mockContent = [
@@ -268,7 +294,7 @@ export const Content = () => {
             <Download size={16} />
             Экспорт
           </SecondaryButton>
-          <Button>
+          <Button onClick={handleCreateContent}>
             <Plus size={16} />
             Создать контент
           </Button>

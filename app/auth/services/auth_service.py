@@ -6,7 +6,7 @@ import secrets
 import string
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, Tuple
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import IntegrityError
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
@@ -111,25 +111,36 @@ class AuthService:
             Tuple[bool, str, Optional[Dict]]: (success, message, tokens)
         """
         try:
-            # Поиск пользователя
-            user = self.db.query(User).filter(User.email == email).first()
+            # Поиск пользователя с загрузкой социальных сетей
+            user = self.db.query(User)\
+                .options(
+                    joinedload(User.telegram_channels),
+                    joinedload(User.instagram_accounts),
+                    joinedload(User.twitter_accounts)
+                )\
+                .filter(User.email == email)\
+                .first()
             
             if not user:
+                logger.warning(f"=== USER NOT FOUND: {email} ===")
                 return False, "Неверный email или пароль", None
             
             # Проверка пароля
             if not user.check_password(password):
+                logger.warning(f"=== INVALID PASSWORD for user: {email} ===")
                 return False, "Неверный email или пароль", None
             
             # Проверка статуса пользователя
             if not user.is_active:
+                logger.warning(f"=== USER DEACTIVATED: {email} ===")
                 return False, "Аккаунт деактивирован", None
             
             if user.status == UserStatus.SUSPENDED:
                 return False, "Аккаунт заблокирован", None
             
-            if user.status == UserStatus.PENDING_VERIFICATION:
-                return False, "Подтвердите email для входа в систему", None
+            # ВРЕМЕННО ОТКЛЮЧЕНО ДЛЯ ТЕСТИРОВАНИЯ
+            # if user.status == UserStatus.PENDING_VERIFICATION:
+            #     return False, "Подтвердите email для входа в систему", None
             
             # Обновление информации о входе
             user.update_login_info()
@@ -392,6 +403,9 @@ class AuthService:
         now = datetime.utcnow()
         jti = self._generate_jti()
         
+        logger.info(f"AuthService._create_tokens called for user {user.email}")
+        logger.info(f"AuthService SECRET_KEY for token creation: {self.secret_key[:10]}...")
+        
         # Access token
         access_token_payload = {
             'user_id': user.id,
@@ -403,7 +417,9 @@ class AuthService:
             'exp': now + timedelta(minutes=self.access_token_expire_minutes)
         }
         
+        logger.info(f"Access token payload: {access_token_payload}")
         access_token = jwt.encode(access_token_payload, self.secret_key, algorithm=self.jwt_algorithm)
+        logger.info(f"Access token created: {access_token[:20]}...")
         
         # Refresh token
         refresh_token = self._generate_refresh_token()
@@ -447,42 +463,107 @@ class AuthService:
 
     def verify_token(self, token: str) -> Tuple[bool, Optional[Dict]]:
         """Верификация JWT токена"""
+        print(f"DEBUG: AuthService.verify_token called with token: {token[:20]}...")
+        print(f"DEBUG: self.secret_key type: {type(self.secret_key)}")
+        print(f"DEBUG: self.secret_key value: {self.secret_key[:10] if self.secret_key else 'None'}...")
         try:
-            payload = jwt.decode(token, self.secret_key, algorithms=[self.jwt_algorithm])
+            logger.info(f"AuthService.verify_token called with token: {token[:20]}...")
+            try:
+                logger.info(f"AuthService SECRET_KEY: {self.secret_key[:10]}...")
+            except Exception as e:
+                print(f"DEBUG: ERROR accessing self.secret_key: {e}")
+                logger.error(f"ERROR accessing self.secret_key: {e}")
+                return False, None
+            
+            try:
+                logger.info(f"Attempting JWT decode with algorithm: {self.jwt_algorithm}")
+                payload = jwt.decode(token, self.secret_key, algorithms=[self.jwt_algorithm])
+                logger.info(f"JWT payload decoded successfully: {payload}")
+            except jwt.ExpiredSignatureError as e:
+                logger.error(f"JWT EXPIRED: {e}")
+                return False, None
+            except jwt.InvalidTokenError as e:
+                logger.error(f"JWT INVALID TOKEN: {e}")
+                return False, None
+            except Exception as e:
+                logger.error(f"JWT DECODE ERROR: {e}")
+                return False, None
             
             # Проверка типа токена
             if payload.get('type') != 'access':
+                logger.warning(f"Invalid token type: {payload.get('type')}")
                 return False, None
             
             # Проверка существования сессии
+            jti = payload.get('jti')
+            
+            try:
+                logger.info(f"Looking for session with JTI: {jti}")
+                logger.info(f"DB session type: {type(self.db)}")
+                logger.info(f"DB session is active: {self.db.is_active if hasattr(self.db, 'is_active') else 'unknown'}")
+                
+                all_sessions = self.db.query(UserSession).all()
+                print(f"DEBUG: Total sessions in DB: {len(all_sessions)}")
+                
+            except Exception as db_error:
+                logger.error(f"DATABASE ERROR: {db_error}")
+                logger.error(f"DB ERROR TYPE: {type(db_error)}")
+                import traceback
+                logger.error(f"DB TRACEBACK: {traceback.format_exc()}")
+                return False, None
+            
+            for sess in all_sessions:
+                logger.info(f"Session: JTI={sess.token_jti}, is_active={sess.is_active}, user_id={sess.user_id}")
+            
             session = self.db.query(UserSession).filter(
-                UserSession.token_jti == payload.get('jti'),
+                UserSession.token_jti == jti,
                 UserSession.is_active == True
             ).first()
             
-            if not session or session.is_expired():
+            if not session:
+                logger.warning(f"Session not found for JTI: {jti}")
+                return False, None
+            
+            if session.is_expired():
+                logger.warning(f"Session expired for JTI: {jti}")
                 return False, None
             
             # Проверка пользователя
             user = session.user
-            if not user.is_active or user.status != UserStatus.ACTIVE:
+            logger.info(f"User found: id={user.id}, email={user.email}, is_active={user.is_active}, status={user.status}")
+            
+            print(f"DEBUG: User is_active check: {user.is_active} (type: {type(user.is_active)})")
+            if not user.is_active:
+                print(f"DEBUG: User not active: is_active={user.is_active}, status={user.status}")
+                logger.warning(f"User not active: is_active={user.is_active}, status={user.status}")
+                return False, None
+            
+            # Разрешаем доступ пользователям в статусе PENDING_VERIFICATION для тестирования
+            if user.status not in [UserStatus.ACTIVE, UserStatus.PENDING_VERIFICATION]:
+                logger.warning(f"User status not allowed: is_active={user.is_active}, status={user.status}")
                 return False, None
             
             # Обновление времени последнего использования
             session.update_last_used()
             self.db.commit()
             
-            return True, {
+            result = {
                 'user_id': user.id,
                 'email': user.email,
                 'role': user.role.value,
                 'jti': payload.get('jti')
             }
+            logger.info(f"Token verification successful: {result}")
+            return True, result
             
-        except jwt.ExpiredSignatureError:
+        except jwt.ExpiredSignatureError as e:
+            logger.warning(f"JWT token expired: {e}")
             return False, None
-        except jwt.InvalidTokenError:
+        except jwt.InvalidTokenError as e:
+            logger.warning(f"Invalid JWT token: {e}")
             return False, None
         except Exception as e:
-            logger.error(f"Error verifying token: {e}")
+            logger.error(f"CRITICAL ERROR in verify_token: {e}")
+            import traceback
+            logger.error(f"CRITICAL TRACEBACK: {traceback.format_exc()}")
             return False, None

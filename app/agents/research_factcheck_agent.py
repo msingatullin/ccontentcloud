@@ -15,6 +15,7 @@ from ..orchestrator.agent_manager import BaseAgent, AgentCapability
 from ..orchestrator.workflow_engine import Task, TaskType, TaskPriority
 from ..mcp.integrations.news import NewsMCP
 from ..mcp.integrations.wikipedia import WikipediaMCP
+from ..mcp.integrations.vertex_ai import VertexAIIntegration
 from ..mcp.config import get_mcp_config, is_mcp_enabled
 
 logger = logging.getLogger(__name__)
@@ -81,6 +82,7 @@ class ResearchFactCheckAgent(BaseAgent):
         # MCP интеграции
         self.news_mcp = None
         self.wikipedia_mcp = None
+        self.vertex_mcp = None  # Vertex AI для фактчека с Grounding
         
         # Кэш проверенных фактов (в памяти)
         self.fact_cache = {}
@@ -94,6 +96,32 @@ class ResearchFactCheckAgent(BaseAgent):
         
         self._initialize_mcp_integrations()
         logger.info(f"ResearchFactCheckAgent MVP {agent_id} инициализирован")
+    
+    def can_handle_task(self, task: Task) -> bool:
+        """
+        Проверяет, может ли ResearchFactCheckAgent выполнить задачу
+        НЕ обрабатывает задачи публикации и задачи с изображениями
+        """
+        # Сначала проверяем базовые условия
+        if not super().can_handle_task(task):
+            return False
+        
+        # ResearchFactCheckAgent НЕ обрабатывает задачи публикации
+        if "Publish" in task.name or "publish" in task.name.lower():
+            return False
+        
+        # ResearchFactCheckAgent НЕ обрабатывает задачи генерации/поиска изображений
+        # Это должны делать MultimediaProducerAgent
+        image_keywords = ["Image", "image", "Stock", "stock", "Generate", "generate", "multimedia"]
+        if any(keyword in task.name for keyword in image_keywords):
+            return False
+        
+        # Также проверяем контекст задачи
+        task_context = task.context if hasattr(task, 'context') else {}
+        if task_context.get("image_source") or task_context.get("content_type") in ["post_image", "image"]:
+            return False
+        
+        return True
     
     def _load_claim_patterns(self) -> Dict[str, str]:
         """Загружает паттерны для извлечения утверждений"""
@@ -136,14 +164,25 @@ class ResearchFactCheckAgent(BaseAgent):
     def _initialize_mcp_integrations(self):
         """Инициализирует MCP интеграции"""
         try:
-            # News API (уже существует)
+            # Vertex AI для фактчека с Grounding (приоритетный метод)
+            if is_mcp_enabled('vertex_ai'):
+                try:
+                    self.vertex_mcp = VertexAIIntegration()
+                    logger.info("VertexAIIntegration инициализирован в ResearchFactCheckAgent")
+                except Exception as e:
+                    logger.warning(f"VertexAIIntegration недоступен: {e} - будет использоваться fallback")
+                    self.vertex_mcp = None
+            else:
+                logger.warning("Vertex AI недоступен - будет использоваться fallback")
+            
+            # News API (fallback)
             if is_mcp_enabled('news'):
                 self.news_mcp = NewsMCP()
                 logger.info("NewsMCP инициализирован в ResearchFactCheckAgent")
             else:
                 logger.warning("NewsMCP недоступен - будет использоваться fallback")
             
-            # Wikipedia API (новый, но простой)
+            # Wikipedia API (fallback)
             if is_mcp_enabled('wikipedia'):
                 self.wikipedia_mcp = WikipediaMCP()
                 logger.info("WikipediaMCP инициализирован в ResearchFactCheckAgent")
@@ -154,6 +193,7 @@ class ResearchFactCheckAgent(BaseAgent):
             logger.error(f"Ошибка инициализации MCP интеграций: {e}")
             self.news_mcp = None
             self.wikipedia_mcp = None
+            self.vertex_mcp = None
     
     async def execute_task(self, task: Task) -> Dict[str, Any]:
         """Выполняет задачу проверки фактов"""
@@ -324,7 +364,19 @@ class ResearchFactCheckAgent(BaseAgent):
                 logger.info(f"Используем кэшированный результат для: {claim[:50]}...")
                 return cached_result
         
-        # Выполняем проверку в зависимости от типа
+        # Приоритет: используем Vertex AI с Grounding для фактчека
+        if self.vertex_mcp:
+            try:
+                logger.info(f"Используем Vertex AI Grounding для проверки: {claim[:50]}...")
+                result = await self._verify_claim_with_vertex(claim, claim_type)
+                
+                # Кэшируем результат
+                self.fact_cache[cache_key] = result
+                return result
+            except Exception as e:
+                logger.warning(f"Ошибка проверки через Vertex AI: {e} - используем fallback")
+        
+        # Fallback: используем старые методы проверки
         if claim_type == ClaimType.STATISTICAL:
             result = await self._verify_statistical_claim(claim)
         elif claim_type == ClaimType.TEMPORAL:
@@ -340,6 +392,156 @@ class ResearchFactCheckAgent(BaseAgent):
         self.fact_cache[cache_key] = result
         
         return result
+    
+    async def _verify_claim_with_vertex(self, claim: str, claim_type: ClaimType) -> FactCheckResult:
+        """Проверяет утверждение через Vertex AI с Grounding"""
+        try:
+            # Вызываем fact_check через Vertex AI
+            response = await self.vertex_mcp.fact_check(claim=claim, context=None)
+            
+            if not response.success:
+                logger.warning(f"Vertex AI fact_check вернул ошибку: {response.error}")
+                # Возвращаем результат с низкой уверенностью
+                return FactCheckResult(
+                    claim=claim,
+                    claim_type=claim_type,
+                    status=FactCheckStatus.UNVERIFIED,
+                    confidence_score=0.0,
+                    verification_sources=[],
+                    evidence=[],
+                    recommendations=["Не удалось проверить через Vertex AI"]
+                )
+            
+            # Парсим ответ от Gemini
+            generated_text = response.data.get("generated_text", "")
+            metadata = response.metadata or {}
+            
+            # Извлекаем информацию из ответа
+            verdict = self._parse_vertex_verdict(generated_text)
+            confidence_score = self._calculate_confidence_from_vertex(verdict, metadata)
+            sources = self._extract_sources_from_vertex(generated_text, metadata)
+            evidence = self._extract_evidence_from_vertex(generated_text)
+            recommendations = self._generate_recommendations_from_vertex(verdict, generated_text)
+            
+            # Определяем статус на основе вердикта
+            status = self._map_verdict_to_status(verdict)
+            
+            logger.info(f"Vertex AI проверил утверждение: {verdict}, confidence: {confidence_score}")
+            
+            return FactCheckResult(
+                claim=claim,
+                claim_type=claim_type,
+                status=status,
+                confidence_score=confidence_score,
+                verification_sources=sources,
+                evidence=evidence,
+                recommendations=recommendations
+            )
+            
+        except Exception as e:
+            logger.error(f"Ошибка в _verify_claim_with_vertex: {e}")
+            # Возвращаем результат с ошибкой
+            return FactCheckResult(
+                claim=claim,
+                claim_type=claim_type,
+                status=FactCheckStatus.UNVERIFIED,
+                confidence_score=0.0,
+                verification_sources=[],
+                evidence=[],
+                recommendations=[f"Ошибка проверки через Vertex AI: {str(e)}"]
+            )
+    
+    def _parse_vertex_verdict(self, text: str) -> str:
+        """Парсит вердикт из ответа Vertex AI"""
+        text_lower = text.lower()
+        
+        if "правда" in text_lower and "ложь" not in text_lower:
+            return "Правда"
+        elif "ложь" in text_lower or "неверно" in text_lower or "ошибочно" in text_lower:
+            return "Ложь"
+        elif "частично" in text_lower or "частично правда" in text_lower:
+            return "Частично правда"
+        elif "невозможно проверить" in text_lower or "не удалось" in text_lower:
+            return "Невозможно проверить"
+        else:
+            return "Неопределено"
+    
+    def _calculate_confidence_from_vertex(self, verdict: str, metadata: Dict[str, Any]) -> float:
+        """Рассчитывает confidence score на основе вердикта и метаданных"""
+        base_confidence = {
+            "Правда": 0.9,
+            "Частично правда": 0.6,
+            "Ложь": 0.1,
+            "Невозможно проверить": 0.3,
+            "Неопределено": 0.5
+        }.get(verdict, 0.5)
+        
+        # Увеличиваем confidence если есть grounding sources
+        if metadata.get("grounding_sources", 0) > 0:
+            base_confidence = min(1.0, base_confidence + 0.1)
+        
+        return base_confidence
+    
+    def _extract_sources_from_vertex(self, text: str, metadata: Dict[str, Any]) -> List[str]:
+        """Извлекает источники из ответа Vertex AI"""
+        sources = []
+        
+        # Ищем секцию "ИСТОЧНИКИ" в тексте
+        if "источники:" in text.lower():
+            sources_section = text.lower().split("источники:")[-1]
+            # Извлекаем URL или названия источников
+            import re
+            urls = re.findall(r'https?://[^\s]+', sources_section)
+            sources.extend(urls)
+        
+        # Добавляем информацию о grounding sources из метаданных
+        if metadata.get("grounding_sources", 0) > 0:
+            sources.append(f"Google Search Grounding ({metadata['grounding_sources']} источников)")
+        
+        return sources if sources else ["Google Search Grounding"]
+    
+    def _extract_evidence_from_vertex(self, text: str) -> List[str]:
+        """Извлекает доказательства из ответа Vertex AI"""
+        evidence = []
+        
+        # Ищем секцию "ОБЪЯСНЕНИЕ" в тексте
+        if "объяснение:" in text.lower():
+            explanation_section = text.lower().split("объяснение:")[-1].split("источники:")[0]
+            evidence.append(explanation_section.strip())
+        
+        # Если нет явной секции, берем весь текст как доказательство
+        if not evidence:
+            evidence.append(text[:500])  # Первые 500 символов
+        
+        return evidence
+    
+    def _generate_recommendations_from_vertex(self, verdict: str, text: str) -> List[str]:
+        """Генерирует рекомендации на основе вердикта Vertex AI"""
+        recommendations = []
+        
+        if verdict == "Правда":
+            recommendations.append("✅ Утверждение подтверждено через Google Search Grounding")
+        elif verdict == "Частично правда":
+            recommendations.append("⚠️ Утверждение частично подтверждено - рекомендуется уточнить детали")
+        elif verdict == "Ложь":
+            recommendations.append("❌ Утверждение опровергнуто - требуется исправление")
+        elif verdict == "Невозможно проверить":
+            recommendations.append("ℹ️ Не удалось проверить утверждение - рекомендуется добавить источники")
+        else:
+            recommendations.append("⚠️ Неопределенный результат проверки - рекомендуется дополнительная проверка")
+        
+        return recommendations
+    
+    def _map_verdict_to_status(self, verdict: str) -> FactCheckStatus:
+        """Маппит вердикт Vertex AI в FactCheckStatus"""
+        mapping = {
+            "Правда": FactCheckStatus.VERIFIED,
+            "Частично правда": FactCheckStatus.PARTIALLY_VERIFIED,
+            "Ложь": FactCheckStatus.FALSE,
+            "Невозможно проверить": FactCheckStatus.UNVERIFIED,
+            "Неопределено": FactCheckStatus.UNVERIFIED
+        }
+        return mapping.get(verdict, FactCheckStatus.UNVERIFIED)
     
     async def _classify_claim(self, claim: str) -> ClaimType:
         """Классифицирует тип утверждения"""

@@ -12,9 +12,12 @@ import {
   Zap,
   User,
   LogOut,
-  Bell
+  Bell,
+  Newspaper,
+  PlusCircle
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { ProjectSelector } from './ProjectSelector';
 
 const NavigationContainer = styled.nav`
   position: fixed;
@@ -266,16 +269,22 @@ const navigationItems = [
     description: 'Обзор системы и статистика'
   },
   {
-    path: '/dashboard/agents',
-    label: 'Агенты',
-    icon: Bot,
-    description: 'Управление AI агентами'
+    path: '/dashboard/create-content',
+    label: 'Создать пост',
+    icon: PlusCircle,
+    description: 'Мастер создания контента'
+  },
+  {
+    path: '/dashboard/news',
+    label: 'Новости / Источники',
+    icon: Newspaper,
+    description: 'Мониторинг новостей и источников'
   },
   {
     path: '/dashboard/content',
-    label: 'Контент',
+    label: 'Мой контент',
     icon: FileText,
-    description: 'Создание и управление контентом'
+    description: 'Архив и управление постами'
   },
   {
     path: '/dashboard/settings',
@@ -329,6 +338,9 @@ export const Navigation = () => {
             {isOpen ? <X size={20} /> : <Menu size={20} />}
           </MobileMenuButton>
         </Header>
+
+        {/* Селектор проекта */}
+        <ProjectSelector />
 
         <NavList>
           {navigationItems.map((item) => {

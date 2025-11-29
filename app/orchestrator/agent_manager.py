@@ -185,15 +185,22 @@ class AgentManager:
             logger.warning(f"Нет доступных агентов для задачи {task.id}")
             return None
         
-        # Выбираем лучшего агента
-        best_agent = available_agents[0]
+        # Фильтруем агентов которые могут обработать эту конкретную задачу
+        capable_agents = [agent for agent in available_agents if agent.can_handle_task(task)]
+        
+        if not capable_agents:
+            logger.warning(f"Нет агентов способных обработать задачу {task.id} ({task.name})")
+            return None
+        
+        # Выбираем лучшего агента из способных
+        best_agent = capable_agents[0]
         
         # Назначаем задачу
         if best_agent.assign_task(task.id):
             self.task_assignments[task.id] = best_agent.agent_id
             self.workflow_engine.assign_task(task.id, best_agent.agent_id)
             
-            logger.info(f"Задача {task.id} назначена агенту {best_agent.name}")
+            logger.info(f"Задача {task.id} ({task.name}) назначена агенту {best_agent.name}")
             return best_agent.agent_id
         
         return None
@@ -330,3 +337,44 @@ class AgentManager:
             logger.info(f"Автоматически назначено {assigned_count} задач")
         
         return assigned_count
+    
+    def restart_all_agents(self) -> Dict[str, Any]:
+        """Перезапускает все агенты (сбрасывает ошибки и освобождает задачи)"""
+        logger.info("🔄 Запуск перезагрузки всех агентов...")
+        
+        restarted_count = 0
+        error_count = 0
+        freed_tasks = []
+        
+        for agent_id, agent in self.agents.items():
+            try:
+                # Сбрасываем статус ошибки
+                if agent.status == AgentStatus.ERROR:
+                    agent.reset_error_status()
+                    restarted_count += 1
+                    logger.info(f"✅ Агент {agent.name} восстановлен из ERROR статуса")
+                
+                # Освобождаем зависшие задачи (опционально - можно раскомментировать при необходимости)
+                # if agent.current_tasks:
+                #     for task_id in agent.current_tasks.copy():
+                #         freed_tasks.append(task_id)
+                #         agent.current_tasks.remove(task_id)
+                #     agent.status = AgentStatus.IDLE
+                #     logger.info(f"🔓 Агент {agent.name} освободил задачи: {freed_tasks}")
+                
+            except Exception as e:
+                error_count += 1
+                logger.error(f"❌ Ошибка при перезапуске агента {agent.name}: {e}")
+        
+        result = {
+            "success": True,
+            "message": f"Перезапущено {restarted_count} агентов",
+            "restarted_agents": restarted_count,
+            "total_agents": len(self.agents),
+            "errors": error_count,
+            "freed_tasks": len(freed_tasks),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        logger.info(f"✅ Перезапуск завершен: {result}")
+        return result

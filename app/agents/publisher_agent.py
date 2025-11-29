@@ -23,7 +23,9 @@ logger = logging.getLogger(__name__)
 class PublicationResult:
     """Результат публикации"""
     success: bool
+    platform: Optional[str] = None
     platform_post_id: Optional[str] = None
+    post_url: Optional[str] = None
     published_at: Optional[datetime] = None
     error_message: Optional[str] = None
     metrics: Optional[Dict[str, Any]] = None
@@ -48,7 +50,7 @@ class PublisherAgent(BaseAgent):
             task_types=[TaskType.PLANNED, TaskType.REAL_TIME],
             max_concurrent_tasks=3,
             specializations=["publishing", "social_media", "analytics", "scheduling"],
-            performance_score=1.0
+            performance_score=10.0  # Высокий приоритет для задач публикации
         )
         super().__init__(agent_id, "Publisher Agent", capability)
         
@@ -114,6 +116,21 @@ class PublisherAgent(BaseAgent):
             logger.error(f"Ошибка инициализации MCP интеграций: {e}")
             self.telegram_mcp = None
     
+    def can_handle_task(self, task: Task) -> bool:
+        """
+        Проверяет, может ли PublisherAgent выполнить задачу
+        Обрабатывает только задачи публикации (с 'Publish' в названии)
+        """
+        # Сначала проверяем базовые условия
+        if not super().can_handle_task(task):
+            return False
+        
+        # PublisherAgent обрабатывает только задачи публикации
+        if "Publish" in task.name or "publish" in task.name.lower():
+            return True
+        
+        return False
+    
     async def execute_task(self, task: Task) -> Dict[str, Any]:
         """Выполняет задачу публикации контента"""
         try:
@@ -123,7 +140,29 @@ class PublisherAgent(BaseAgent):
             content_data = task.context.get("content", {})
             platform = task.context.get("platform", "telegram")
             schedule_time = task.context.get("schedule_time")
-            test_mode = task.context.get("test_mode", True)
+            # ВАЖНО: по умолчанию False, чтобы публиковать реально если не указано иное
+            test_mode = task.context.get("test_mode", False)
+            user_id = task.context.get("user_id")  # ID пользователя для мультипользовательского режима
+            account_id = task.context.get("account_id")  # ID конкретного аккаунта (telegram_channel_id, instagram_account_id, twitter_account_id)
+            
+            logger.info(f"PublisherAgent: test_mode={test_mode}, user_id={user_id}, account_id={account_id}, platform={platform}")
+            logger.info(f"PublisherAgent: content_data keys={list(content_data.keys())}")
+            
+            # Проверяем наличие контента
+            if not content_data or not content_data.get("text"):
+                logger.error(f"PublisherAgent: контент пуст или отсутствует text в content_data")
+                return {
+                    "task_id": task.id,
+                    "agent_id": self.agent_id,
+                    "publication": {
+                        "success": False,
+                        "platform_post_id": None,
+                        "published_at": None,
+                        "error_message": "Контент пуст или отсутствует текст"
+                    },
+                    "status": "failed",
+                    "timestamp": datetime.now().isoformat()
+                }
             
             # Создаем контент-пис
             content_piece = ContentPiece(
@@ -131,17 +170,22 @@ class PublisherAgent(BaseAgent):
                 title=content_data.get("title", ""),
                 text=content_data.get("text", ""),
                 hashtags=content_data.get("hashtags", []),
+                media_urls=content_data.get("media_urls", []),
                 call_to_action=content_data.get("call_to_action", ""),
                 platform=Platform(platform),
                 status=ContentStatus.DRAFT,
                 created_by_agent=self.agent_id
             )
             
+            logger.info(f"PublisherAgent: публикация контента (test_mode={test_mode}): {content_piece.text[:100]}...")
+            
             # Публикуем контент
             if test_mode:
+                logger.info("PublisherAgent: режим тестирования - только валидация")
                 result = await self._publish_test_content(content_piece, platform)
             else:
-                result = await self._publish_content(content_piece, platform, schedule_time)
+                logger.info("PublisherAgent: реальная публикация")
+                result = await self._publish_content(content_piece, platform, schedule_time, user_id, account_id)
             
             # Создаем расписание публикации
             schedule = await self._create_publication_schedule(
@@ -185,30 +229,44 @@ class PublisherAgent(BaseAgent):
             raise
     
     async def _publish_test_content(self, content: ContentPiece, platform: str) -> PublicationResult:
-        """Публикует тестовый контент (без реальной публикации)"""
-        logger.info(f"Тестовая публикация в {platform}")
+        """Подготавливает контент к публикации (форматирование и валидация)"""
+        logger.info(f"Подготовка контента для {platform}")
         
-        # Имитируем задержку публикации
-        await asyncio.sleep(0.5)
+        # Форматируем контент под платформу
+        formatted_content = await self._format_content_for_platform(content, platform)
         
-        # Генерируем тестовый ID поста
+        # Валидируем финальный контент
+        validation = await self._validate_formatted_content(formatted_content, platform)
+        
+        # Генерируем превью для пользователя
+        preview = await self._generate_content_preview(formatted_content, platform)
+        
+        # Рассчитываем оптимальное время публикации
+        optimal_time = await self._calculate_optimal_publish_time(platform, content)
+        
+        # Генерируем тестовый ID (для истории)
         import random
-        test_post_id = f"test_{platform}_{random.randint(1000, 9999)}"
+        test_post_id = f"ready_{platform}_{random.randint(10000, 99999)}"
         
         return PublicationResult(
             success=True,
             platform_post_id=test_post_id,
-            published_at=datetime.now(),
+            published_at=None,  # Не опубликовано, готово к публикации
             metrics={
-                "views": random.randint(100, 1000),
-                "likes": random.randint(10, 100),
-                "shares": random.randint(5, 50),
-                "comments": random.randint(0, 20)
+                "status": "ready_to_publish",
+                "formatted_content": formatted_content,
+                "preview": preview,
+                "optimal_publish_time": optimal_time.isoformat(),
+                "validation": validation,
+                "estimated_reach": random.randint(500, 5000),
+                "estimated_engagement_rate": round(random.uniform(0.05, 0.20), 2)
             }
         )
     
     async def _publish_content(self, content: ContentPiece, platform: str, 
-                             schedule_time: Optional[datetime] = None) -> PublicationResult:
+                             schedule_time: Optional[datetime] = None,
+                             user_id: Optional[int] = None,
+                             account_id: Optional[int] = None) -> PublicationResult:
         """Публикует контент в реальную платформу"""
         try:
             platform_config = self.platform_configs.get(platform)
@@ -235,13 +293,13 @@ class PublisherAgent(BaseAgent):
             
             # Публикуем в зависимости от платформы
             if platform == "telegram":
-                return await self._publish_to_telegram(content, schedule_time)
+                return await self._publish_to_telegram(content, schedule_time, user_id, account_id)
             elif platform == "vk":
                 return await self._publish_to_vk(content, schedule_time)
             elif platform == "instagram":
-                return await self._publish_to_instagram(content, schedule_time)
+                return await self._publish_to_instagram(content, schedule_time, user_id, account_id)
             elif platform == "twitter":
-                return await self._publish_to_twitter(content, schedule_time)
+                return await self._publish_to_twitter(content, schedule_time, user_id, account_id)
             else:
                 return PublicationResult(
                     success=False,
@@ -281,9 +339,26 @@ class PublisherAgent(BaseAgent):
         return {"valid": True}
     
     async def _publish_to_telegram(self, content: ContentPiece, 
-                                 schedule_time: Optional[datetime] = None) -> PublicationResult:
-        """Публикует в Telegram через TelegramMCP"""
+                                 schedule_time: Optional[datetime] = None,
+                                 user_id: Optional[int] = None,
+                                 channel_id: Optional[int] = None) -> PublicationResult:
+        """
+        Публикует в Telegram через TelegramMCP
+        
+        Args:
+            content: Контент для публикации
+            schedule_time: Время публикации (опционально)
+            user_id: ID пользователя (для многопользовательского режима)
+            channel_id: ID конкретного канала или None для дефолтного
+        """
         try:
+            # Если указан user_id - используем канал пользователя
+            if user_id:
+                return await self._publish_to_telegram_user_channel(
+                    content, user_id, channel_id, schedule_time
+                )
+            
+            # Иначе используем старую логику (глобальный бот)
             # Проверяем доступность TelegramMCP
             if self.telegram_mcp is None:
                 logger.warning("TelegramMCP недоступен, используем fallback")
@@ -330,6 +405,127 @@ class PublisherAgent(BaseAgent):
             logger.error(f"Критическая ошибка публикации в Telegram: {e}")
             # Fallback на мок данные при критической ошибке
             return await self._publish_to_telegram_fallback(content, schedule_time)
+    
+    async def _publish_to_telegram_user_channel(self, content: ContentPiece,
+                                                user_id: int,
+                                                channel_id: Optional[int] = None,
+                                                schedule_time: Optional[datetime] = None) -> PublicationResult:
+        """
+        Публикует в Telegram канал конкретного пользователя
+        Архитектура: ОДИН БОТ - МНОГО КАНАЛОВ
+        
+        Args:
+            content: Контент для публикации
+            user_id: ID пользователя
+            channel_id: ID конкретного канала или None для дефолтного
+            schedule_time: Время публикации
+        """
+        try:
+            from app.services.telegram_channel_service import TelegramChannelService
+            from app.models.telegram_channels import TelegramChannel
+            from app.database.connection import get_db_session
+            
+            # Получаем сессию БД
+            db = get_db_session()
+            service = TelegramChannelService(db)
+            
+            # Получаем канал пользователя
+            if channel_id:
+                channel = db.query(TelegramChannel).filter(
+                    TelegramChannel.id == channel_id,
+                    TelegramChannel.user_id == user_id,
+                    TelegramChannel.is_active == True
+                ).first()
+            else:
+                # Используем дефолтный канал
+                channel = service.get_default_channel(user_id)
+            
+            if not channel:
+                logger.error(f"Telegram канал не найден для user_id={user_id}, channel_id={channel_id}")
+                return PublicationResult(
+                    success=False,
+                    error_message="Telegram канал не подключен. Добавьте канал в настройках."
+                )
+            
+            if not channel.is_verified:
+                logger.warning(f"Попытка публикации в неверифицированный канал {channel.id}")
+                return PublicationResult(
+                    success=False,
+                    error_message=f"Канал '{channel.channel_name}' не верифицирован. Добавьте бота @content4ubot в администраторы канала."
+                )
+            
+            # Формируем сообщение
+            message_text = self._format_telegram_message(content)
+            
+            logger.info(f"Публикация в канал '{channel.channel_name}' (user_id={user_id}, chat_id={channel.chat_id})")
+            
+            # Проверяем наличие изображения
+            has_image = content.media_urls and len(content.media_urls) > 0
+            
+            # Отправляем через TelegramChannelService (прямо через Bot API)
+            if has_image:
+                image_url = content.media_urls[0]
+                logger.info(f"Отправка фото в канал '{channel.channel_name}': {image_url}")
+                result = await service.send_photo(
+                    chat_id=channel.chat_id,
+                    photo_url=image_url,
+                    caption=message_text,
+                    parse_mode="HTML"
+                )
+            else:
+                result = await service.send_message(
+                    chat_id=channel.chat_id,
+                    text=message_text,
+                    parse_mode="HTML",
+                    disable_web_page_preview=False
+                )
+            
+            if result["success"]:
+                message_data = result["data"]
+                message_id = message_data.get('message_id')
+                
+                # Обновляем статистику канала
+                service.update_channel_stats(channel.id, post_success=True)
+                
+                # Формируем URL поста если возможно
+                post_url = None
+                if channel.channel_username:
+                    post_url = f"https://t.me/{channel.channel_username.lstrip('@')}/{message_id}"
+                
+                logger.info(f"✅ Успешно опубликовано в канал '{channel.channel_name}', message_id={message_id}")
+                
+                return PublicationResult(
+                    success=True,
+                    platform="telegram",
+                    platform_post_id=str(message_id),
+                    post_url=post_url,
+                    published_at=datetime.now(),
+                    metrics={
+                        "message_id": message_id,
+                        "channel_id": channel.id,
+                        "channel_name": channel.channel_name,
+                        "chat_id": channel.chat_id,
+                        "sent_via": "telegram_bot_api"
+                    }
+                )
+            else:
+                error_msg = result["error"] or "Неизвестная ошибка Telegram API"
+                logger.error(f"❌ Ошибка публикации в канал '{channel.channel_name}': {error_msg}")
+                
+                # Сохраняем ошибку в канале
+                service.update_channel_stats(channel.id, post_success=False, error_message=error_msg)
+                
+                return PublicationResult(
+                    success=False,
+                    error_message=f"Ошибка публикации: {error_msg}"
+                )
+            
+        except Exception as e:
+            logger.error(f"Критическая ошибка публикации в пользовательский канал: {e}", exc_info=True)
+            return PublicationResult(
+                success=False,
+                error_message=f"Внутренняя ошибка: {str(e)}"
+            )
     
     async def _publish_to_telegram_fallback(self, content: ContentPiece, 
                                           schedule_time: Optional[datetime] = None) -> PublicationResult:
@@ -414,15 +610,103 @@ class PublisherAgent(BaseAgent):
             )
     
     async def _publish_to_instagram(self, content: ContentPiece, 
-                                  schedule_time: Optional[datetime] = None) -> PublicationResult:
-        """Публикует в Instagram"""
+                                  schedule_time: Optional[datetime] = None,
+                                  user_id: Optional[int] = None,
+                                  account_id: Optional[int] = None) -> PublicationResult:
+        """Публикует в Instagram через подключенный аккаунт пользователя"""
+        
+        # Если user_id не указан - используем старую имитацию
+        if not user_id:
+            logger.warning("Instagram публикация без user_id - имитация")
+            return await self._publish_to_instagram_fallback(content, schedule_time)
+        
         try:
-            logger.info("Публикация в Instagram (имитация)")
+            from app.database.connection import get_db_session
+            from app.services.instagram_account_service import InstagramAccountService
             
-            await asyncio.sleep(1.5)  # Instagram медленнее
+            logger.info(f"Публикация в Instagram для user_id={user_id}, account_id={account_id}")
+            
+            # Получаем сессию БД
+            db = next(get_db_session())
+            service = InstagramAccountService(db)
+            
+            # Получаем аккаунт
+            if account_id:
+                account = service.get_account_by_id(user_id, account_id)
+                if not account:
+                    return PublicationResult(
+                        success=False,
+                        error_message="Instagram аккаунт не найден"
+                    )
+            else:
+                # Используем дефолтный аккаунт
+                account = service.get_default_account(user_id)
+                if not account:
+                    return PublicationResult(
+                        success=False,
+                        error_message="У пользователя нет дефолтного Instagram аккаунта"
+                    )
+            
+            # Проверяем активность
+            if not account.is_active:
+                return PublicationResult(
+                    success=False,
+                    error_message="Instagram аккаунт деактивирован"
+                )
+            
+            # Формируем текст с хэштегами
+            text = content.text
+            hashtags = content.hashtags or []
+            
+            # Проверяем наличие изображения
+            if not content.images or len(content.images) == 0:
+                return PublicationResult(
+                    success=False,
+                    error_message="Instagram требует как минимум одно изображение"
+                )
+            
+            # Берем первое изображение
+            photo_path = content.images[0]
+            
+            # Публикуем
+            success, message = await service.publish_photo(
+                account_id=account.id,
+                photo_path=photo_path,
+                caption=text,
+                hashtags=hashtags
+            )
+            
+            if success:
+                logger.info(f"✅ Instagram публикация успешна: {message}")
+                return PublicationResult(
+                    success=True,
+                    platform_post_id=message,  # message содержит media_id
+                    published_at=datetime.now()
+                )
+            else:
+                logger.error(f"❌ Instagram публикация не удалась: {message}")
+                return PublicationResult(
+                    success=False,
+                    error_message=message
+                )
+            
+        except Exception as e:
+            logger.error(f"Критическая ошибка публикации в Instagram: {e}")
+            return PublicationResult(
+                success=False,
+                error_message=f"Ошибка публикации в Instagram: {str(e)}"
+            )
+    
+    async def _publish_to_instagram_fallback(self, content: ContentPiece, 
+                                           schedule_time: Optional[datetime] = None) -> PublicationResult:
+        """Имитация публикации в Instagram (для обратной совместимости)"""
+        try:
+            logger.info("Публикация в Instagram (имитация - FALLBACK)")
+            
+            await asyncio.sleep(1.5)
             
             import random
-            post_id = f"ig_{random.randint(10000, 99999)}"
+            post_id = f"ig_mock_{random.randint(10000, 99999)}"
             
             return PublicationResult(
                 success=True,
@@ -439,19 +723,105 @@ class PublisherAgent(BaseAgent):
         except Exception as e:
             return PublicationResult(
                 success=False,
-                error_message=f"Ошибка публикации в Instagram: {e}"
+                error_message=f"Ошибка имитации Instagram: {e}"
             )
     
     async def _publish_to_twitter(self, content: ContentPiece, 
-                                schedule_time: Optional[datetime] = None) -> PublicationResult:
-        """Публикует в Twitter"""
+                                schedule_time: Optional[datetime] = None,
+                                user_id: Optional[int] = None,
+                                account_id: Optional[int] = None) -> PublicationResult:
+        """Публикует в Twitter через подключенный аккаунт пользователя"""
+        
+        # Если user_id не указан - используем старую имитацию
+        if not user_id:
+            logger.warning("Twitter публикация без user_id - имитация")
+            return await self._publish_to_twitter_fallback(content, schedule_time)
+        
         try:
-            logger.info("Публикация в Twitter (имитация)")
+            from app.database.connection import get_db_session
+            from app.services.twitter_account_service import TwitterAccountService
+            
+            logger.info(f"Публикация в Twitter для user_id={user_id}, account_id={account_id}")
+            
+            # Получаем сессию БД
+            db = next(get_db_session())
+            service = TwitterAccountService(db)
+            
+            # Получаем аккаунт
+            if account_id:
+                account = service.get_account_by_id(user_id, account_id)
+                if not account:
+                    return PublicationResult(
+                        success=False,
+                        error_message="Twitter аккаунт не найден"
+                    )
+            else:
+                # Используем дефолтный аккаунт
+                account = service.get_default_account(user_id)
+                if not account:
+                    return PublicationResult(
+                        success=False,
+                        error_message="У пользователя нет дефолтного Twitter аккаунта"
+                    )
+            
+            # Проверяем активность
+            if not account.is_active:
+                return PublicationResult(
+                    success=False,
+                    error_message="Twitter аккаунт деактивирован"
+                )
+            
+            # Формируем текст
+            text = content.text
+            
+            # Twitter ограничение - 280 символов
+            if len(text) > 280:
+                logger.warning(f"Текст твита слишком длинный ({len(text)} символов), обрезаем до 280")
+                text = text[:277] + "..."
+            
+            # Собираем пути к медиа (если есть)
+            media_paths = []
+            if content.images:
+                media_paths.extend(content.images[:4])  # Twitter позволяет до 4 изображений
+            
+            # Публикуем
+            success, message = await service.publish_tweet(
+                account_id=account.id,
+                text=text,
+                media_paths=media_paths if media_paths else None
+            )
+            
+            if success:
+                logger.info(f"✅ Twitter публикация успешна: {message}")
+                return PublicationResult(
+                    success=True,
+                    platform_post_id=message,  # message содержит tweet_id
+                    published_at=datetime.now()
+                )
+            else:
+                logger.error(f"❌ Twitter публикация не удалась: {message}")
+                return PublicationResult(
+                    success=False,
+                    error_message=message
+                )
+            
+        except Exception as e:
+            logger.error(f"Критическая ошибка публикации в Twitter: {e}")
+            return PublicationResult(
+                success=False,
+                error_message=f"Ошибка публикации в Twitter: {str(e)}"
+            )
+    
+    async def _publish_to_twitter_fallback(self, content: ContentPiece, 
+                                         schedule_time: Optional[datetime] = None) -> PublicationResult:
+        """Имитация публикации в Twitter (для обратной совместимости)"""
+        try:
+            logger.info("Публикация в Twitter (имитация - FALLBACK)")
             
             await asyncio.sleep(0.8)
             
             import random
-            post_id = f"tw_{random.randint(10000, 99999)}"
+            post_id = f"tw_mock_{random.randint(10000, 99999)}"
             
             return PublicationResult(
                 success=True,
@@ -468,7 +838,7 @@ class PublisherAgent(BaseAgent):
         except Exception as e:
             return PublicationResult(
                 success=False,
-                error_message=f"Ошибка публикации в Twitter: {e}"
+                error_message=f"Ошибка имитации Twitter: {e}"
             )
     
     async def _create_publication_schedule(self, content: ContentPiece, platform: str, 
@@ -616,3 +986,125 @@ class PublisherAgent(BaseAgent):
             }
         
         return stats
+    
+    async def _format_content_for_platform(self, content: ContentPiece, platform: str) -> str:
+        """Форматирует контент под конкретную платформу"""
+        platform_config = self.platform_configs.get(platform)
+        if not platform_config:
+            return content.text
+        
+        formatted_parts = []
+        
+        # Форматируем в зависимости от платформы
+        if platform == "telegram":
+            # Telegram поддерживает HTML и Markdown
+            if content.title:
+                formatted_parts.append(f"<b>{content.title}</b>\n")
+            formatted_parts.append(content.text)
+            if content.hashtags:
+                formatted_parts.append("\n" + " ".join(content.hashtags))
+            if content.call_to_action:
+                formatted_parts.append(f"\n\n{content.call_to_action}")
+            
+        elif platform == "vk":
+            # VK использует plain text
+            if content.title:
+                formatted_parts.append(f"{content.title}\n")
+            formatted_parts.append(content.text)
+            if content.hashtags:
+                formatted_parts.append("\n" + " ".join(content.hashtags))
+            if content.call_to_action:
+                formatted_parts.append(f"\n{content.call_to_action}")
+            
+        elif platform == "instagram":
+            # Instagram - короткий текст с хештегами
+            formatted_parts.append(content.text)
+            if content.hashtags:
+                formatted_parts.append("\n\n" + " ".join(content.hashtags[:30]))  # Instagram лимит
+            
+        elif platform == "twitter":
+            # Twitter - очень короткий текст
+            text = content.text[:250]  # Резервируем место для хештегов
+            formatted_parts.append(text)
+            if content.hashtags:
+                formatted_parts.append(" ".join(content.hashtags[:3]))  # Макс 3 хештега
+        
+        formatted = "".join(formatted_parts)
+        
+        # Обрезаем если превышает лимит
+        if len(formatted) > platform_config.max_text_length:
+            formatted = formatted[:platform_config.max_text_length - 3] + "..."
+        
+        return formatted
+    
+    async def _validate_formatted_content(self, formatted_content: str, platform: str) -> Dict[str, Any]:
+        """Валидирует отформатированный контент"""
+        platform_config = self.platform_configs.get(platform)
+        
+        issues = []
+        warnings = []
+        
+        # Проверка длины
+        if len(formatted_content) > platform_config.max_text_length:
+            issues.append(f"Превышена максимальная длина: {len(formatted_content)} > {platform_config.max_text_length}")
+        elif len(formatted_content) > platform_config.max_text_length * 0.9:
+            warnings.append("Контент близок к максимальной длине")
+        
+        # Проверка на пустоту
+        if not formatted_content.strip():
+            issues.append("Контент пустой после форматирования")
+        
+        # Проверка хештегов
+        hashtag_count = formatted_content.count('#')
+        if hashtag_count > 10 and platform != "instagram":
+            warnings.append(f"Слишком много хештегов: {hashtag_count}")
+        
+        # Проверка ссылок
+        if 'http' in formatted_content:
+            if platform == "instagram":
+                warnings.append("Instagram не поддерживает кликабельные ссылки в постах")
+        
+        return {
+            "valid": len(issues) == 0,
+            "issues": issues,
+            "warnings": warnings,
+            "content_length": len(formatted_content),
+            "max_length": platform_config.max_text_length,
+            "usage_percentage": round(len(formatted_content) / platform_config.max_text_length * 100, 1)
+        }
+    
+    async def _generate_content_preview(self, formatted_content: str, platform: str) -> str:
+        """Генерирует превью контента"""
+        preview_length = 100
+        if len(formatted_content) <= preview_length:
+            return formatted_content
+        
+        return formatted_content[:preview_length] + "..."
+    
+    async def _calculate_optimal_publish_time(self, platform: str, content: ContentPiece) -> datetime:
+        """Рассчитывает оптимальное время публикации"""
+        # Базовое оптимальное время для разных платформ (на основе исследований)
+        optimal_hours = {
+            "telegram": [9, 13, 18, 20],  # Утро, обед, вечер
+            "vk": [12, 18, 21],  # Обед, вечер, поздний вечер
+            "instagram": [11, 14, 19],  # Обед, после обеда, вечер
+            "twitter": [9, 12, 17]  # Утро, обед, конец рабочего дня
+        }
+        
+        platform_hours = optimal_hours.get(platform, [12, 18])
+        
+        # Находим ближайшее оптимальное время
+        now = datetime.now()
+        current_hour = now.hour
+        
+        # Ищем следующий оптимальный час
+        for hour in platform_hours:
+            if hour > current_hour:
+                optimal_time = now.replace(hour=hour, minute=0, second=0, microsecond=0)
+                return optimal_time
+        
+        # Если все часы прошли, берем первый час завтра
+        tomorrow = now + timedelta(days=1)
+        optimal_time = tomorrow.replace(hour=platform_hours[0], minute=0, second=0, microsecond=0)
+        
+        return optimal_time

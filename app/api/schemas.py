@@ -82,16 +82,25 @@ class WorkflowStatusEnum(str, Enum):
 class ContentRequestSchema(BaseModel):
     """Схема запроса на создание контента"""
     title: str = Field(..., min_length=1, max_length=200, description="Заголовок контента")
-    description: str = Field(..., min_length=10, max_length=1000, description="Описание контента")
-    target_audience: str = Field(..., min_length=1, max_length=200, description="Целевая аудитория")
+    description: str = Field(..., min_length=10, max_length=2000, description="Описание контента")
+    target_audience: str = Field(..., min_length=1, max_length=1000, description="Целевая аудитория")
     business_goals: List[str] = Field(..., min_items=1, max_items=10, description="Бизнес-цели")
-    call_to_action: str = Field(..., min_length=1, max_length=200, description="Призыв к действию")
+    call_to_action: List[str] = Field(default=[], max_items=10, description="Призывы к действию (текст, ссылки, действия)")
     tone: ToneEnum = Field(default=ToneEnum.PROFESSIONAL, description="Тон контента")
     keywords: List[str] = Field(default=[], max_items=20, description="Ключевые слова")
-    platforms: List[PlatformEnum] = Field(..., min_items=1, max_items=5, description="Платформы для публикации")
+    platforms: List[PlatformEnum] = Field(default=[], max_items=5, description="Платформы для публикации (опционально)")
     content_types: List[ContentTypeEnum] = Field(default=[ContentTypeEnum.POST], description="Типы контента")
     constraints: Dict[str, Any] = Field(default={}, description="Дополнительные ограничения")
-    test_mode: bool = Field(default=True, description="Тестовый режим (без реальной публикации)")
+    test_mode: bool = Field(default=False, description="Тестовый режим (без реальной публикации). По умолчанию False - публикация реальная")
+    channel_id: Optional[int] = Field(default=None, description="ID конкретного канала/аккаунта для публикации (если не указан - используется дефолтный)")
+    publish_immediately: bool = Field(default=True, description="Публиковать контент сразу после создания. Если False - контент создается, но не публикуется (для отложенной публикации)")
+    project_id: Optional[int] = Field(default=None, description="ID проекта. Если указан - применяются настройки проекта (tone, target_audience) и публикация идёт в каналы проекта")
+    
+    # Медиа и документы
+    uploaded_files: List[str] = Field(default=[], max_items=10, description="IDs загруженных файлов для использования в контенте")
+    reference_urls: List[str] = Field(default=[], max_items=5, description="URLs референсных материалов")
+    generate_image: bool = Field(default=False, description="Добавить изображение к посту")
+    image_source: Optional[str] = Field(default=None, description="Источник изображения: 'stock' (стоковые из Unsplash) или 'ai' (генерировать через ИИ)")
     
     @validator('keywords')
     def validate_keywords(cls, v):
@@ -353,7 +362,12 @@ class ExampleData:
             "образование аудитории о возможностях AI",
             "установление экспертного авторитета"
         ],
-        "call_to_action": "Подписывайтесь на наш канал для получения экспертных инсайтов",
+        "call_to_action": [
+            "Подписывайтесь на наш Telegram канал",
+            "https://t.me/ai_business_channel",
+            "Переходите на сайт за полной статьей",
+            "https://example.com/ai-revolution?utm_source=post"
+        ],
         "tone": "professional",
         "keywords": ["AI", "искусственный интеллект", "бизнес", "инновации"],
         "platforms": ["telegram", "vk", "twitter"],
@@ -399,3 +413,114 @@ class ExampleData:
             "issue": "Поле обязательно для заполнения"
         }
     }
+
+
+# ==================== SCHEDULED POSTS SCHEMAS ====================
+
+class ScheduledPostCreateSchema(BaseModel):
+    """Схема создания запланированного поста"""
+    content_id: str = Field(..., description="ID готового контента")
+    platform: PlatformEnum = Field(..., description="Платформа для публикации")
+    account_id: Optional[int] = Field(None, description="ID аккаунта (если не указан - используется дефолтный)")
+    scheduled_time: str = Field(..., description="Время публикации (ISO 8601)")
+    publish_options: Optional[Dict[str, Any]] = Field(default={}, description="Дополнительные опции публикации")
+
+
+class ScheduledPostUpdateSchema(BaseModel):
+    """Схема обновления запланированного поста"""
+    scheduled_time: Optional[str] = Field(None, description="Новое время публикации")
+    status: Optional[str] = Field(None, description="Статус: scheduled, cancelled")
+    publish_options: Optional[Dict[str, Any]] = Field(None, description="Опции публикации")
+
+
+class ScheduledPostResponseSchema(BaseModel):
+    """Схема ответа запланированного поста"""
+    id: int
+    content_id: str
+    platform: str
+    account_id: Optional[int]
+    scheduled_time: str
+    published_at: Optional[str]
+    status: str
+    platform_post_id: Optional[str]
+    error_message: Optional[str]
+    publish_options: Dict[str, Any]
+    created_at: str
+    updated_at: str
+
+
+# ==================== AUTO POSTING RULES SCHEMAS ====================
+
+class ScheduleConfigSchema(BaseModel):
+    """Схема конфигурации расписания"""
+    # Для daily
+    times: Optional[List[str]] = Field(None, description="Времена публикации: ['09:00', '18:00']")
+    days_of_week: Optional[List[int]] = Field(None, description="Дни недели: [1,2,3,4,5] (1=Пн, 7=Вс)")
+    
+    # Для weekly
+    day_of_week: Optional[int] = Field(None, description="День недели: 1-7")
+    time: Optional[str] = Field(None, description="Время: '10:00'")
+    
+    # Для cron
+    cron_expression: Optional[str] = Field(None, description="Cron выражение: '0 9 * * 1-5'")
+    
+    # Для custom
+    dates: Optional[List[str]] = Field(None, description="Конкретные даты: ['2025-01-15T10:00', '2025-01-20T15:00']")
+
+
+class AutoPostingRuleCreateSchema(BaseModel):
+    """Схема создания правила автопостинга"""
+    name: str = Field(..., min_length=1, max_length=255, description="Название правила")
+    description: Optional[str] = Field(None, description="Описание")
+    schedule_type: str = Field(..., description="Тип расписания: daily, weekly, custom, cron")
+    schedule_config: ScheduleConfigSchema = Field(..., description="Конфигурация расписания")
+    
+    # Параметры создания контента
+    content_config: Dict[str, Any] = Field(..., description="Параметры для создания контента")
+    
+    platforms: List[PlatformEnum] = Field(..., min_items=1, description="Платформы для публикации")
+    accounts: Optional[Dict[str, List[int]]] = Field(None, description="ID аккаунтов: {'telegram': [1, 2], 'instagram': [3]}")
+    content_types: Optional[List[ContentTypeEnum]] = Field(None, description="Типы контента")
+    
+    max_posts_per_day: Optional[int] = Field(None, ge=1, description="Максимум постов в день")
+    max_posts_per_week: Optional[int] = Field(None, ge=1, description="Максимум постов в неделю")
+
+
+class AutoPostingRuleUpdateSchema(BaseModel):
+    """Схема обновления правила автопостинга"""
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    description: Optional[str] = None
+    schedule_type: Optional[str] = None
+    schedule_config: Optional[ScheduleConfigSchema] = None
+    content_config: Optional[Dict[str, Any]] = None
+    platforms: Optional[List[PlatformEnum]] = None
+    accounts: Optional[Dict[str, List[int]]] = None
+    content_types: Optional[List[ContentTypeEnum]] = None
+    is_active: Optional[bool] = None
+    is_paused: Optional[bool] = None
+    max_posts_per_day: Optional[int] = Field(None, ge=1)
+    max_posts_per_week: Optional[int] = Field(None, ge=1)
+
+
+class AutoPostingRuleResponseSchema(BaseModel):
+    """Схема ответа правила автопостинга"""
+    id: int
+    name: str
+    description: Optional[str]
+    schedule_type: str
+    schedule_config: Dict[str, Any]
+    content_config: Dict[str, Any]
+    platforms: List[str]
+    accounts: Dict[str, List[int]]
+    content_types: List[str]
+    is_active: bool
+    is_paused: bool
+    max_posts_per_day: Optional[int]
+    max_posts_per_week: Optional[int]
+    total_executions: int
+    successful_executions: int
+    failed_executions: int
+    last_execution_at: Optional[str]
+    next_execution_at: Optional[str]
+    created_at: str
+    updated_at: str

@@ -7,12 +7,10 @@ from enum import Enum
 from typing import Optional
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, Enum as SQLEnum
 from sqlalchemy.orm import relationship
-from sqlalchemy.ext.declarative import declarative_base
+from app.database.connection import Base
 from werkzeug.security import generate_password_hash, check_password_hash
 import secrets
 import string
-
-Base = declarative_base()
 
 
 class UserRole(str, Enum):
@@ -77,6 +75,18 @@ class User(Base):
     subscriptions = relationship("Subscription", back_populates="user", cascade="all, delete-orphan")
     usage_records = relationship("UsageRecord", back_populates="user", cascade="all, delete-orphan")
     payments = relationship("Payment", back_populates="user", cascade="all, delete-orphan")
+    projects = relationship("Project", back_populates="user", cascade="all, delete-orphan")
+    content_pieces = relationship("ContentPieceDB", back_populates="user", cascade="all, delete-orphan")
+    token_usage_records = relationship("TokenUsageDB", back_populates="user", cascade="all, delete-orphan")
+    uploads = relationship("FileUploadDB", back_populates="user", cascade="all, delete-orphan")
+    agent_subscriptions = relationship("AgentSubscription", back_populates="user", cascade="all, delete-orphan")
+    telegram_channels = relationship("TelegramChannel", back_populates="user", cascade="all, delete-orphan")
+    instagram_accounts = relationship("InstagramAccount", back_populates="user", cascade="all, delete-orphan")
+    twitter_accounts = relationship("TwitterAccount", back_populates="user", cascade="all, delete-orphan")
+    scheduled_posts = relationship("ScheduledPostDB", back_populates="user", cascade="all, delete-orphan")
+    auto_posting_rules = relationship("AutoPostingRuleDB", back_populates="user", cascade="all, delete-orphan")
+    content_sources = relationship("ContentSource", back_populates="user", cascade="all, delete-orphan")
+    monitored_items = relationship("MonitoredItem", back_populates="user", cascade="all, delete-orphan")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -141,6 +151,78 @@ class User(Base):
             return self.last_name
         else:
             return self.username
+
+    def _get_social_media_status(self) -> list:
+        """Получить статус социальных сетей с детальной информацией"""
+        from sqlalchemy.orm import object_session
+        import logging
+        
+        logger = logging.getLogger(__name__)
+        
+        # Проверяем, есть ли активная сессия
+        session = object_session(self)
+        if not session:
+            logger.debug(f"No active session for user {self.id}, returning empty social media")
+            return []
+        
+        social_media = []
+        
+        try:
+            # Telegram channels
+            if self.telegram_channels:
+                for channel in self.telegram_channels:
+                    # Формируем ссылку на канал
+                    channel_link = None
+                    if channel.channel_username:
+                        username = channel.channel_username.lstrip('@')
+                        channel_link = f"https://t.me/{username}"
+                    
+                    social_media.append({
+                        "name": "Telegram",
+                        "isActive": channel.is_active,
+                        "metadata": {
+                            "channelLink": channel_link,
+                            "accountId": channel.id,
+                            "isDefault": channel.is_default,
+                            "chatId": channel.chat_id,
+                            "channelName": channel.channel_name,
+                            "channelUsername": channel.channel_username
+                        }
+                    })
+            
+            # Instagram accounts
+            if self.instagram_accounts:
+                for account in self.instagram_accounts:
+                    social_media.append({
+                        "name": "Instagram",
+                        "isActive": account.is_active,
+                        "metadata": {
+                            "username": account.instagram_username,
+                            "accountId": account.id,
+                            "isDefault": account.is_default,
+                            "isActive": account.is_active
+                        }
+                    })
+            
+            # Twitter accounts
+            if self.twitter_accounts:
+                for account in self.twitter_accounts:
+                    social_media.append({
+                        "name": "Twitter",
+                        "isActive": account.is_active,
+                        "metadata": {
+                            "username": account.twitter_username,
+                            "accountId": account.id,
+                            "isDefault": account.is_default,
+                            "userId": account.twitter_user_id
+                        }
+                    })
+        
+        except Exception as e:
+            logger.error(f"Error loading social media for user {self.id}: {e}", exc_info=True)
+            return []
+        
+        return social_media if social_media else []
 
     def get_display_name(self) -> str:
         """Получить отображаемое имя"""
@@ -228,7 +310,8 @@ class User(Base):
             'notifications_enabled': self.notifications_enabled,
             'marketing_emails': self.marketing_emails,
             'display_name': self.get_display_name(),
-            'full_name': self.get_full_name()
+            'full_name': self.get_full_name(),
+            'socialMedia': self._get_social_media_status()
         }
         
         if include_sensitive:

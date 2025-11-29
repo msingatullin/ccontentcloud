@@ -30,7 +30,7 @@ class OpenAIMCP(BaseMCPIntegration):
         })
         
         self.api_key = config.api_key
-        self.model = config.custom_params.get('model', 'gpt-4')
+        self.model = config.custom_params.get('model', 'gpt-5-mini')  # Обновлено на GPT-5-mini
         self.temperature = config.custom_params.get('temperature', 0.7)
         self.max_tokens = config.custom_params.get('max_tokens', 2000)
         

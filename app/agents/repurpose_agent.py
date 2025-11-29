@@ -137,6 +137,31 @@ class RepurposeAgent(BaseAgent):
         
         logger.info(f"RepurposeAgent {agent_id} инициализирован")
     
+    def can_handle_task(self, task: Task) -> bool:
+        """
+        Проверяет, может ли RepurposeAgent выполнить задачу
+        НЕ обрабатывает задачи публикации (с 'Publish' в названии) и задачи с изображениями
+        """
+        # Сначала проверяем базовые условия
+        if not super().can_handle_task(task):
+            return False
+        
+        # RepurposeAgent НЕ обрабатывает задачи публикации
+        if "Publish" in task.name or "publish" in task.name.lower():
+            return False
+        
+        # RepurposeAgent НЕ обрабатывает задачи генерации/поиска изображений
+        # Это должны делать MultimediaProducerAgent
+        image_related_keywords = ["Image", "image", "stock", "Stock", "Generate", "generate", "multimedia"]
+        if any(keyword in task.name for keyword in image_related_keywords):
+            return False  # MultimediaProducerAgent должен обрабатывать
+        
+        # Также проверяем контекст задачи
+        if task.context.get("content_type") in ["post_image", "image"] or task.context.get("image_source"):
+            return False  # MultimediaProducerAgent должен обрабатывать
+        
+        return True
+    
     def _load_adaptation_templates(self) -> Dict[ContentFormat, Dict[str, Any]]:
         """Загружает шаблоны адаптации для разных форматов"""
         return {

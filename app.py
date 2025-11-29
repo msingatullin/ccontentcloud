@@ -10,13 +10,14 @@ import logging
 from datetime import datetime
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from flask_jwt_extended import JWTManager
 from dotenv import load_dotenv
 
 # Загружаем переменные окружения
 load_dotenv()
 
 # Импортируем наши модули
-from app.orchestrator.main_orchestrator import orchestrator
+from app.orchestrator.main_orchestrator import orchestrator  # Singleton для старых эндпоинтов
 from app.agents.chief_agent import ChiefContentAgent
 from app.agents.drafting_agent import DraftingAgent
 from app.agents.publisher_agent import PublisherAgent
@@ -30,7 +31,11 @@ from app.agents.paid_creative_agent import PaidCreativeAgent
 from app.billing.api.billing_routes import billing_bp
 from app.billing.webhooks.yookassa_webhook import webhook_bp
 from app.billing.middleware.usage_middleware import UsageMiddleware
-from app.auth.routes.auth import init_auth_routes
+from app.routes.telegram_channels import bp as telegram_channels_bp
+from app.routes.instagram_accounts import bp as instagram_accounts_bp
+from app.routes.twitter_accounts import bp as twitter_accounts_bp
+from app.routes.social_media_accounts import bp as social_media_accounts_bp
+# from app.auth.routes.auth import init_auth_routes, auth_bp  # Не используем Flask Blueprint
 from app.auth.models.user import User, UserSession
 from app.database.connection import init_database, get_db_session
 from app.api.schemas import (
@@ -40,8 +45,18 @@ from app.api.schemas import (
     AgentStatusSchema,
     ErrorResponseSchema
 )
-from app.api.routes import api, auth_ns, billing_ns, webhook_ns, health_ns
+from app.api.routes import api, auth_ns, billing_ns, webhook_ns, health_ns, ai_ns
+from app.api.social_media_ns import social_media_ns
+from app.api.telegram_ns import telegram_ns
+from app.api.instagram_ns import instagram_ns
+from app.api.twitter_ns import twitter_ns
+from app.api.scheduled_posts_ns import scheduled_posts_ns
+from app.api.auto_posting_ns import auto_posting_ns
+from app.api.projects_ns import projects_ns
+from app.api.routes import content_sources_ns
 from app.api.swagger_config import create_swagger_api
+from app.workers import ScheduledPostsWorker, AutoPostingWorker
+from app.workers.web_crawler_worker import WebCrawlerWorker
 
 # Настройка логирования
 logging.basicConfig(
@@ -59,11 +74,120 @@ def create_app():
         'SECRET_KEY': os.getenv('APP_SECRET_KEY', 'dev-secret-key'),
         'DEBUG': os.getenv('DEBUG_MODE', 'False').lower() == 'true',
         'JSON_SORT_KEYS': False,
-        'JSONIFY_PRETTYPRINT_REGULAR': True
+        'JSONIFY_PRETTYPRINT_REGULAR': True,
+        # Flask-JWT-Extended конфигурация
+        'JWT_SECRET_KEY': os.getenv('JWT_SECRET_KEY', os.getenv('APP_SECRET_KEY', 'dev-secret-key')),
+        'JWT_TOKEN_LOCATION': ['headers'],
+        'JWT_HEADER_NAME': 'Authorization',
+        'JWT_HEADER_TYPE': 'Bearer',
+        'JWT_ALGORITHM': 'HS256',
+        'JWT_IDENTITY_CLAIM': 'user_id'
     })
     
+    # Инициализируем JWT Manager
+    jwt_manager = JWTManager(app)
+    
+    # Настраиваем identity loader для совместимости с нашей JWT системой
+    @jwt_manager.user_identity_loader
+    def user_identity_lookup(user):
+        """Извлекаем identity из токена"""
+        return user
+    
+    @jwt_manager.user_lookup_loader
+    def user_lookup_callback(_jwt_header, jwt_data):
+        """Загружаем пользователя по данным из токена"""
+        # Наша JWT система сохраняет user_id в payload
+        return jwt_data.get('user_id')
+    
+    # Обработчики ошибок JWT
+    @jwt_manager.unauthorized_loader
+    def unauthorized_callback(error):
+        """Обработчик отсутствия токена"""
+        return jsonify({
+            'error': 'Unauthorized',
+            'message': 'Требуется авторизация. Используйте кнопку Authorize в Swagger UI',
+            'details': str(error)
+        }), 401
+    
+    @jwt_manager.invalid_token_loader
+    def invalid_token_callback(error):
+        """Обработчик невалидного токена"""
+        return jsonify({
+            'error': 'Invalid token',
+            'message': 'Недействительный токен авторизации',
+            'details': str(error)
+        }), 401
+    
+    @jwt_manager.expired_token_loader
+    def expired_token_callback(_jwt_header, jwt_data):
+        """Обработчик истекшего токена"""
+        return jsonify({
+            'error': 'Token expired',
+            'message': 'Токен авторизации истек. Пожалуйста, войдите снова'
+        }), 401
+    
     # CORS для фронтенда
-    CORS(app, origins=['http://localhost:3000', 'http://127.0.0.1:3000', 'https://goinvesting.ai', 'https://content-curator-frontend-dt3n7kzpwq-uc.a.run.app'])
+    # Swagger UI работает на том же домене (same-origin) и не требует CORS
+    CORS(app, resources={
+        r"/*": {
+            "origins": [
+                "http://localhost:3000",
+                "http://127.0.0.1:3000",
+                "http://localhost:5173",  # для локальной разработки
+                "https://content4u.ai",
+                "https://www.content4u.ai",
+                "https://goinvesting.ai",  # старый домен для совместимости
+                "https://www.goinvesting.ai",
+                "https://content-curator-frontend-dt3n7kzpwq-uc.a.run.app",
+                "https://content-curator-frontend-1046574462613.us-central1.run.app",
+                "https://content-curator-dt3n7kzpwq-uc.a.run.app",
+                "https://content-curator-web-1046574462613.europe-west1.run.app"
+            ],
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"],
+            "supports_credentials": True,
+            "expose_headers": ["Content-Type", "Authorization"]
+        }
+    })
+    
+    # Глобальный обработчик OPTIONS запросов для CORS preflight
+    # Обрабатываем до того, как запрос попадет в Flask-RESTX или JWT middleware
+    @app.before_request
+    def handle_preflight():
+        """Обработка CORS preflight (OPTIONS) запросов"""
+        if request.method == "OPTIONS":
+            # Получаем Origin из запроса
+            origin = request.headers.get('Origin', '*')
+            
+            # Проверяем, разрешен ли этот origin
+            allowed_origins = [
+                "http://localhost:3000",
+                "http://127.0.0.1:3000",
+                "http://localhost:5173",
+                "https://content4u.ai",
+                "https://www.content4u.ai",
+                "https://goinvesting.ai",
+                "https://www.goinvesting.ai",
+                "https://content-curator-frontend-dt3n7zpq-uc.a.run.app",
+                "https://content-curator-frontend-1046574462613.us-central1.run.app",
+                "https://content-curator-dt3n7zpq-uc.a.run.app",
+                "https://content-curator-web-1046574462613.europe-west1.run.app"
+            ]
+            
+            # Используем origin из запроса, если он разрешен, иначе используем первый разрешенный
+            if origin in allowed_origins:
+                response_origin = origin
+            else:
+                # Для локальной разработки разрешаем любой origin
+                response_origin = origin if origin.startswith('http://localhost') or origin.startswith('http://127.0.0.1') else allowed_origins[0]
+            
+            response = jsonify({})
+            response.headers.add("Access-Control-Allow-Origin", response_origin)
+            response.headers.add('Access-Control-Allow-Headers', request.headers.get('Access-Control-Request-Headers', 'Content-Type, Authorization'))
+            response.headers.add('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
+            response.headers.add('Access-Control-Allow-Credentials', 'true')
+            response.headers.add('Access-Control-Max-Age', '3600')
+            return response
     
     # Инициализируем базу данных
     logger.info("Initializing database...")
@@ -74,8 +198,7 @@ def create_app():
     # Получаем сессию базы данных
     db_session = get_db_session()
     
-    # Инициализируем auth систему
-    auth_bp, jwt_middleware = init_auth_routes(db_session, app.config['SECRET_KEY'])
+    # Auth система инициализируется через Flask-RESTX endpoints
 
     # Создаем и регистрируем Flask-RESTX API с Swagger
     swagger_api = create_swagger_api(app)
@@ -84,11 +207,27 @@ def create_app():
     swagger_api.add_namespace(billing_ns)
     swagger_api.add_namespace(webhook_ns)
     swagger_api.add_namespace(health_ns)
+    swagger_api.add_namespace(social_media_ns)
+    swagger_api.add_namespace(telegram_ns)
+    swagger_api.add_namespace(instagram_ns)
+    swagger_api.add_namespace(twitter_ns)
+    swagger_api.add_namespace(scheduled_posts_ns, path='/scheduled-posts')
+    swagger_api.add_namespace(auto_posting_ns, path='/auto-posting')
+    swagger_api.add_namespace(content_sources_ns, path='/content-sources')
+    swagger_api.add_namespace(projects_ns, path='/projects')
+    swagger_api.add_namespace(ai_ns, path='/ai')
+    
+    # Регистрируем swagger_api в Flask app
+    # swagger_api уже зарегистрирован в Flask app через create_swagger_api(app)
     
     # Регистрируем остальные blueprints
     app.register_blueprint(billing_bp)
     app.register_blueprint(webhook_bp)
-    app.register_blueprint(auth_bp)
+    app.register_blueprint(telegram_channels_bp)
+    app.register_blueprint(instagram_accounts_bp)
+    app.register_blueprint(twitter_accounts_bp)
+    app.register_blueprint(social_media_accounts_bp)
+    # auth_bp не регистрируем - используем Flask-RESTX endpoints
 
     # Инициализируем billing middleware
     billing_middleware = UsageMiddleware(app)
@@ -151,12 +290,6 @@ def create_app():
 async def initialize_orchestrator():
     """Инициализирует оркестратор и регистрирует агентов"""
     try:
-        logger.info("Инициализация базы данных...")
-        
-        # Инициализируем базу данных
-        init_database()
-        logger.info("База данных инициализирована")
-        
         logger.info("Инициализация оркестратора...")
         
         # Создаем агентов
@@ -200,16 +333,78 @@ def run_initialization():
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         loop.run_until_complete(initialize_orchestrator())
+        
+        # Запускаем фоновую задачу очистки неактивных оркестраторов
+        from app.orchestrator.user_orchestrator_factory import orchestrator_cleanup_task
+        logger.info("Запуск фоновой задачи очистки оркестраторов...")
+        loop.create_task(orchestrator_cleanup_task())
+        
     except Exception as e:
         logger.error(f"Ошибка при запуске инициализации: {e}")
+
+# Feature flag для отключения агентов в тестовом режиме
+DISABLE_AGENTS = os.getenv('DISABLE_AGENTS', 'false').lower() == 'true'
+
+# Feature flag для отключения workers в тестовом режиме
+DISABLE_WORKERS = os.getenv('DISABLE_WORKERS', 'false').lower() == 'true'
+
+# Глобальные workers
+scheduled_posts_worker = None
+auto_posting_worker = None
+web_crawler_worker = None
+
+def start_workers():
+    """Запуск background workers"""
+    global scheduled_posts_worker, auto_posting_worker, web_crawler_worker
+    
+    if DISABLE_WORKERS:
+        logger.warning("⚠️ WORKERS DISABLED: Background workers отключены (DISABLE_WORKERS=true)")
+        return
+    
+    try:
+        logger.info("Запуск background workers...")
+        
+        # Scheduled Posts Worker - проверяет каждую минуту
+        scheduled_posts_worker = ScheduledPostsWorker(check_interval=60)
+        scheduled_posts_worker.start()
+        logger.info("✅ ScheduledPostsWorker запущен (интервал: 60s)")
+        
+        # Auto Posting Worker - проверяет каждые 5 минут
+        api_base_url = os.getenv('API_BASE_URL', 'http://localhost:8080')
+        auto_posting_worker = AutoPostingWorker(check_interval=300, api_base_url=api_base_url)
+        auto_posting_worker.start()
+        logger.info("✅ AutoPostingWorker запущен (интервал: 300s)")
+        
+        # Web Crawler Worker - проверяет каждую минуту
+        web_crawler_worker = WebCrawlerWorker(check_interval=60)
+        web_crawler_worker.start()
+        logger.info("✅ WebCrawlerWorker запущен (интервал: 60s)")
+        
+        logger.info("🚀 Все background workers успешно запущены")
+        
+    except Exception as e:
+        logger.error(f"❌ Ошибка запуска workers: {e}", exc_info=True)
 
 # Создаем приложение
 app = create_app()
 
 # Инициализируем оркестратор при запуске
 if __name__ == '__main__':
-    # Запускаем инициализацию
-    run_initialization()
+    # Инициализируем базу данных
+    logger.info("🔧 Initializing database...")
+    from app.database.connection import init_database
+    init_database()
+    logger.info("✅ Database initialized")
+    
+    # Запускаем инициализацию агентов (если не отключено)
+    if not DISABLE_AGENTS:
+        logger.info("Инициализация агентов включена")
+        run_initialization()
+    else:
+        logger.warning("⚠️ AGENTS DISABLED: Система работает БЕЗ агентов (DISABLE_AGENTS=true)")
+    
+    # Запускаем background workers
+    start_workers()
     
     # Запускаем Flask приложение
     port = int(os.environ.get('PORT', 8080))
@@ -219,4 +414,16 @@ if __name__ == '__main__':
     app.run(host='0.0.0.0', port=port, debug=debug)
 else:
     # Для production (gunicorn)
-    run_initialization()
+    logger.info("🔧 Initializing database (production mode)...")
+    from app.database.connection import init_database
+    init_database()
+    logger.info("✅ Database initialized")
+    
+    if not DISABLE_AGENTS:
+        logger.info("Инициализация агентов включена (production mode)")
+        run_initialization()
+    else:
+        logger.warning("⚠️ AGENTS DISABLED: Система работает БЕЗ агентов (DISABLE_AGENTS=true)")
+    
+    # Запускаем background workers
+    start_workers()

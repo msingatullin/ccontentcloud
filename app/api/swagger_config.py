@@ -6,6 +6,7 @@
 from flask_restx import Api, fields
 from typing import Dict, Any, Type
 from pydantic import BaseModel
+from flask import jsonify
 import inspect
 
 
@@ -70,6 +71,17 @@ def create_swagger_api(app) -> Api:
     Returns:
         Настроенный Api объект
     """
+    # Настройка JWT авторизации для Swagger UI (Swagger 2.0 / OpenAPI 2.0)
+    # Flask-RESTX использует Swagger 2.0, поэтому тип 'apiKey'
+    authorizations = {
+        'BearerAuth': {
+            'type': 'apiKey',
+            'in': 'header',
+            'name': 'Authorization',
+            'description': 'JWT токен. Можно вводить БЕЗ префикса Bearer (например: eyJhbG...) или с префиксом (Bearer eyJhbG...)'
+        }
+    }
+    
     api = Api(
         app,
         version='1.0.0',
@@ -86,7 +98,13 @@ def create_swagger_api(app) -> Api:
         
         ## Аутентификация:
         API использует JWT токены для аутентификации.
-        Получите токен через /auth/login endpoint.
+        
+        ### Как получить токен:
+        1. Зарегистрируйтесь через `/auth/register`
+        2. Войдите через `/auth/login` и получите `access_token`
+        3. Нажмите кнопку "Authorize" вверху страницы
+        4. Вставьте токен - можно БЕЗ слова "Bearer" (просто: eyJhbG...) или с ним (Bearer eyJhbG...)
+        5. Нажмите "Authorize" и "Close"
         
         ## Примеры использования:
         Смотрите разделы ниже для примеров запросов и ответов.
@@ -97,15 +115,14 @@ def create_swagger_api(app) -> Api:
         contact_url='https://content-orchestrator.ai/support',
         license='MIT',
         license_url='https://opensource.org/licenses/MIT',
+        authorizations=authorizations,
+        security='BearerAuth',
         tags=[
-            {'name': 'content', 'description': 'Создание и управление контентом'},
-            {'name': 'workflow', 'description': 'Управление workflow и задачами'},
-            {'name': 'agents', 'description': 'Мониторинг и управление агентами'},
-            {'name': 'system', 'description': 'Системные endpoints и мониторинг'},
-            {'name': 'platforms', 'description': 'Управление платформами публикации'},
-            {'name': 'trends', 'description': 'Анализ трендов и вирусного контента'},
             {'name': 'auth', 'description': 'Аутентификация и авторизация'},
-            {'name': 'billing', 'description': 'Биллинг и подписки'}
+            {'name': 'billing', 'description': 'Биллинг и подписки'},
+            {'name': 'webhook', 'description': 'Webhooks'},
+            {'name': 'health', 'description': 'Health Check'},
+            {'name': 'social-media', 'description': 'Управление социальными сетями (Telegram, Instagram, Twitter)'}
         ]
     )
     

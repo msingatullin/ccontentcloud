@@ -245,6 +245,26 @@ class MultimediaProducerAgent(BaseAgent):
         except Exception as e:
             logger.error(f"Ошибка инициализации MCP интеграций: {e}")
     
+    def can_handle_task(self, task: Task) -> bool:
+        """Проверяет, может ли агент выполнить задачу"""
+        if not super().can_handle_task(task):
+            return False
+        
+        # Проверяем, что задача связана с изображениями
+        task_name = task.name if hasattr(task, 'name') else ""
+        task_context = task.context if hasattr(task, 'context') else {}
+        
+        # MultimediaProducerAgent обрабатывает задачи генерации и поиска изображений
+        image_related_keywords = ["Image", "image", "stock", "Stock", "Generate", "generate", "multimedia"]
+        if any(keyword in task_name for keyword in image_related_keywords):
+            return True
+        
+        # Также проверяем контекст задачи
+        if task_context.get("content_type") in ["post_image", "image"] or task_context.get("image_source"):
+            return True
+        
+        return False
+    
     async def execute_task(self, task: Task) -> Dict[str, Any]:
         """Выполняет задачу по созданию визуального контента"""
         try:
@@ -252,18 +272,33 @@ class MultimediaProducerAgent(BaseAgent):
             self.last_activity = datetime.now()
             
             task_data = task.context
-            content_type = ContentType(task_data.get("content_type", "image"))
+            task_name = task.name if hasattr(task, 'name') else ""
+            image_source = task_data.get("image_source", "ai")
             
-            if content_type == ContentType.IMAGE:
-                result = await self._generate_image(task_data)
-            elif content_type == ContentType.INFOGRAPHIC:
-                result = await self._create_infographic(task_data)
-            elif content_type == ContentType.CAROUSEL_POST:
-                result = await self._create_carousel_post(task_data)
-            elif content_type == ContentType.VIDEO_COVER:
-                result = await self._create_video_cover(task_data)
+            # Проверяем тип задачи
+            if "Find Stock Image" in task_name or image_source == "stock":
+                # Поиск стокового изображения
+                result = await self._find_stock_image(task_data)
+            elif "Generate Image" in task_name or image_source == "ai":
+                # Генерация через ИИ
+                content_type = ContentType(task_data.get("content_type", "image"))
+                if content_type == ContentType.IMAGE:
+                    result = await self._generate_image(task_data)
+                elif content_type == ContentType.INFOGRAPHIC:
+                    result = await self._create_infographic(task_data)
+                elif content_type == ContentType.CAROUSEL_POST:
+                    result = await self._create_carousel_post(task_data)
+                elif content_type == ContentType.VIDEO_COVER:
+                    result = await self._create_video_cover(task_data)
+                else:
+                    raise ValueError(f"Неподдерживаемый тип контента: {content_type}")
             else:
-                raise ValueError(f"Неподдерживаемый тип контента: {content_type}")
+                # Дефолтное поведение - генерация через ИИ
+                content_type = ContentType(task_data.get("content_type", "image"))
+                if content_type == ContentType.IMAGE:
+                    result = await self._generate_image(task_data)
+                else:
+                    raise ValueError(f"Неподдерживаемый тип задачи: {task_name}")
             
             self.status = AgentStatus.IDLE
             return {
@@ -657,6 +692,68 @@ class MultimediaProducerAgent(BaseAgent):
     async def search_stock_images(self, query: str, count: int = 10) -> List[Dict[str, Any]]:
         """Ищет стоковые изображения"""
         return await self.mcp_manager.search_stock_images(query, count)
+    
+    async def _find_stock_image(self, task_data: Dict[str, Any]) -> GeneratedImage:
+        """Находит и загружает стоковое изображение для поста"""
+        import uuid
+        import aiofiles
+        from urllib.parse import urlparse
+        
+        search_query = task_data.get("search_query", task_data.get("prompt", ""))
+        brief_id = task_data.get("brief_id", "")
+        user_id = task_data.get("user_id")
+        image_format = ImageFormat(task_data.get("image_format", "square"))
+        
+        logger.info(f"Поиск стокового изображения для запроса: {search_query}")
+        
+        # Ищем изображения через Unsplash
+        stock_images = await self.search_stock_images(search_query, count=5)
+        
+        if not stock_images:
+            logger.warning(f"Стоковые изображения не найдены для запроса: {search_query}")
+            raise Exception(f"Не удалось найти стоковое изображение для запроса: {search_query}")
+        
+        # Берем первое подходящее изображение
+        selected_image = stock_images[0]
+        image_url = selected_image.get("urls", {}).get("regular") or selected_image.get("url", "")
+        
+        if not image_url:
+            logger.error(f"URL изображения не найден в ответе Unsplash: {selected_image}")
+            raise Exception("URL изображения не найден")
+        
+        # Загружаем изображение
+        async with aiohttp.ClientSession() as session:
+            async with session.get(image_url) as response:
+                if response.status != 200:
+                    raise Exception(f"Ошибка загрузки изображения: {response.status}")
+                image_data = await response.read()
+        
+        # Сохраняем изображение
+        image_id = str(uuid.uuid4())
+        cache_key = f"stock_{brief_id}_{hash(search_query)}"
+        image_path = await self._save_generated_image(image_data, cache_key, ImageFormat.SQUARE)
+        
+        # Получаем размеры изображения
+        with Image.open(image_path) as img:
+            dimensions = img.size
+        
+        generated_image = GeneratedImage(
+            image_id=image_id,
+            image_path=str(image_path),
+            image_url=image_url,
+            format=image_format,
+            content_type=ContentType.IMAGE,
+            prompt=search_query,
+            generation_time=0.0,  # Поиск быстрый
+            file_size=len(image_data),
+            dimensions=dimensions
+        )
+        
+        # Кэшируем результат
+        await self._cache_image(cache_key, generated_image)
+        
+        logger.info(f"✅ Стоковое изображение найдено и сохранено: {image_path}")
+        return generated_image
     
     async def create_image_batch(
         self, 

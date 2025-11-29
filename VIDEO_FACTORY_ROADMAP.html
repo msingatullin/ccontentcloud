@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Video Factory Roadmap</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    span.underline{text-decoration: underline;}
+    div.column{display: inline-block; vertical-align: top; width: 50%;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    ul.task-list{list-style: none;}
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5.2.0/github-markdown-light.min.css" />
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Video Factory Roadmap</h1>
+</header>
+<h1 id="roadmap-all-in-one-video-content-factory">🎬 ROADMAP: All-in-One Video Content Factory</h1>
+<p><strong>Дата создания:</strong> 20 октября 2025<br />
+<strong>Версия:</strong> 1.0<br />
+<strong>Статус:</strong> Планирование</p>
+<hr />
+<h2 id="содержание">📋 СОДЕРЖАНИЕ</h2>
+<ol type="1">
+<li><a href="#обзор-проекта">Обзор проекта</a></li>
+<li><a href="#архитектура-системы">Архитектура системы</a></li>
+<li><a href="#технологический-стек">Технологический стек</a></li>
+<li><a href="#база-данных">База данных</a></li>
+<li><a href="#модули-и-компоненты">Модули и компоненты</a></li>
+<li><a href="#api-endpoints">API Endpoints</a></li>
+<li><a href="#план-реализации">План реализации (этапы)</a></li>
+<li><a href="#интеграции">Интеграции и зависимости</a></li>
+<li><a href="#стоимость">Стоимость и ресурсы</a></li>
+<li><a href="#метрики">Метрики успеха</a></li>
+</ol>
+<hr />
+<h2 id="обзор-проекта">🎯 ОБЗОР ПРОЕКТА</h2>
+<h3 id="миссия">Миссия</h3>
+<p>Создать первую в мире <strong>ALL-IN-ONE платформу</strong> для производства видео-контента (Shorts/Reels), объединяющую все этапы от идеи до публикации в одном интерфейсе.</p>
+<h3 id="целевая-аудитория">Целевая аудитория</h3>
+<ul>
+<li>Контент-мейкеры</li>
+<li>SMM-специалисты</li>
+<li>Предприниматели</li>
+<li>Инфобизнесмены</li>
+<li>Блогеры</li>
+<li>Маркетинговые агентства</li>
+</ul>
+<h3 id="ключевое-отличие-от-конкурентов">Ключевое отличие от конкурентов</h3>
+<p><strong>ВСЁ В ОДНОМ:</strong> Голос + Персонажи + Сценарии + Монтаж + Публикация</p>
+<h3 id="конкурентные-преимущества">Конкурентные преимущества</h3>
+<ol type="1">
+<li>✅ Клонирование голоса пользователя (личный контент)</li>
+<li>✅ Создание персональных AI-персонажей (консистентность)</li>
+<li>✅ Массовое производство (50+ роликов за раз)</li>
+<li>✅ Мультиплатформенная публикация (1 кнопка)</li>
+<li>✅ Многопользовательский режим (каждый со своими активами)</li>
+<li>✅ Полная автоматизация workflow</li>
+</ol>
+<hr />
+<h2 id="архитектура-системы">🏗️ АРХИТЕКТУРА СИСТЕМЫ</h2>
+<h3 id="high-level-architecture">High-Level Architecture</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────┐
+│                       FRONTEND (React/Vue)                   │
+│  ┌──────────┬──────────┬──────────┬──────────┬──────────┐  │
+│  │ Voice    │Character │ Script   │ Video    │Publisher │  │
+│  │ Studio   │ Studio   │ Generator│ Editor   │ Module   │  │
+│  └──────────┴──────────┴──────────┴──────────┴──────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                              ↕ REST API
+┌─────────────────────────────────────────────────────────────┐
+│                    BACKEND (Python/Flask)                    │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │              AI ORCHESTRATOR                         │  │
+│  │  ┌────────┬────────┬────────┬────────┬────────┐    │  │
+│  │  │Script  │Voice   │Visual  │Video   │Publish │    │  │
+│  │  │Agent   │Agent   │Agent   │Editor  │Agent   │    │  │
+│  │  └────────┴────────┴────────┴────────┴────────┘    │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                             │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │              SERVICES LAYER                          │  │
+│  │  • UserAssetsService                                 │  │
+│  │  • VideoProductionService                            │  │
+│  │  • PublishingService                                 │  │
+│  │  • AnalyticsService                                  │  │
+│  └──────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                              ↕
+┌─────────────────────────────────────────────────────────────┐
+│                    EXTERNAL SERVICES                         │
+│  ┌──────────┬──────────┬──────────┬──────────┬──────────┐  │
+│  │ElevenLabs│ Fal.ai   │ OpenAI   │ FFmpeg   │ YouTube  │  │
+│  │(Voice)   │(Images)  │(Scripts) │(Video)   │  API     │  │
+│  └──────────┴──────────┴──────────┴──────────┴──────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                              ↕
+┌─────────────────────────────────────────────────────────────┐
+│                      STORAGE &amp; DB                            │
+│  ┌──────────┬──────────┬──────────┬──────────┬──────────┐  │
+│  │PostgreSQL│  Redis   │   S3     │  CDN     │  Queue   │  │
+│  │(Metadata)│(Cache)   │(Assets)  │(Delivery)│(Celery)  │  │
+│  └──────────┴──────────┴──────────┴──────────┴──────────┘  │
+└─────────────────────────────────────────────────────────────┘</code></pre>
+<hr />
+<h2 id="технологический-стек">💻 ТЕХНОЛОГИЧЕСКИЙ СТЕК</h2>
+<h3 id="backend">Backend</h3>
+<div class="sourceCode" id="cb2"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true"></a><span class="fu">Framework</span><span class="kw">:</span><span class="at"> Flask (Python 3.11+)</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true"></a><span class="fu">API</span><span class="kw">:</span><span class="at"> Flask-RESTX (Swagger docs)</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true"></a><span class="fu">Auth</span><span class="kw">:</span><span class="at"> JWT (Flask-JWT-Extended)</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true"></a><span class="fu">Database ORM</span><span class="kw">:</span><span class="at"> SQLAlchemy</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true"></a><span class="fu">Task Queue</span><span class="kw">:</span><span class="at"> Celery + Redis</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true"></a><span class="fu">Video Processing</span><span class="kw">:</span><span class="at"> FFmpeg, MoviePy</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true"></a><span class="fu">WebSocket</span><span class="kw">:</span><span class="at"> Flask-SocketIO (для progress updates)</span></span></code></pre></div>
+<h3 id="external-ai-services">External AI Services</h3>
+<div class="sourceCode" id="cb3"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true"></a><span class="fu">Voice Cloning</span><span class="kw">:</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true"></a><span class="at">  </span><span class="fu">Primary</span><span class="kw">:</span><span class="at"> ElevenLabs API</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true"></a><span class="at">  </span><span class="fu">Fallback</span><span class="kw">:</span><span class="at"> PlayHT 3.0</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true"></a><span class="at">  </span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true"></a><span class="fu">Character Generation</span><span class="kw">:</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true"></a><span class="at">  </span><span class="fu">Primary</span><span class="kw">:</span><span class="at"> Fal.ai FLUX Pro 1.1</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true"></a><span class="at">  </span><span class="fu">Alternative</span><span class="kw">:</span><span class="at"> Leonardo.ai Phoenix</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true"></a><span class="at">  </span><span class="fu">Fallback</span><span class="kw">:</span><span class="at"> Midjourney API</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true"></a><span class="at">  </span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true"></a><span class="fu">Script Generation</span><span class="kw">:</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true"></a><span class="at">  </span><span class="fu">Primary</span><span class="kw">:</span><span class="at"> OpenAI GPT-4</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true"></a><span class="at">  </span><span class="fu">Alternative</span><span class="kw">:</span><span class="at"> Claude 3.5 Sonnet</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true"></a><span class="at">  </span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true"></a><span class="fu">Speech-to-Text (для субтитров)</span><span class="kw">:</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true"></a><span class="at">  </span><span class="fu">Primary</span><span class="kw">:</span><span class="at"> OpenAI Whisper</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true"></a><span class="at">  </span><span class="fu">Alternative</span><span class="kw">:</span><span class="at"> AssemblyAI</span></span></code></pre></div>
+<h3 id="storage">Storage</h3>
+<div class="sourceCode" id="cb4"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true"></a><span class="fu">Database</span><span class="kw">:</span><span class="at"> PostgreSQL 15+</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true"></a><span class="fu">Cache</span><span class="kw">:</span><span class="at"> Redis 7+</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true"></a><span class="fu">File Storage</span><span class="kw">:</span><span class="at"> </span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Development</span><span class="kw">:</span><span class="at"> Local filesystem</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Production</span><span class="kw">:</span><span class="at"> AWS S3 / CloudFlare R2</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true"></a><span class="fu">CDN</span><span class="kw">:</span><span class="at"> CloudFlare</span></span></code></pre></div>
+<h3 id="video-processing-stack">Video Processing Stack</h3>
+<div class="sourceCode" id="cb5"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true"></a><span class="fu">Libraries</span><span class="kw">:</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> FFmpeg (монтаж, конвертация)</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> MoviePy (Python wrapper для FFmpeg)</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Pillow (обработка изображений)</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> OpenCV (advanced video effects)</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true"></a><span class="at">  </span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true"></a><span class="fu">Formats</span><span class="kw">:</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Input</span><span class="kw">:</span><span class="at"> MP4, MOV, AVI, PNG, JPG</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Output</span><span class="kw">:</span><span class="at"> MP4 (H.264 + AAC)</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Resolution</span><span class="kw">:</span><span class="at"> 1080x1920 (9:16 для Shorts)</span></span></code></pre></div>
+<h3 id="frontend-будущая-реализация">Frontend (будущая реализация)</h3>
+<div class="sourceCode" id="cb6"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true"></a><span class="fu">Framework</span><span class="kw">:</span><span class="at"> React 18+ или Vue 3</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true"></a><span class="fu">UI Library</span><span class="kw">:</span><span class="at"> Tailwind CSS + Shadcn/ui</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true"></a><span class="fu">Video Player</span><span class="kw">:</span><span class="at"> Video.js</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true"></a><span class="fu">Timeline Editor</span><span class="kw">:</span><span class="at"> fabric.js или Remotion</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true"></a><span class="fu">State Management</span><span class="kw">:</span><span class="at"> Redux Toolkit / Pinia</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true"></a><span class="fu">API Client</span><span class="kw">:</span><span class="at"> Axios + React Query</span></span></code></pre></div>
+<hr />
+<h2 id="база-данных">🗄️ БАЗА ДАННЫХ</h2>
+<h3 id="новые-таблицы-дополнение-к-существующим">Новые таблицы (дополнение к существующим)</h3>
+<div class="sourceCode" id="cb7"><pre class="sourceCode sql"><code class="sourceCode sql"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true"></a><span class="co">-- =====================================================</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true"></a><span class="co">-- VOICE MANAGEMENT</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true"></a><span class="co">-- =====================================================</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true"></a></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true"></a><span class="kw">CREATE</span> <span class="kw">TABLE</span> user_voices (</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true"></a>    <span class="kw">id</span> SERIAL <span class="kw">PRIMARY</span> <span class="kw">KEY</span>,</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true"></a>    user_id <span class="dt">INTEGER</span> <span class="kw">NOT</span> <span class="kw">NULL</span> <span class="kw">REFERENCES</span> users(<span class="kw">id</span>) <span class="kw">ON</span> <span class="kw">DELETE</span> <span class="kw">CASCADE</span>,</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true"></a>    </span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true"></a>    <span class="co">-- Voice Provider Details</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true"></a>    voice_id <span class="dt">VARCHAR</span>(<span class="dv">255</span>) <span class="kw">NOT</span> <span class="kw">NULL</span> <span class="kw">UNIQUE</span>,  <span class="co">-- ID в ElevenLabs/PlayHT</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true"></a>    provider <span class="dt">VARCHAR</span>(<span class="dv">50</span>) <span class="kw">DEFAULT</span> <span class="st">&#39;elevenlabs&#39;</span>,</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true"></a>    voice_name <span class="dt">VARCHAR</span>(<span class="dv">255</span>) <span class="kw">NOT</span> <span class="kw">NULL</span>,</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true"></a>    </span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true"></a>    <span class="co">-- Voice Samples</span></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true"></a>    sample_files JSONB <span class="kw">NOT</span> <span class="kw">NULL</span>,  <span class="co">-- [&quot;s3://bucket/voice1.mp3&quot;, ...]</span></span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true"></a>    sample_duration <span class="dt">INTEGER</span>,  <span class="co">-- Общая длительность в секундах</span></span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true"></a>    sample_quality_score <span class="dt">FLOAT</span>,  <span class="co">-- 0-1, качество сэмплов</span></span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true"></a>    </span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true"></a>    <span class="co">-- Voice Characteristics</span></span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true"></a>    language <span class="dt">VARCHAR</span>(<span class="dv">10</span>) <span class="kw">DEFAULT</span> <span class="st">&#39;ru&#39;</span>,</span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true"></a>    gender <span class="dt">VARCHAR</span>(<span class="dv">20</span>),</span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true"></a>    age_range <span class="dt">VARCHAR</span>(<span class="dv">50</span>),</span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true"></a>    accent <span class="dt">VARCHAR</span>(<span class="dv">50</span>),</span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true"></a>    tone <span class="dt">VARCHAR</span>(<span class="dv">50</span>),  <span class="co">-- professional, friendly, energetic</span></span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true"></a>    </span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true"></a>    <span class="co">-- Clone Status</span></span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true"></a>    clone_status <span class="dt">VARCHAR</span>(<span class="dv">50</span>) <span class="kw">DEFAULT</span> <span class="st">&#39;pending&#39;</span>,  <span class="co">-- pending, processing, ready, failed</span></span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true"></a>    clone_started_at <span class="dt">TIMESTAMP</span>,</span>
+<span id="cb7-29"><a href="#cb7-29" aria-hidden="true"></a>    clone_completed_at <span class="dt">TIMESTAMP</span>,</span>
+<span id="cb7-30"><a href="#cb7-30" aria-hidden="true"></a>    clone_error TEXT,</span>
+<span id="cb7-31"><a href="#cb7-31" aria-hidden="true"></a>    </span>
+<span id="cb7-32"><a href="#cb7-32" aria-hidden="true"></a>    <span class="co">-- Usage Settings</span></span>
+<span id="cb7-33"><a href="#cb7-33" aria-hidden="true"></a>    is_active <span class="dt">BOOLEAN</span> <span class="kw">DEFAULT</span> <span class="kw">TRUE</span>,</span>
+<span id="cb7-34"><a href="#cb7-34" aria-hidden="true"></a>    is_default <span class="dt">BOOLEAN</span> <span class="kw">DEFAULT</span> <span class="kw">FALSE</span>,</span>
+<span id="cb7-35"><a href="#cb7-35" aria-hidden="true"></a>    is_public <span class="dt">BOOLEAN</span> <span class="kw">DEFAULT</span> <span class="kw">FALSE</span>,  <span class="co">-- Для marketplace</span></span>
+<span id="cb7-36"><a href="#cb7-36" aria-hidden="true"></a>    </span>
+<span id="cb7-37"><a href="#cb7-37" aria-hidden="true"></a>    <span class="co">-- Voice Settings (defaults)</span></span>
+<span id="cb7-38"><a href="#cb7-38" aria-hidden="true"></a>    default_stability <span class="dt">FLOAT</span> <span class="kw">DEFAULT</span> <span class="fl">0.5</span>,</span>
+<span id="cb7-39"><a href="#cb7-39" aria-hidden="true"></a>    default_similarity_boost <span class="dt">FLOAT</span> <span class="kw">DEFAULT</span> <span class="fl">0.75</span>,</span>
+<span id="cb7-40"><a href="#cb7-40" aria-hidden="true"></a>    default_style <span class="dt">FLOAT</span> <span class="kw">DEFAULT</span> <span class="fl">0.5</span>,</span>
+<span id="cb7-41"><a href="#cb7-41" aria-hidden="true"></a>    default_speed <span class="dt">FLOAT</span> <span class="kw">DEFAULT</span> <span class="fl">1.0</span>,</span>
+<span id="cb7-42"><a href="#cb7-42" aria-hidden="true"></a>    </span>
+<span id="cb7-43"><a href="#cb7-43" aria-hidden="true"></a>    <span class="co">-- Stats</span></span>
+<span id="cb7-44"><a href="#cb7-44" aria-hidden="true"></a>    characters_generated BIGINT <span class="kw">DEFAULT</span> <span class="dv">0</span>,</span>
+<span id="cb7-45"><a href="#cb7-45" aria-hidden="true"></a>    videos_created <span class="dt">INTEGER</span> <span class="kw">DEFAULT</span> <span class="dv">0</span>,</span>
+<span id="cb7-46"><a href="#cb7-46" aria-hidden="true"></a>    last_used_at <span class="dt">TIMESTAMP</span>,</span>
+<span id="cb7-47"><a href="#cb7-47" aria-hidden="true"></a>    </span>
+<span id="cb7-48"><a href="#cb7-48" aria-hidden="true"></a>    <span class="co">-- Billing</span></span>
+<span id="cb7-49"><a href="#cb7-49" aria-hidden="true"></a>    cost_per_1000_chars <span class="dt">DECIMAL</span>(<span class="dv">10</span>,<span class="dv">4</span>),</span>
+<span id="cb7-50"><a href="#cb7-50" aria-hidden="true"></a>    total_cost <span class="dt">DECIMAL</span>(<span class="dv">10</span>,<span class="dv">2</span>) <span class="kw">DEFAULT</span> <span class="dv">0</span>,</span>
+<span id="cb7-51"><a href="#cb7-51" aria-hidden="true"></a>    </span>
+<span id="cb7-52"><a href="#cb7-52" aria-hidden="true"></a>    created_at <span class="dt">TIMESTAMP</span> <span class="kw">DEFAULT</span> NOW(),</span>
+<span id="cb7-53"><a href="#cb7-53" aria-hidden="true"></a>    updated_at <span class="dt">TIMESTAMP</span> <span class="kw">DEFAULT</span> NOW()</span>
+<span id="cb7-54"><a href="#cb7-54" aria-hidden="true"></a>);</span>
+<span id="cb7-55"><a href="#cb7-55" aria-hidden="true"></a></span>
+<span id="cb7-56"><a href="#cb7-56" aria-hidden="true"></a><span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_user_voices_user_id <span class="kw">ON</span> user_voices(user_id);</span>
+<span id="cb7-57"><a href="#cb7-57" aria-hidden="true"></a><span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_user_voices_status <span class="kw">ON</span> user_voices(clone_status);</span>
+<span id="cb7-58"><a href="#cb7-58" aria-hidden="true"></a><span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_user_voices_active <span class="kw">ON</span> user_voices(user_id, is_active);</span>
+<span id="cb7-59"><a href="#cb7-59" aria-hidden="true"></a></span>
+<span id="cb7-60"><a href="#cb7-60" aria-hidden="true"></a></span>
+<span id="cb7-61"><a href="#cb7-61" aria-hidden="true"></a><span class="co">-- =====================================================</span></span>
+<span id="cb7-62"><a href="#cb7-62" aria-hidden="true"></a><span class="co">-- CHARACTER/VISUAL ASSETS MANAGEMENT</span></span>
+<span id="cb7-63"><a href="#cb7-63" aria-hidden="true"></a><span class="co">-- =====================================================</span></span>
+<span id="cb7-64"><a href="#cb7-64" aria-hidden="true"></a></span>
+<span id="cb7-65"><a href="#cb7-65" aria-hidden="true"></a><span class="kw">CREATE</span> <span class="kw">TABLE</span> user_characters (</span>
+<span id="cb7-66"><a href="#cb7-66" aria-hidden="true"></a>    <span class="kw">id</span> SERIAL <span class="kw">PRIMARY</span> <span class="kw">KEY</span>,</span>
+<span id="cb7-67"><a href="#cb7-67" aria-hidden="true"></a>    user_id <span class="dt">INTEGER</span> <span class="kw">NOT</span> <span class="kw">NULL</span> <span class="kw">REFERENCES</span> users(<span class="kw">id</span>) <span class="kw">ON</span> <span class="kw">DELETE</span> <span class="kw">CASCADE</span>,</span>
+<span id="cb7-68"><a href="#cb7-68" aria-hidden="true"></a>    </span>
+<span id="cb7-69"><a href="#cb7-69" aria-hidden="true"></a>    <span class="co">-- Character Identity</span></span>
+<span id="cb7-70"><a href="#cb7-70" aria-hidden="true"></a>    character_name <span class="dt">VARCHAR</span>(<span class="dv">255</span>) <span class="kw">NOT</span> <span class="kw">NULL</span>,</span>
+<span id="cb7-71"><a href="#cb7-71" aria-hidden="true"></a>    character_description TEXT,</span>
+<span id="cb7-72"><a href="#cb7-72" aria-hidden="true"></a>    character_type <span class="dt">VARCHAR</span>(<span class="dv">50</span>),  <span class="co">-- avatar, person, cartoon, logo</span></span>
+<span id="cb7-73"><a href="#cb7-73" aria-hidden="true"></a>    </span>
+<span id="cb7-74"><a href="#cb7-74" aria-hidden="true"></a>    <span class="co">-- Reference Image</span></span>
+<span id="cb7-75"><a href="#cb7-75" aria-hidden="true"></a>    reference_image_url TEXT,</span>
+<span id="cb7-76"><a href="#cb7-76" aria-hidden="true"></a>    reference_image_path TEXT,</span>
+<span id="cb7-77"><a href="#cb7-77" aria-hidden="true"></a>    </span>
+<span id="cb7-78"><a href="#cb7-78" aria-hidden="true"></a>    <span class="co">-- Generation Settings</span></span>
+<span id="cb7-79"><a href="#cb7-79" aria-hidden="true"></a>    generation_provider <span class="dt">VARCHAR</span>(<span class="dv">50</span>) <span class="kw">DEFAULT</span> <span class="st">&#39;fal_flux&#39;</span>,  <span class="co">-- fal_flux, leonardo, midjourney</span></span>
+<span id="cb7-80"><a href="#cb7-80" aria-hidden="true"></a>    character_seed <span class="dt">INTEGER</span>,  <span class="co">-- Для консистентности</span></span>
+<span id="cb7-81"><a href="#cb7-81" aria-hidden="true"></a>    ip_adapter_weight <span class="dt">FLOAT</span> <span class="kw">DEFAULT</span> <span class="fl">0.8</span>,</span>
+<span id="cb7-82"><a href="#cb7-82" aria-hidden="true"></a>    style_preset <span class="dt">VARCHAR</span>(<span class="dv">100</span>),  <span class="co">-- cinematic, professional, cartoon, etc.</span></span>
+<span id="cb7-83"><a href="#cb7-83" aria-hidden="true"></a>    </span>
+<span id="cb7-84"><a href="#cb7-84" aria-hidden="true"></a>    <span class="co">-- Visual Characteristics</span></span>
+<span id="cb7-85"><a href="#cb7-85" aria-hidden="true"></a>    gender <span class="dt">VARCHAR</span>(<span class="dv">20</span>),</span>
+<span id="cb7-86"><a href="#cb7-86" aria-hidden="true"></a>    age_range <span class="dt">VARCHAR</span>(<span class="dv">50</span>),</span>
+<span id="cb7-87"><a href="#cb7-87" aria-hidden="true"></a>    ethnicity <span class="dt">VARCHAR</span>(<span class="dv">50</span>),</span>
+<span id="cb7-88"><a href="#cb7-88" aria-hidden="true"></a>    clothing_style <span class="dt">VARCHAR</span>(<span class="dv">100</span>),</span>
+<span id="cb7-89"><a href="#cb7-89" aria-hidden="true"></a>    typical_background <span class="dt">VARCHAR</span>(<span class="dv">100</span>),</span>
+<span id="cb7-90"><a href="#cb7-90" aria-hidden="true"></a>    </span>
+<span id="cb7-91"><a href="#cb7-91" aria-hidden="true"></a>    <span class="co">-- Variations Library</span></span>
+<span id="cb7-92"><a href="#cb7-92" aria-hidden="true"></a>    generated_variations JSONB,  <span class="co">-- [{&quot;pose&quot;: &quot;standing&quot;, &quot;url&quot;: &quot;...&quot;, &quot;prompt&quot;: &quot;...&quot;}, ...]</span></span>
+<span id="cb7-93"><a href="#cb7-93" aria-hidden="true"></a>    total_variations <span class="dt">INTEGER</span> <span class="kw">DEFAULT</span> <span class="dv">0</span>,</span>
+<span id="cb7-94"><a href="#cb7-94" aria-hidden="true"></a>    </span>
+<span id="cb7-95"><a href="#cb7-95" aria-hidden="true"></a>    <span class="co">-- Brand Assets</span></span>
+<span id="cb7-96"><a href="#cb7-96" aria-hidden="true"></a>    brand_colors JSONB,  <span class="co">-- [&quot;#FF5733&quot;, &quot;#3498DB&quot;]</span></span>
+<span id="cb7-97"><a href="#cb7-97" aria-hidden="true"></a>    logo_overlay_url TEXT,</span>
+<span id="cb7-98"><a href="#cb7-98" aria-hidden="true"></a>    </span>
+<span id="cb7-99"><a href="#cb7-99" aria-hidden="true"></a>    <span class="co">-- Usage</span></span>
+<span id="cb7-100"><a href="#cb7-100" aria-hidden="true"></a>    is_active <span class="dt">BOOLEAN</span> <span class="kw">DEFAULT</span> <span class="kw">TRUE</span>,</span>
+<span id="cb7-101"><a href="#cb7-101" aria-hidden="true"></a>    is_default <span class="dt">BOOLEAN</span> <span class="kw">DEFAULT</span> <span class="kw">FALSE</span>,</span>
+<span id="cb7-102"><a href="#cb7-102" aria-hidden="true"></a>    times_used <span class="dt">INTEGER</span> <span class="kw">DEFAULT</span> <span class="dv">0</span>,</span>
+<span id="cb7-103"><a href="#cb7-103" aria-hidden="true"></a>    last_used_at <span class="dt">TIMESTAMP</span>,</span>
+<span id="cb7-104"><a href="#cb7-104" aria-hidden="true"></a>    </span>
+<span id="cb7-105"><a href="#cb7-105" aria-hidden="true"></a>    <span class="co">-- Stats</span></span>
+<span id="cb7-106"><a href="#cb7-106" aria-hidden="true"></a>    scenes_created <span class="dt">INTEGER</span> <span class="kw">DEFAULT</span> <span class="dv">0</span>,</span>
+<span id="cb7-107"><a href="#cb7-107" aria-hidden="true"></a>    videos_featured <span class="dt">INTEGER</span> <span class="kw">DEFAULT</span> <span class="dv">0</span>,</span>
+<span id="cb7-108"><a href="#cb7-108" aria-hidden="true"></a>    </span>
+<span id="cb7-109"><a href="#cb7-109" aria-hidden="true"></a>    created_at <span class="dt">TIMESTAMP</span> <span class="kw">DEFAULT</span> NOW(),</span>
+<span id="cb7-110"><a href="#cb7-110" aria-hidden="true"></a>    updated_at <span class="dt">TIMESTAMP</span> <span class="kw">DEFAULT</span> NOW()</span>
+<span id="cb7-111"><a href="#cb7-111" aria-hidden="true"></a>);</span>
+<span id="cb7-112"><a href="#cb7-112" aria-hidden="true"></a></span>
+<span id="cb7-113"><a href="#cb7-113" aria-hidden="true"></a><span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_user_characters_user_id <span class="kw">ON</span> user_characters(user_id);</span>
+<span id="cb7-114"><a href="#cb7-114" aria-hidden="true"></a><span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_user_characters_active <span class="kw">ON</span> user_characters(user_id, is_active);</span>
+<span id="cb7-115"><a href="#cb7-115" aria-hidden="true"></a></span>
+<span id="cb7-116"><a href="#cb7-116" aria-hidden="true"></a></span>
+<span id="cb7-117"><a href="#cb7-117" aria-hidden="true"></a><span class="co">-- =====================================================</span></span>
+<span id="cb7-118"><a href="#cb7-118" aria-hidden="true"></a><span class="co">-- VIDEO SCRIPTS</span></span>
+<span id="cb7-119"><a href="#cb7-119" aria-hidden="true"></a><span class="co">-- =====================================================</span></span>
+<span id="cb7-120"><a href="#cb7-120" aria-hidden="true"></a></span>
+<span id="cb7-121"><a href="#cb7-121" aria-hidden="true"></a><span class="kw">CREATE</span> <span class="kw">TABLE</span> video_scripts (</span>
+<span id="cb7-122"><a href="#cb7-122" aria-hidden="true"></a>    <span class="kw">id</span> SERIAL <span class="kw">PRIMARY</span> <span class="kw">KEY</span>,</span>
+<span id="cb7-123"><a href="#cb7-123" aria-hidden="true"></a>    user_id <span class="dt">INTEGER</span> <span class="kw">NOT</span> <span class="kw">NULL</span> <span class="kw">REFERENCES</span> users(<span class="kw">id</span>) <span class="kw">ON</span> <span class="kw">DELETE</span> <span class="kw">CASCADE</span>,</span>
+<span id="cb7-124"><a href="#cb7-124" aria-hidden="true"></a>    </span>
+<span id="cb7-125"><a href="#cb7-125" aria-hidden="true"></a>    <span class="co">-- Script Metadata</span></span>
+<span id="cb7-126"><a href="#cb7-126" aria-hidden="true"></a>    script_title <span class="dt">VARCHAR</span>(<span class="dv">500</span>) <span class="kw">NOT</span> <span class="kw">NULL</span>,</span>
+<span id="cb7-127"><a href="#cb7-127" aria-hidden="true"></a>    topic TEXT <span class="kw">NOT</span> <span class="kw">NULL</span>,</span>
+<span id="cb7-128"><a href="#cb7-128" aria-hidden="true"></a>    target_duration <span class="dt">INTEGER</span> <span class="kw">DEFAULT</span> <span class="dv">30</span>,  <span class="co">-- seconds</span></span>
+<span id="cb7-129"><a href="#cb7-129" aria-hidden="true"></a>    </span>
+<span id="cb7-130"><a href="#cb7-130" aria-hidden="true"></a>    <span class="co">-- Script Content</span></span>
+<span id="cb7-131"><a href="#cb7-131" aria-hidden="true"></a>    hook_text TEXT,</span>
+<span id="cb7-132"><a href="#cb7-132" aria-hidden="true"></a>    body_text TEXT,</span>
+<span id="cb7-133"><a href="#cb7-133" aria-hidden="true"></a>    cta_text TEXT,</span>
+<span id="cb7-134"><a href="#cb7-134" aria-hidden="true"></a>    full_script TEXT <span class="kw">NOT</span> <span class="kw">NULL</span>,</span>
+<span id="cb7-135"><a href="#cb7-135" aria-hidden="true"></a>    </span>
+<span id="cb7-136"><a href="#cb7-136" aria-hidden="true"></a>    <span class="co">-- Scenes Breakdown</span></span>
+<span id="cb7-137"><a href="#cb7-137" aria-hidden="true"></a>    scenes JSONB <span class="kw">NOT</span> <span class="kw">NULL</span>,  <span class="co">-- [{&quot;id&quot;:1, &quot;timing&quot;:&quot;0-3&quot;, &quot;text&quot;:&quot;...&quot;, &quot;visual_prompt&quot;:&quot;...&quot;}, ...]</span></span>
+<span id="cb7-138"><a href="#cb7-138" aria-hidden="true"></a>    total_scenes <span class="dt">INTEGER</span>,</span>
+<span id="cb7-139"><a href="#cb7-139" aria-hidden="true"></a>    </span>
+<span id="cb7-140"><a href="#cb7-140" aria-hidden="true"></a>    <span class="co">-- Style &amp; Tone</span></span>
+<span id="cb7-141"><a href="#cb7-141" aria-hidden="true"></a>    script_style <span class="dt">VARCHAR</span>(<span class="dv">50</span>),  <span class="co">-- educational, motivational, entertaining, selling</span></span>
+<span id="cb7-142"><a href="#cb7-142" aria-hidden="true"></a>    tone <span class="dt">VARCHAR</span>(<span class="dv">50</span>),  <span class="co">-- professional, casual, friendly, authoritative</span></span>
+<span id="cb7-143"><a href="#cb7-143" aria-hidden="true"></a>    </span>
+<span id="cb7-144"><a href="#cb7-144" aria-hidden="true"></a>    <span class="co">-- SEO &amp; Publishing</span></span>
+<span id="cb7-145"><a href="#cb7-145" aria-hidden="true"></a>    suggested_title <span class="dt">VARCHAR</span>(<span class="dv">500</span>),</span>
+<span id="cb7-146"><a href="#cb7-146" aria-hidden="true"></a>    description TEXT,</span>
+<span id="cb7-147"><a href="#cb7-147" aria-hidden="true"></a>    hashtags JSONB,  <span class="co">-- [&quot;#business&quot;, &quot;#entrepreneur&quot;]</span></span>
+<span id="cb7-148"><a href="#cb7-148" aria-hidden="true"></a>    keywords JSONB,</span>
+<span id="cb7-149"><a href="#cb7-149" aria-hidden="true"></a>    </span>
+<span id="cb7-150"><a href="#cb7-150" aria-hidden="true"></a>    <span class="co">-- Generation Info</span></span>
+<span id="cb7-151"><a href="#cb7-151" aria-hidden="true"></a>    ai_model <span class="dt">VARCHAR</span>(<span class="dv">100</span>),  <span class="co">-- gpt-4, claude-3.5-sonnet</span></span>
+<span id="cb7-152"><a href="#cb7-152" aria-hidden="true"></a>    generation_prompt TEXT,</span>
+<span id="cb7-153"><a href="#cb7-153" aria-hidden="true"></a>    </span>
+<span id="cb7-154"><a href="#cb7-154" aria-hidden="true"></a>    <span class="co">-- Usage</span></span>
+<span id="cb7-155"><a href="#cb7-155" aria-hidden="true"></a>    is_template <span class="dt">BOOLEAN</span> <span class="kw">DEFAULT</span> <span class="kw">FALSE</span>,</span>
+<span id="cb7-156"><a href="#cb7-156" aria-hidden="true"></a>    times_used <span class="dt">INTEGER</span> <span class="kw">DEFAULT</span> <span class="dv">0</span>,</span>
+<span id="cb7-157"><a href="#cb7-157" aria-hidden="true"></a>    </span>
+<span id="cb7-158"><a href="#cb7-158" aria-hidden="true"></a>    created_at <span class="dt">TIMESTAMP</span> <span class="kw">DEFAULT</span> NOW(),</span>
+<span id="cb7-159"><a href="#cb7-159" aria-hidden="true"></a>    updated_at <span class="dt">TIMESTAMP</span> <span class="kw">DEFAULT</span> NOW()</span>
+<span id="cb7-160"><a href="#cb7-160" aria-hidden="true"></a>);</span>
+<span id="cb7-161"><a href="#cb7-161" aria-hidden="true"></a></span>
+<span id="cb7-162"><a href="#cb7-162" aria-hidden="true"></a><span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_video_scripts_user_id <span class="kw">ON</span> video_scripts(user_id);</span>
+<span id="cb7-163"><a href="#cb7-163" aria-hidden="true"></a></span>
+<span id="cb7-164"><a href="#cb7-164" aria-hidden="true"></a></span>
+<span id="cb7-165"><a href="#cb7-165" aria-hidden="true"></a><span class="co">-- =====================================================</span></span>
+<span id="cb7-166"><a href="#cb7-166" aria-hidden="true"></a><span class="co">-- VIDEO PROJECTS (SHORTS)</span></span>
+<span id="cb7-167"><a href="#cb7-167" aria-hidden="true"></a><span class="co">-- =====================================================</span></span>
+<span id="cb7-168"><a href="#cb7-168" aria-hidden="true"></a></span>
+<span id="cb7-169"><a href="#cb7-169" aria-hidden="true"></a><span class="kw">CREATE</span> <span class="kw">TABLE</span> video_projects (</span>
+<span id="cb7-170"><a href="#cb7-170" aria-hidden="true"></a>    <span class="kw">id</span> SERIAL <span class="kw">PRIMARY</span> <span class="kw">KEY</span>,</span>
+<span id="cb7-171"><a href="#cb7-171" aria-hidden="true"></a>    user_id <span class="dt">INTEGER</span> <span class="kw">NOT</span> <span class="kw">NULL</span> <span class="kw">REFERENCES</span> users(<span class="kw">id</span>) <span class="kw">ON</span> <span class="kw">DELETE</span> <span class="kw">CASCADE</span>,</span>
+<span id="cb7-172"><a href="#cb7-172" aria-hidden="true"></a>    </span>
+<span id="cb7-173"><a href="#cb7-173" aria-hidden="true"></a>    <span class="co">-- Project Metadata</span></span>
+<span id="cb7-174"><a href="#cb7-174" aria-hidden="true"></a>    project_name <span class="dt">VARCHAR</span>(<span class="dv">255</span>) <span class="kw">NOT</span> <span class="kw">NULL</span>,</span>
+<span id="cb7-175"><a href="#cb7-175" aria-hidden="true"></a>    project_type <span class="dt">VARCHAR</span>(<span class="dv">50</span>) <span class="kw">DEFAULT</span> <span class="st">&#39;short&#39;</span>,  <span class="co">-- short, reel, video</span></span>
+<span id="cb7-176"><a href="#cb7-176" aria-hidden="true"></a>    status <span class="dt">VARCHAR</span>(<span class="dv">50</span>) <span class="kw">DEFAULT</span> <span class="st">&#39;draft&#39;</span>,  <span class="co">-- draft, processing, ready, published, failed</span></span>
+<span id="cb7-177"><a href="#cb7-177" aria-hidden="true"></a>    </span>
+<span id="cb7-178"><a href="#cb7-178" aria-hidden="true"></a>    <span class="co">-- Associated Assets</span></span>
+<span id="cb7-179"><a href="#cb7-179" aria-hidden="true"></a>    script_id <span class="dt">INTEGER</span> <span class="kw">REFERENCES</span> video_scripts(<span class="kw">id</span>),</span>
+<span id="cb7-180"><a href="#cb7-180" aria-hidden="true"></a>    voice_id <span class="dt">INTEGER</span> <span class="kw">REFERENCES</span> user_voices(<span class="kw">id</span>),</span>
+<span id="cb7-181"><a href="#cb7-181" aria-hidden="true"></a>    character_id <span class="dt">INTEGER</span> <span class="kw">REFERENCES</span> user_characters(<span class="kw">id</span>),</span>
+<span id="cb7-182"><a href="#cb7-182" aria-hidden="true"></a>    </span>
+<span id="cb7-183"><a href="#cb7-183" aria-hidden="true"></a>    <span class="co">-- Content</span></span>
+<span id="cb7-184"><a href="#cb7-184" aria-hidden="true"></a>    title <span class="dt">VARCHAR</span>(<span class="dv">500</span>),</span>
+<span id="cb7-185"><a href="#cb7-185" aria-hidden="true"></a>    description TEXT,</span>
+<span id="cb7-186"><a href="#cb7-186" aria-hidden="true"></a>    duration <span class="dt">INTEGER</span>,  <span class="co">-- seconds</span></span>
+<span id="cb7-187"><a href="#cb7-187" aria-hidden="true"></a>    </span>
+<span id="cb7-188"><a href="#cb7-188" aria-hidden="true"></a>    <span class="co">-- Files</span></span>
+<span id="cb7-189"><a href="#cb7-189" aria-hidden="true"></a>    video_path TEXT,</span>
+<span id="cb7-190"><a href="#cb7-190" aria-hidden="true"></a>    thumbnail_path TEXT,</span>
+<span id="cb7-191"><a href="#cb7-191" aria-hidden="true"></a>    subtitle_path TEXT,  <span class="co">-- SRT file</span></span>
+<span id="cb7-192"><a href="#cb7-192" aria-hidden="true"></a>    </span>
+<span id="cb7-193"><a href="#cb7-193" aria-hidden="true"></a>    <span class="co">-- Video Specs</span></span>
+<span id="cb7-194"><a href="#cb7-194" aria-hidden="true"></a>    resolution <span class="dt">VARCHAR</span>(<span class="dv">20</span>) <span class="kw">DEFAULT</span> <span class="st">&#39;1080x1920&#39;</span>,  <span class="co">-- 9:16</span></span>
+<span id="cb7-195"><a href="#cb7-195" aria-hidden="true"></a>    format <span class="dt">VARCHAR</span>(<span class="dv">10</span>) <span class="kw">DEFAULT</span> <span class="st">&#39;mp4&#39;</span>,</span>
+<span id="cb7-196"><a href="#cb7-196" aria-hidden="true"></a>    fps <span class="dt">INTEGER</span> <span class="kw">DEFAULT</span> <span class="dv">30</span>,</span>
+<span id="cb7-197"><a href="#cb7-197" aria-hidden="true"></a>    file_size BIGINT,  <span class="co">-- bytes</span></span>
+<span id="cb7-198"><a href="#cb7-198" aria-hidden="true"></a>    </span>
+<span id="cb7-199"><a href="#cb7-199" aria-hidden="true"></a>    <span class="co">-- Production Pipeline</span></span>
+<span id="cb7-200"><a href="#cb7-200" aria-hidden="true"></a>    pipeline_stage <span class="dt">VARCHAR</span>(<span class="dv">50</span>),  <span class="co">-- script, voiceover, visuals, editing, rendering</span></span>
+<span id="cb7-201"><a href="#cb7-201" aria-hidden="true"></a>    pipeline_progress <span class="dt">INTEGER</span> <span class="kw">DEFAULT</span> <span class="dv">0</span>,  <span class="co">-- 0-100</span></span>
+<span id="cb7-202"><a href="#cb7-202" aria-hidden="true"></a>    pipeline_started_at <span class="dt">TIMESTAMP</span>,</span>
+<span id="cb7-203"><a href="#cb7-203" aria-hidden="true"></a>    pipeline_completed_at <span class="dt">TIMESTAMP</span>,</span>
+<span id="cb7-204"><a href="#cb7-204" aria-hidden="true"></a>    pipeline_error TEXT,</span>
+<span id="cb7-205"><a href="#cb7-205" aria-hidden="true"></a>    </span>
+<span id="cb7-206"><a href="#cb7-206" aria-hidden="true"></a>    <span class="co">-- Production Details</span></span>
+<span id="cb7-207"><a href="#cb7-207" aria-hidden="true"></a>    scenes_data JSONB,  <span class="co">-- Detailed scene information</span></span>
+<span id="cb7-208"><a href="#cb7-208" aria-hidden="true"></a>    voiceover_url TEXT,</span>
+<span id="cb7-209"><a href="#cb7-209" aria-hidden="true"></a>    background_music_url TEXT,</span>
+<span id="cb7-210"><a href="#cb7-210" aria-hidden="true"></a>    </span>
+<span id="cb7-211"><a href="#cb7-211" aria-hidden="true"></a>    <span class="co">-- Branding</span></span>
+<span id="cb7-212"><a href="#cb7-212" aria-hidden="true"></a>    show_logo <span class="dt">BOOLEAN</span> <span class="kw">DEFAULT</span> <span class="kw">TRUE</span>,</span>
+<span id="cb7-213"><a href="#cb7-213" aria-hidden="true"></a>    show_intro <span class="dt">BOOLEAN</span> <span class="kw">DEFAULT</span> <span class="kw">FALSE</span>,</span>
+<span id="cb7-214"><a href="#cb7-214" aria-hidden="true"></a>    show_outro <span class="dt">BOOLEAN</span> <span class="kw">DEFAULT</span> <span class="kw">FALSE</span>,</span>
+<span id="cb7-215"><a href="#cb7-215" aria-hidden="true"></a>    </span>
+<span id="cb7-216"><a href="#cb7-216" aria-hidden="true"></a>    <span class="co">-- Publishing</span></span>
+<span id="cb7-217"><a href="#cb7-217" aria-hidden="true"></a>    platforms JSONB,  <span class="co">-- [&quot;youtube&quot;, &quot;instagram&quot;, &quot;tiktok&quot;]</span></span>
+<span id="cb7-218"><a href="#cb7-218" aria-hidden="true"></a>    publish_status JSONB,  <span class="co">-- {&quot;youtube&quot;: &quot;published&quot;, &quot;instagram&quot;: &quot;pending&quot;}</span></span>
+<span id="cb7-219"><a href="#cb7-219" aria-hidden="true"></a>    published_urls JSONB,  <span class="co">-- {&quot;youtube&quot;: &quot;https://...&quot;, ...}</span></span>
+<span id="cb7-220"><a href="#cb7-220" aria-hidden="true"></a>    </span>
+<span id="cb7-221"><a href="#cb7-221" aria-hidden="true"></a>    <span class="co">-- Scheduling</span></span>
+<span id="cb7-222"><a href="#cb7-222" aria-hidden="true"></a>    scheduled_for <span class="dt">TIMESTAMP</span>,</span>
+<span id="cb7-223"><a href="#cb7-223" aria-hidden="true"></a>    published_at <span class="dt">TIMESTAMP</span>,</span>
+<span id="cb7-224"><a href="#cb7-224" aria-hidden="true"></a>    </span>
+<span id="cb7-225"><a href="#cb7-225" aria-hidden="true"></a>    <span class="co">-- Analytics</span></span>
+<span id="cb7-226"><a href="#cb7-226" aria-hidden="true"></a>    total_views <span class="dt">INTEGER</span> <span class="kw">DEFAULT</span> <span class="dv">0</span>,</span>
+<span id="cb7-227"><a href="#cb7-227" aria-hidden="true"></a>    total_likes <span class="dt">INTEGER</span> <span class="kw">DEFAULT</span> <span class="dv">0</span>,</span>
+<span id="cb7-228"><a href="#cb7-228" aria-hidden="true"></a>    total_shares <span class="dt">INTEGER</span> <span class="kw">DEFAULT</span> <span class="dv">0</span>,</span>
+<span id="cb7-229"><a href="#cb7-229" aria-hidden="true"></a>    engagement_rate <span class="dt">FLOAT</span>,</span>
+<span id="cb7-230"><a href="#cb7-230" aria-hidden="true"></a>    </span>
+<span id="cb7-231"><a href="#cb7-231" aria-hidden="true"></a>    <span class="co">-- Cost Tracking</span></span>
+<span id="cb7-232"><a href="#cb7-232" aria-hidden="true"></a>    production_cost <span class="dt">DECIMAL</span>(<span class="dv">10</span>,<span class="dv">4</span>),</span>
+<span id="cb7-233"><a href="#cb7-233" aria-hidden="true"></a>    </span>
+<span id="cb7-234"><a href="#cb7-234" aria-hidden="true"></a>    created_at <span class="dt">TIMESTAMP</span> <span class="kw">DEFAULT</span> NOW(),</span>
+<span id="cb7-235"><a href="#cb7-235" aria-hidden="true"></a>    updated_at <span class="dt">TIMESTAMP</span> <span class="kw">DEFAULT</span> NOW()</span>
+<span id="cb7-236"><a href="#cb7-236" aria-hidden="true"></a>);</span>
+<span id="cb7-237"><a href="#cb7-237" aria-hidden="true"></a></span>
+<span id="cb7-238"><a href="#cb7-238" aria-hidden="true"></a><span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_video_projects_user_id <span class="kw">ON</span> video_projects(user_id);</span>
+<span id="cb7-239"><a href="#cb7-239" aria-hidden="true"></a><span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_video_projects_status <span class="kw">ON</span> video_projects(status);</span>
+<span id="cb7-240"><a href="#cb7-240" aria-hidden="true"></a><span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_video_projects_published <span class="kw">ON</span> video_projects(published_at);</span>
+<span id="cb7-241"><a href="#cb7-241" aria-hidden="true"></a></span>
+<span id="cb7-242"><a href="#cb7-242" aria-hidden="true"></a></span>
+<span id="cb7-243"><a href="#cb7-243" aria-hidden="true"></a><span class="co">-- =====================================================</span></span>
+<span id="cb7-244"><a href="#cb7-244" aria-hidden="true"></a><span class="co">-- BATCH PRODUCTION JOBS</span></span>
+<span id="cb7-245"><a href="#cb7-245" aria-hidden="true"></a><span class="co">-- =====================================================</span></span>
+<span id="cb7-246"><a href="#cb7-246" aria-hidden="true"></a></span>
+<span id="cb7-247"><a href="#cb7-247" aria-hidden="true"></a><span class="kw">CREATE</span> <span class="kw">TABLE</span> batch_production_jobs (</span>
+<span id="cb7-248"><a href="#cb7-248" aria-hidden="true"></a>    <span class="kw">id</span> SERIAL <span class="kw">PRIMARY</span> <span class="kw">KEY</span>,</span>
+<span id="cb7-249"><a href="#cb7-249" aria-hidden="true"></a>    user_id <span class="dt">INTEGER</span> <span class="kw">NOT</span> <span class="kw">NULL</span> <span class="kw">REFERENCES</span> users(<span class="kw">id</span>) <span class="kw">ON</span> <span class="kw">DELETE</span> <span class="kw">CASCADE</span>,</span>
+<span id="cb7-250"><a href="#cb7-250" aria-hidden="true"></a>    </span>
+<span id="cb7-251"><a href="#cb7-251" aria-hidden="true"></a>    <span class="co">-- Job Info</span></span>
+<span id="cb7-252"><a href="#cb7-252" aria-hidden="true"></a>    job_name <span class="dt">VARCHAR</span>(<span class="dv">255</span>),</span>
+<span id="cb7-253"><a href="#cb7-253" aria-hidden="true"></a>    total_videos <span class="dt">INTEGER</span> <span class="kw">NOT</span> <span class="kw">NULL</span>,</span>
+<span id="cb7-254"><a href="#cb7-254" aria-hidden="true"></a>    </span>
+<span id="cb7-255"><a href="#cb7-255" aria-hidden="true"></a>    <span class="co">-- Input</span></span>
+<span id="cb7-256"><a href="#cb7-256" aria-hidden="true"></a>    topics JSONB <span class="kw">NOT</span> <span class="kw">NULL</span>,  <span class="co">-- [&quot;Topic 1&quot;, &quot;Topic 2&quot;, ...]</span></span>
+<span id="cb7-257"><a href="#cb7-257" aria-hidden="true"></a>    batch_settings JSONB,  <span class="co">-- Common settings for all videos</span></span>
+<span id="cb7-258"><a href="#cb7-258" aria-hidden="true"></a>    </span>
+<span id="cb7-259"><a href="#cb7-259" aria-hidden="true"></a>    <span class="co">-- Progress</span></span>
+<span id="cb7-260"><a href="#cb7-260" aria-hidden="true"></a>    status <span class="dt">VARCHAR</span>(<span class="dv">50</span>) <span class="kw">DEFAULT</span> <span class="st">&#39;pending&#39;</span>,  <span class="co">-- pending, processing, completed, failed</span></span>
+<span id="cb7-261"><a href="#cb7-261" aria-hidden="true"></a>    completed_videos <span class="dt">INTEGER</span> <span class="kw">DEFAULT</span> <span class="dv">0</span>,</span>
+<span id="cb7-262"><a href="#cb7-262" aria-hidden="true"></a>    failed_videos <span class="dt">INTEGER</span> <span class="kw">DEFAULT</span> <span class="dv">0</span>,</span>
+<span id="cb7-263"><a href="#cb7-263" aria-hidden="true"></a>    </span>
+<span id="cb7-264"><a href="#cb7-264" aria-hidden="true"></a>    <span class="co">-- Timing</span></span>
+<span id="cb7-265"><a href="#cb7-265" aria-hidden="true"></a>    started_at <span class="dt">TIMESTAMP</span>,</span>
+<span id="cb7-266"><a href="#cb7-266" aria-hidden="true"></a>    completed_at <span class="dt">TIMESTAMP</span>,</span>
+<span id="cb7-267"><a href="#cb7-267" aria-hidden="true"></a>    estimated_completion <span class="dt">TIMESTAMP</span>,</span>
+<span id="cb7-268"><a href="#cb7-268" aria-hidden="true"></a>    </span>
+<span id="cb7-269"><a href="#cb7-269" aria-hidden="true"></a>    <span class="co">-- Results</span></span>
+<span id="cb7-270"><a href="#cb7-270" aria-hidden="true"></a>    created_project_ids JSONB,  <span class="co">-- [123, 124, 125, ...]</span></span>
+<span id="cb7-271"><a href="#cb7-271" aria-hidden="true"></a>    </span>
+<span id="cb7-272"><a href="#cb7-272" aria-hidden="true"></a>    <span class="co">-- Cost</span></span>
+<span id="cb7-273"><a href="#cb7-273" aria-hidden="true"></a>    total_cost <span class="dt">DECIMAL</span>(<span class="dv">10</span>,<span class="dv">2</span>),</span>
+<span id="cb7-274"><a href="#cb7-274" aria-hidden="true"></a>    </span>
+<span id="cb7-275"><a href="#cb7-275" aria-hidden="true"></a>    created_at <span class="dt">TIMESTAMP</span> <span class="kw">DEFAULT</span> NOW()</span>
+<span id="cb7-276"><a href="#cb7-276" aria-hidden="true"></a>);</span>
+<span id="cb7-277"><a href="#cb7-277" aria-hidden="true"></a></span>
+<span id="cb7-278"><a href="#cb7-278" aria-hidden="true"></a><span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_batch_jobs_user_id <span class="kw">ON</span> batch_production_jobs(user_id);</span>
+<span id="cb7-279"><a href="#cb7-279" aria-hidden="true"></a><span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_batch_jobs_status <span class="kw">ON</span> batch_production_jobs(status);</span>
+<span id="cb7-280"><a href="#cb7-280" aria-hidden="true"></a></span>
+<span id="cb7-281"><a href="#cb7-281" aria-hidden="true"></a></span>
+<span id="cb7-282"><a href="#cb7-282" aria-hidden="true"></a><span class="co">-- =====================================================</span></span>
+<span id="cb7-283"><a href="#cb7-283" aria-hidden="true"></a><span class="co">-- YOUTUBE ACCOUNTS (для публикации)</span></span>
+<span id="cb7-284"><a href="#cb7-284" aria-hidden="true"></a><span class="co">-- =====================================================</span></span>
+<span id="cb7-285"><a href="#cb7-285" aria-hidden="true"></a></span>
+<span id="cb7-286"><a href="#cb7-286" aria-hidden="true"></a><span class="kw">CREATE</span> <span class="kw">TABLE</span> youtube_accounts (</span>
+<span id="cb7-287"><a href="#cb7-287" aria-hidden="true"></a>    <span class="kw">id</span> SERIAL <span class="kw">PRIMARY</span> <span class="kw">KEY</span>,</span>
+<span id="cb7-288"><a href="#cb7-288" aria-hidden="true"></a>    user_id <span class="dt">INTEGER</span> <span class="kw">NOT</span> <span class="kw">NULL</span> <span class="kw">REFERENCES</span> users(<span class="kw">id</span>) <span class="kw">ON</span> <span class="kw">DELETE</span> <span class="kw">CASCADE</span>,</span>
+<span id="cb7-289"><a href="#cb7-289" aria-hidden="true"></a>    </span>
+<span id="cb7-290"><a href="#cb7-290" aria-hidden="true"></a>    <span class="co">-- OAuth Tokens (encrypted)</span></span>
+<span id="cb7-291"><a href="#cb7-291" aria-hidden="true"></a>    encrypted_access_token TEXT <span class="kw">NOT</span> <span class="kw">NULL</span>,</span>
+<span id="cb7-292"><a href="#cb7-292" aria-hidden="true"></a>    encrypted_refresh_token TEXT <span class="kw">NOT</span> <span class="kw">NULL</span>,</span>
+<span id="cb7-293"><a href="#cb7-293" aria-hidden="true"></a>    token_expires_at <span class="dt">TIMESTAMP</span>,</span>
+<span id="cb7-294"><a href="#cb7-294" aria-hidden="true"></a>    </span>
+<span id="cb7-295"><a href="#cb7-295" aria-hidden="true"></a>    <span class="co">-- YouTube Channel Info</span></span>
+<span id="cb7-296"><a href="#cb7-296" aria-hidden="true"></a>    channel_id <span class="dt">VARCHAR</span>(<span class="dv">255</span>) <span class="kw">NOT</span> <span class="kw">NULL</span>,</span>
+<span id="cb7-297"><a href="#cb7-297" aria-hidden="true"></a>    channel_title <span class="dt">VARCHAR</span>(<span class="dv">255</span>),</span>
+<span id="cb7-298"><a href="#cb7-298" aria-hidden="true"></a>    channel_username <span class="dt">VARCHAR</span>(<span class="dv">255</span>),</span>
+<span id="cb7-299"><a href="#cb7-299" aria-hidden="true"></a>    channel_thumbnail_url TEXT,</span>
+<span id="cb7-300"><a href="#cb7-300" aria-hidden="true"></a>    subscribers_count <span class="dt">INTEGER</span>,</span>
+<span id="cb7-301"><a href="#cb7-301" aria-hidden="true"></a>    </span>
+<span id="cb7-302"><a href="#cb7-302" aria-hidden="true"></a>    <span class="co">-- Account Name (for UI)</span></span>
+<span id="cb7-303"><a href="#cb7-303" aria-hidden="true"></a>    account_name <span class="dt">VARCHAR</span>(<span class="dv">255</span>) <span class="kw">NOT</span> <span class="kw">NULL</span>,</span>
+<span id="cb7-304"><a href="#cb7-304" aria-hidden="true"></a>    </span>
+<span id="cb7-305"><a href="#cb7-305" aria-hidden="true"></a>    <span class="co">-- Status</span></span>
+<span id="cb7-306"><a href="#cb7-306" aria-hidden="true"></a>    is_active <span class="dt">BOOLEAN</span> <span class="kw">DEFAULT</span> <span class="kw">TRUE</span>,</span>
+<span id="cb7-307"><a href="#cb7-307" aria-hidden="true"></a>    is_default <span class="dt">BOOLEAN</span> <span class="kw">DEFAULT</span> <span class="kw">FALSE</span>,</span>
+<span id="cb7-308"><a href="#cb7-308" aria-hidden="true"></a>    is_verified <span class="dt">BOOLEAN</span> <span class="kw">DEFAULT</span> <span class="kw">FALSE</span>,</span>
+<span id="cb7-309"><a href="#cb7-309" aria-hidden="true"></a>    </span>
+<span id="cb7-310"><a href="#cb7-310" aria-hidden="true"></a>    <span class="co">-- Stats</span></span>
+<span id="cb7-311"><a href="#cb7-311" aria-hidden="true"></a>    shorts_uploaded <span class="dt">INTEGER</span> <span class="kw">DEFAULT</span> <span class="dv">0</span>,</span>
+<span id="cb7-312"><a href="#cb7-312" aria-hidden="true"></a>    total_views <span class="dt">INTEGER</span> <span class="kw">DEFAULT</span> <span class="dv">0</span>,</span>
+<span id="cb7-313"><a href="#cb7-313" aria-hidden="true"></a>    last_upload_at <span class="dt">TIMESTAMP</span>,</span>
+<span id="cb7-314"><a href="#cb7-314" aria-hidden="true"></a>    last_error TEXT,</span>
+<span id="cb7-315"><a href="#cb7-315" aria-hidden="true"></a>    </span>
+<span id="cb7-316"><a href="#cb7-316" aria-hidden="true"></a>    created_at <span class="dt">TIMESTAMP</span> <span class="kw">DEFAULT</span> NOW(),</span>
+<span id="cb7-317"><a href="#cb7-317" aria-hidden="true"></a>    updated_at <span class="dt">TIMESTAMP</span> <span class="kw">DEFAULT</span> NOW(),</span>
+<span id="cb7-318"><a href="#cb7-318" aria-hidden="true"></a>    </span>
+<span id="cb7-319"><a href="#cb7-319" aria-hidden="true"></a>    <span class="kw">CONSTRAINT</span> unique_user_youtube_channel <span class="kw">UNIQUE</span> (user_id, channel_id)</span>
+<span id="cb7-320"><a href="#cb7-320" aria-hidden="true"></a>);</span>
+<span id="cb7-321"><a href="#cb7-321" aria-hidden="true"></a></span>
+<span id="cb7-322"><a href="#cb7-322" aria-hidden="true"></a><span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_youtube_accounts_user_id <span class="kw">ON</span> youtube_accounts(user_id);</span>
+<span id="cb7-323"><a href="#cb7-323" aria-hidden="true"></a></span>
+<span id="cb7-324"><a href="#cb7-324" aria-hidden="true"></a></span>
+<span id="cb7-325"><a href="#cb7-325" aria-hidden="true"></a><span class="co">-- =====================================================</span></span>
+<span id="cb7-326"><a href="#cb7-326" aria-hidden="true"></a><span class="co">-- TIKTOK ACCOUNTS (для публикации)</span></span>
+<span id="cb7-327"><a href="#cb7-327" aria-hidden="true"></a><span class="co">-- =====================================================</span></span>
+<span id="cb7-328"><a href="#cb7-328" aria-hidden="true"></a></span>
+<span id="cb7-329"><a href="#cb7-329" aria-hidden="true"></a><span class="kw">CREATE</span> <span class="kw">TABLE</span> tiktok_accounts (</span>
+<span id="cb7-330"><a href="#cb7-330" aria-hidden="true"></a>    <span class="kw">id</span> SERIAL <span class="kw">PRIMARY</span> <span class="kw">KEY</span>,</span>
+<span id="cb7-331"><a href="#cb7-331" aria-hidden="true"></a>    user_id <span class="dt">INTEGER</span> <span class="kw">NOT</span> <span class="kw">NULL</span> <span class="kw">REFERENCES</span> users(<span class="kw">id</span>) <span class="kw">ON</span> <span class="kw">DELETE</span> <span class="kw">CASCADE</span>,</span>
+<span id="cb7-332"><a href="#cb7-332" aria-hidden="true"></a>    </span>
+<span id="cb7-333"><a href="#cb7-333" aria-hidden="true"></a>    <span class="co">-- OAuth Tokens (encrypted)</span></span>
+<span id="cb7-334"><a href="#cb7-334" aria-hidden="true"></a>    encrypted_access_token TEXT <span class="kw">NOT</span> <span class="kw">NULL</span>,</span>
+<span id="cb7-335"><a href="#cb7-335" aria-hidden="true"></a>    encrypted_refresh_token TEXT <span class="kw">NOT</span> <span class="kw">NULL</span>,</span>
+<span id="cb7-336"><a href="#cb7-336" aria-hidden="true"></a>    token_expires_at <span class="dt">TIMESTAMP</span>,</span>
+<span id="cb7-337"><a href="#cb7-337" aria-hidden="true"></a>    </span>
+<span id="cb7-338"><a href="#cb7-338" aria-hidden="true"></a>    <span class="co">-- TikTok Account Info</span></span>
+<span id="cb7-339"><a href="#cb7-339" aria-hidden="true"></a>    tiktok_user_id <span class="dt">VARCHAR</span>(<span class="dv">255</span>) <span class="kw">NOT</span> <span class="kw">NULL</span>,</span>
+<span id="cb7-340"><a href="#cb7-340" aria-hidden="true"></a>    tiktok_username <span class="dt">VARCHAR</span>(<span class="dv">255</span>),</span>
+<span id="cb7-341"><a href="#cb7-341" aria-hidden="true"></a>    tiktok_display_name <span class="dt">VARCHAR</span>(<span class="dv">255</span>),</span>
+<span id="cb7-342"><a href="#cb7-342" aria-hidden="true"></a>    avatar_url TEXT,</span>
+<span id="cb7-343"><a href="#cb7-343" aria-hidden="true"></a>    followers_count <span class="dt">INTEGER</span>,</span>
+<span id="cb7-344"><a href="#cb7-344" aria-hidden="true"></a>    </span>
+<span id="cb7-345"><a href="#cb7-345" aria-hidden="true"></a>    <span class="co">-- Account Name (for UI)</span></span>
+<span id="cb7-346"><a href="#cb7-346" aria-hidden="true"></a>    account_name <span class="dt">VARCHAR</span>(<span class="dv">255</span>) <span class="kw">NOT</span> <span class="kw">NULL</span>,</span>
+<span id="cb7-347"><a href="#cb7-347" aria-hidden="true"></a>    </span>
+<span id="cb7-348"><a href="#cb7-348" aria-hidden="true"></a>    <span class="co">-- Status</span></span>
+<span id="cb7-349"><a href="#cb7-349" aria-hidden="true"></a>    is_active <span class="dt">BOOLEAN</span> <span class="kw">DEFAULT</span> <span class="kw">TRUE</span>,</span>
+<span id="cb7-350"><a href="#cb7-350" aria-hidden="true"></a>    is_default <span class="dt">BOOLEAN</span> <span class="kw">DEFAULT</span> <span class="kw">FALSE</span>,</span>
+<span id="cb7-351"><a href="#cb7-351" aria-hidden="true"></a>    is_verified <span class="dt">BOOLEAN</span> <span class="kw">DEFAULT</span> <span class="kw">FALSE</span>,</span>
+<span id="cb7-352"><a href="#cb7-352" aria-hidden="true"></a>    </span>
+<span id="cb7-353"><a href="#cb7-353" aria-hidden="true"></a>    <span class="co">-- Stats</span></span>
+<span id="cb7-354"><a href="#cb7-354" aria-hidden="true"></a>    videos_uploaded <span class="dt">INTEGER</span> <span class="kw">DEFAULT</span> <span class="dv">0</span>,</span>
+<span id="cb7-355"><a href="#cb7-355" aria-hidden="true"></a>    total_views <span class="dt">INTEGER</span> <span class="kw">DEFAULT</span> <span class="dv">0</span>,</span>
+<span id="cb7-356"><a href="#cb7-356" aria-hidden="true"></a>    last_upload_at <span class="dt">TIMESTAMP</span>,</span>
+<span id="cb7-357"><a href="#cb7-357" aria-hidden="true"></a>    last_error TEXT,</span>
+<span id="cb7-358"><a href="#cb7-358" aria-hidden="true"></a>    </span>
+<span id="cb7-359"><a href="#cb7-359" aria-hidden="true"></a>    created_at <span class="dt">TIMESTAMP</span> <span class="kw">DEFAULT</span> NOW(),</span>
+<span id="cb7-360"><a href="#cb7-360" aria-hidden="true"></a>    updated_at <span class="dt">TIMESTAMP</span> <span class="kw">DEFAULT</span> NOW(),</span>
+<span id="cb7-361"><a href="#cb7-361" aria-hidden="true"></a>    </span>
+<span id="cb7-362"><a href="#cb7-362" aria-hidden="true"></a>    <span class="kw">CONSTRAINT</span> unique_user_tiktok <span class="kw">UNIQUE</span> (user_id, tiktok_user_id)</span>
+<span id="cb7-363"><a href="#cb7-363" aria-hidden="true"></a>);</span>
+<span id="cb7-364"><a href="#cb7-364" aria-hidden="true"></a></span>
+<span id="cb7-365"><a href="#cb7-365" aria-hidden="true"></a><span class="kw">CREATE</span> <span class="kw">INDEX</span> idx_tiktok_accounts_user_id <span class="kw">ON</span> tiktok_accounts(user_id);</span></code></pre></div>
+<hr />
+<h2 id="модули-и-компоненты">🧩 МОДУЛИ И КОМПОНЕНТЫ</h2>
+<h3 id="module-1-voice-studio-agent">MODULE 1: Voice Studio Agent</h3>
+<p><strong>Файл:</strong> <code>app/agents/voice_studio_agent.py</code></p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true"></a><span class="kw">class</span> VoiceStudioAgent(BaseAgent):</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true"></a>    <span class="co">&quot;&quot;&quot;</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true"></a><span class="co">    Управление голосовыми активами пользователя</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true"></a><span class="co">    &quot;&quot;&quot;</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true"></a>    </span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true"></a>    <span class="co"># Функции:</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true"></a>    <span class="op">-</span> clone_voice(user_id, audio_files, voice_name)</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true"></a>    <span class="op">-</span> get_user_voices(user_id)</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true"></a>    <span class="op">-</span> test_voice(voice_id, test_text)</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true"></a>    <span class="op">-</span> update_voice_settings(voice_id, settings)</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true"></a>    <span class="op">-</span> delete_voice(voice_id)</span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true"></a>    <span class="op">-</span> generate_speech(voice_id, text, settings)</span></code></pre></div>
+<h3 id="module-2-character-studio-agent">MODULE 2: Character Studio Agent</h3>
+<p><strong>Файл:</strong> <code>app/agents/character_studio_agent.py</code></p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true"></a><span class="kw">class</span> CharacterStudioAgent(BaseAgent):</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true"></a>    <span class="co">&quot;&quot;&quot;</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true"></a><span class="co">    Создание и управление AI персонажами</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true"></a><span class="co">    &quot;&quot;&quot;</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true"></a>    </span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true"></a>    <span class="co"># Функции:</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true"></a>    <span class="op">-</span> create_character(user_id, reference_image, description)</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true"></a>    <span class="op">-</span> generate_character_variations(character_id, poses, emotions)</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true"></a>    <span class="op">-</span> get_user_characters(user_id)</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true"></a>    <span class="op">-</span> update_character(character_id, settings)</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true"></a>    <span class="op">-</span> delete_character(character_id)</span></code></pre></div>
+<h3 id="module-3-script-generator-agent">MODULE 3: Script Generator Agent</h3>
+<p><strong>Файл:</strong> <code>app/agents/script_generator_agent.py</code></p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true"></a><span class="kw">class</span> ScriptGeneratorAgent(BaseAgent):</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true"></a>    <span class="co">&quot;&quot;&quot;</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true"></a><span class="co">    Генерация сценариев для видео</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true"></a><span class="co">    &quot;&quot;&quot;</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true"></a>    </span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true"></a>    <span class="co"># Функции:</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true"></a>    <span class="op">-</span> generate_script(topic, duration, style, tone)</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true"></a>    <span class="op">-</span> generate_scenes_breakdown(script)</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true"></a>    <span class="op">-</span> optimize_for_platform(script, platform)</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true"></a>    <span class="op">-</span> generate_metadata(script)  <span class="co"># title, description, hashtags</span></span></code></pre></div>
+<h3 id="module-4-visual-producer-agent">MODULE 4: Visual Producer Agent</h3>
+<p><strong>Файл:</strong> <code>app/agents/visual_producer_agent.py</code></p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true"></a><span class="kw">class</span> VisualProducerAgent(BaseAgent):</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true"></a>    <span class="co">&quot;&quot;&quot;</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true"></a><span class="co">    Генерация визуального ряда</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true"></a><span class="co">    &quot;&quot;&quot;</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true"></a>    </span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true"></a>    <span class="co"># Функции:</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true"></a>    <span class="op">-</span> generate_scene_image(scene, character_id, style)</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true"></a>    <span class="op">-</span> generate_thumbnail(title, character_id, style)</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true"></a>    <span class="op">-</span> batch_generate_scenes(scenes_list, character_id)</span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true"></a>    <span class="op">-</span> apply_branding(image, logo, colors)</span></code></pre></div>
+<h3 id="module-5-video-editor-agent">MODULE 5: Video Editor Agent</h3>
+<p><strong>Файл:</strong> <code>app/agents/video_editor_agent.py</code></p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true"></a><span class="kw">class</span> VideoEditorAgent(BaseAgent):</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true"></a>    <span class="co">&quot;&quot;&quot;</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true"></a><span class="co">    Монтаж видео из компонентов</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true"></a><span class="co">    &quot;&quot;&quot;</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true"></a>    </span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true"></a>    <span class="co"># Функции:</span></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true"></a>    <span class="op">-</span> create_video_from_scenes(scenes, voiceover, music)</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true"></a>    <span class="op">-</span> add_subtitles(video_path, subtitle_text)</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true"></a>    <span class="op">-</span> add_branding(video_path, logo, intro, outro)</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true"></a>    <span class="op">-</span> apply_transitions(scenes, transition_type)</span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true"></a>    <span class="op">-</span> render_final_video(project_id)</span></code></pre></div>
+<h3 id="module-6-multi-platform-publisher-agent">MODULE 6: Multi-Platform Publisher Agent</h3>
+<p><strong>Файл:</strong> <code>app/agents/multi_platform_publisher_agent.py</code></p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true"></a><span class="kw">class</span> MultiPlatformPublisherAgent(BaseAgent):</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true"></a>    <span class="co">&quot;&quot;&quot;</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true"></a><span class="co">    Публикация на все платформы</span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true"></a><span class="co">    &quot;&quot;&quot;</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true"></a>    </span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true"></a>    <span class="co"># Функции:</span></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true"></a>    <span class="op">-</span> publish_to_youtube(video_path, metadata, account_id)</span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true"></a>    <span class="op">-</span> publish_to_instagram(video_path, metadata, account_id)</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true"></a>    <span class="op">-</span> publish_to_tiktok(video_path, metadata, account_id)</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true"></a>    <span class="op">-</span> publish_to_twitter(video_path, metadata, account_id)</span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true"></a>    <span class="op">-</span> schedule_publication(video_id, platforms, datetime)</span></code></pre></div>
+<hr />
+<h2 id="api-endpoints">🔌 API ENDPOINTS</h2>
+<h3 id="voice-studio-api">Voice Studio API</h3>
+<div class="sourceCode" id="cb14"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true"></a><span class="at">POST   /api/voice/clone</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Клонирование голоса из аудио файлов</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Body</span><span class="kw">:</span><span class="at"> multipart/form-data (audio files)</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Returns</span><span class="kw">:</span><span class="at"> voice_id, status</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true"></a></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true"></a><span class="at">GET    /api/voice/my-voices</span></span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Список голосов пользователя</span></span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Returns</span><span class="kw">:</span><span class="at"> </span><span class="kw">[{</span><span class="at">voice_id</span><span class="kw">,</span><span class="at"> name</span><span class="kw">,</span><span class="at"> status</span><span class="kw">,</span><span class="at"> stats</span><span class="kw">},</span><span class="at"> ...</span><span class="kw">]</span></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true"></a></span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true"></a><span class="at">POST   /api/voice/{voice_id}/test</span></span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Тестирование голоса с текстом</span></span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Body</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">text</span><span class="kw">:</span><span class="at"> string</span><span class="kw">}</span></span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Returns</span><span class="kw">:</span><span class="at"> audio_url</span></span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true"></a></span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true"></a><span class="at">PUT    /api/voice/{voice_id}/settings</span></span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Обновление настроек голоса</span></span>
+<span id="cb14-17"><a href="#cb14-17" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Body</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at">stability</span><span class="kw">,</span><span class="at"> similarity_boost</span><span class="kw">,</span><span class="at"> speed</span><span class="kw">,</span><span class="at"> ...</span><span class="kw">}</span></span>
+<span id="cb14-18"><a href="#cb14-18" aria-hidden="true"></a></span>
+<span id="cb14-19"><a href="#cb14-19" aria-hidden="true"></a><span class="at">DELETE /api/voice/{voice_id}</span></span>
+<span id="cb14-20"><a href="#cb14-20" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Удаление голоса</span></span>
+<span id="cb14-21"><a href="#cb14-21" aria-hidden="true"></a></span>
+<span id="cb14-22"><a href="#cb14-22" aria-hidden="true"></a><span class="at">POST   /api/voice/{voice_id}/generate</span></span>
+<span id="cb14-23"><a href="#cb14-23" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Генерация речи голосом</span></span>
+<span id="cb14-24"><a href="#cb14-24" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Body</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">text</span><span class="kw">:</span><span class="at"> string</span><span class="kw">,</span><span class="at"> </span><span class="fu">settings</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at">...</span><span class="kw">}}</span></span>
+<span id="cb14-25"><a href="#cb14-25" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Returns</span><span class="kw">:</span><span class="at"> audio_url</span></span></code></pre></div>
+<h3 id="character-studio-api">Character Studio API</h3>
+<div class="sourceCode" id="cb15"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true"></a><span class="at">POST   /api/character/create</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Создание персонажа</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Body</span><span class="kw">:</span><span class="at"> multipart (reference_image) + JSON (description)</span></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Returns</span><span class="kw">:</span><span class="at"> character_id, status</span></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true"></a></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true"></a><span class="at">GET    /api/character/my-characters</span></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Список персонажей пользователя</span></span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true"></a></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true"></a><span class="at">POST   /api/character/{id}/generate-variations</span></span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Генерация вариаций (позы, эмоции, фоны)</span></span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Body</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">poses</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">...</span><span class="kw">],</span><span class="at"> </span><span class="fu">emotions</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">...</span><span class="kw">],</span><span class="at"> </span><span class="fu">backgrounds</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">...</span><span class="kw">]}</span></span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Returns</span><span class="kw">:</span><span class="at"> variation_urls</span></span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true"></a></span>
+<span id="cb15-14"><a href="#cb15-14" aria-hidden="true"></a><span class="at">PUT    /api/character/{id}/update</span></span>
+<span id="cb15-15"><a href="#cb15-15" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Обновление персонажа</span></span>
+<span id="cb15-16"><a href="#cb15-16" aria-hidden="true"></a></span>
+<span id="cb15-17"><a href="#cb15-17" aria-hidden="true"></a><span class="at">DELETE /api/character/{id}</span></span>
+<span id="cb15-18"><a href="#cb15-18" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Удаление персонажа</span></span></code></pre></div>
+<h3 id="video-production-api">Video Production API</h3>
+<div class="sourceCode" id="cb16"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true"></a><span class="at">POST   /api/video/create-short</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Создание Short в один клик</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Body</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true"></a><span class="at">      </span><span class="fu">topic</span><span class="kw">:</span><span class="at"> string</span><span class="kw">,</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true"></a><span class="at">      </span><span class="fu">duration</span><span class="kw">:</span><span class="at"> number</span><span class="kw">,</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true"></a><span class="at">      </span><span class="fu">voice_id</span><span class="kw">:</span><span class="at"> number</span><span class="kw">,</span></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true"></a><span class="at">      </span><span class="fu">character_id</span><span class="kw">:</span><span class="at"> number</span><span class="kw">,</span></span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true"></a><span class="at">      </span><span class="fu">style</span><span class="kw">:</span><span class="at"> string</span><span class="kw">,</span></span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true"></a><span class="at">      </span><span class="fu">music</span><span class="kw">:</span><span class="at"> string</span></span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true"></a><span class="at">    </span><span class="kw">}</span></span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Returns</span><span class="kw">:</span><span class="at"> project_id, status</span></span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true"></a></span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true"></a><span class="at">GET    /api/video/projects</span></span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Список проектов пользователя</span></span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true"></a></span>
+<span id="cb16-16"><a href="#cb16-16" aria-hidden="true"></a><span class="at">GET    /api/video/project/{id}</span></span>
+<span id="cb16-17"><a href="#cb16-17" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Детали проекта</span></span>
+<span id="cb16-18"><a href="#cb16-18" aria-hidden="true"></a></span>
+<span id="cb16-19"><a href="#cb16-19" aria-hidden="true"></a><span class="at">GET    /api/video/project/{id}/status</span></span>
+<span id="cb16-20"><a href="#cb16-20" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Статус создания (для polling)</span></span>
+<span id="cb16-21"><a href="#cb16-21" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Returns</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span></span>
+<span id="cb16-22"><a href="#cb16-22" aria-hidden="true"></a><span class="at">      </span><span class="fu">stage</span><span class="kw">:</span><span class="at"> string</span><span class="kw">,</span></span>
+<span id="cb16-23"><a href="#cb16-23" aria-hidden="true"></a><span class="at">      </span><span class="fu">progress</span><span class="kw">:</span><span class="at"> number</span><span class="kw">,</span></span>
+<span id="cb16-24"><a href="#cb16-24" aria-hidden="true"></a><span class="at">      </span><span class="fu">estimated_time</span><span class="kw">:</span><span class="at"> number</span></span>
+<span id="cb16-25"><a href="#cb16-25" aria-hidden="true"></a><span class="at">    </span><span class="kw">}</span></span>
+<span id="cb16-26"><a href="#cb16-26" aria-hidden="true"></a></span>
+<span id="cb16-27"><a href="#cb16-27" aria-hidden="true"></a><span class="at">POST   /api/video/batch-create</span></span>
+<span id="cb16-28"><a href="#cb16-28" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Массовое создание роликов</span></span>
+<span id="cb16-29"><a href="#cb16-29" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Body</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span></span>
+<span id="cb16-30"><a href="#cb16-30" aria-hidden="true"></a><span class="at">      </span><span class="fu">topics</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">string</span><span class="kw">,</span><span class="at"> ...</span><span class="kw">],</span></span>
+<span id="cb16-31"><a href="#cb16-31" aria-hidden="true"></a><span class="at">      </span><span class="fu">settings</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at">...</span><span class="kw">}</span></span>
+<span id="cb16-32"><a href="#cb16-32" aria-hidden="true"></a><span class="at">    </span><span class="kw">}</span></span>
+<span id="cb16-33"><a href="#cb16-33" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Returns</span><span class="kw">:</span><span class="at"> batch_job_id</span></span>
+<span id="cb16-34"><a href="#cb16-34" aria-hidden="true"></a></span>
+<span id="cb16-35"><a href="#cb16-35" aria-hidden="true"></a><span class="at">GET    /api/video/batch/{job_id}/status</span></span>
+<span id="cb16-36"><a href="#cb16-36" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Статус батч-задания</span></span></code></pre></div>
+<h3 id="publishing-api">Publishing API</h3>
+<div class="sourceCode" id="cb17"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true"></a><span class="at">POST   /api/publish/video/{project_id}</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Публикация видео на платформы</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Body</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true"></a><span class="at">      </span><span class="fu">platforms</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="st">&quot;youtube&quot;</span><span class="kw">,</span><span class="at"> </span><span class="st">&quot;instagram&quot;</span><span class="kw">,</span><span class="at"> </span><span class="st">&quot;tiktok&quot;</span><span class="kw">],</span></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true"></a><span class="at">      </span><span class="fu">schedule_time</span><span class="kw">:</span><span class="at"> datetime (optional)</span><span class="kw">,</span></span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true"></a><span class="at">      </span><span class="fu">metadata_overrides</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at">...</span><span class="kw">}</span></span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true"></a><span class="at">    </span><span class="kw">}</span></span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Returns</span><span class="kw">:</span><span class="at"> publication_id</span></span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true"></a></span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true"></a><span class="at">GET    /api/publish/status/{publication_id}</span></span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Статус публикации</span></span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true"></a></span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true"></a><span class="at">GET    /api/publish/youtube/accounts</span></span>
+<span id="cb17-14"><a href="#cb17-14" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Список подключенных YouTube каналов</span></span>
+<span id="cb17-15"><a href="#cb17-15" aria-hidden="true"></a></span>
+<span id="cb17-16"><a href="#cb17-16" aria-hidden="true"></a><span class="at">POST   /api/publish/youtube/connect</span></span>
+<span id="cb17-17"><a href="#cb17-17" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> OAuth для подключения YouTube</span></span>
+<span id="cb17-18"><a href="#cb17-18" aria-hidden="true"></a></span>
+<span id="cb17-19"><a href="#cb17-19" aria-hidden="true"></a><span class="co"># Аналогично для Instagram, TikTok, Twitter</span></span></code></pre></div>
+<h3 id="analytics-api">Analytics API</h3>
+<div class="sourceCode" id="cb18"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true"></a><span class="at">GET    /api/analytics/overview</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Общая аналитика пользователя</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Returns</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true"></a><span class="at">      </span><span class="fu">total_videos</span><span class="kw">:</span><span class="at"> number</span><span class="kw">,</span></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true"></a><span class="at">      </span><span class="fu">total_views</span><span class="kw">:</span><span class="at"> number</span><span class="kw">,</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true"></a><span class="at">      </span><span class="fu">engagement_rate</span><span class="kw">:</span><span class="at"> number</span><span class="kw">,</span></span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true"></a><span class="at">      </span><span class="fu">best_performing</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">...</span><span class="kw">]</span></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true"></a><span class="at">    </span><span class="kw">}</span></span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true"></a></span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true"></a><span class="at">GET    /api/analytics/video/{project_id}</span></span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Аналитика конкретного видео</span></span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true"></a></span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true"></a><span class="at">GET    /api/analytics/platform/{platform}</span></span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Аналитика по платформе</span></span></code></pre></div>
+<hr />
+<h2 id="план-реализации-этапы">📅 ПЛАН РЕАЛИЗАЦИИ (ЭТАПЫ)</h2>
+<h3 id="phase-1-foundation-2-3-недели">PHASE 1: Foundation (2-3 недели)</h3>
+<p><strong>Цель:</strong> Базовая инфраструктура</p>
+<p><strong>Задачи:</strong> - [ ] Создать БД таблицы (user_voices, user_characters, video_projects) - [ ] Настроить S3/R2 для хранения файлов - [ ] Настроить Celery + Redis для очередей - [ ] Базовые models и migrations - [ ] Базовая структура API endpoints</p>
+<p><strong>Deliverables:</strong> - ✅ Работающая БД - ✅ File upload/storage - ✅ Task queue система</p>
+<hr />
+<h3 id="phase-2-voice-studio-2-недели">PHASE 2: Voice Studio (2 недели)</h3>
+<p><strong>Цель:</strong> Клонирование и управление голосами</p>
+<p><strong>Задачи:</strong> - [ ] Интеграция ElevenLabs API - [ ] VoiceStudioAgent implementation - [ ] API endpoints для voice management - [ ] Загрузка аудио файлов - [ ] Клонирование голоса - [ ] Тестирование голоса - [ ] Генерация speech</p>
+<p><strong>Deliverables:</strong> - ✅ Пользователь может клонировать голос - ✅ Пользователь может тестировать голос - ✅ Генерация речи работает</p>
+<p><strong>Тестирование:</strong></p>
+<div class="sourceCode" id="cb19"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true"></a><span class="co"># Test case</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true"></a>user uploads <span class="dv">3</span> audio files (<span class="dv">30</span> sec each)</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true"></a>→ System clones voice <span class="kw">in</span> <span class="dv">2</span><span class="op">-</span><span class="dv">3</span> minutes</span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true"></a>→ User can generate speech <span class="cf">with</span> cloned voice</span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true"></a>→ Quality <span class="kw">is</span> <span class="dv">9</span><span class="op">/</span><span class="dv">10</span> <span class="kw">or</span> higher</span></code></pre></div>
+<hr />
+<h3 id="phase-3-character-studio-2-недели">PHASE 3: Character Studio (2 недели)</h3>
+<p><strong>Цель:</strong> Создание консистентных персонажей</p>
+<p><strong>Задачи:</strong> - [ ] Интеграция Fal.ai FLUX API - [ ] CharacterStudioAgent implementation - [ ] API endpoints для character management - [ ] Загрузка reference images - [ ] Генерация базового персонажа - [ ] Генерация вариаций (позы, эмоции) - [ ] IP-Adapter для консистентности</p>
+<p><strong>Deliverables:</strong> - ✅ Создание персонажа из референса - ✅ Консистентность на всех генерациях - ✅ Библиотека вариаций</p>
+<p><strong>Тестирование:</strong></p>
+<div class="sourceCode" id="cb20"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true"></a><span class="co"># Test case</span></span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true"></a>user uploads reference photo</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true"></a>→ System creates character (<span class="dv">30</span> sec)</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true"></a>→ System generates <span class="dv">10</span> variations (different poses)</span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true"></a>→ All variations look like same person (<span class="dv">95</span><span class="op">%+</span> similarity)</span></code></pre></div>
+<hr />
+<h3 id="phase-4-script-generator-1-неделя">PHASE 4: Script Generator (1 неделя)</h3>
+<p><strong>Цель:</strong> AI генерация сценариев</p>
+<p><strong>Задачи:</strong> - [ ] ScriptGeneratorAgent implementation - [ ] Интеграция OpenAI GPT-4 - [ ] Prompt engineering для сценариев - [ ] Генерация hook/body/CTA - [ ] Разбивка на сцены - [ ] Генерация метаданных (title, description, hashtags)</p>
+<p><strong>Deliverables:</strong> - ✅ Генерация сценариев по теме - ✅ Автоматическая разбивка на сцены - ✅ SEO оптимизация</p>
+<p><strong>Тестирование:</strong></p>
+<div class="sourceCode" id="cb21"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true"></a><span class="co"># Test case</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true"></a>topic <span class="op">=</span> <span class="st">&quot;5 ошибок начинающих предпринимателей&quot;</span></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true"></a>→ Script generated <span class="kw">in</span> <span class="dv">10</span> seconds</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true"></a>→ Has hook, <span class="dv">3</span><span class="op">-</span><span class="dv">5</span> points, CTA</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true"></a>→ Duration <span class="op">=</span> <span class="dv">30</span> seconds ±<span class="dv">3</span> sec</span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true"></a>→ Includes visual prompts <span class="cf">for</span> each scene</span></code></pre></div>
+<hr />
+<h3 id="phase-5-visual-producer-2-недели">PHASE 5: Visual Producer (2 недели)</h3>
+<p><strong>Цель:</strong> Генерация визуального ряда</p>
+<p><strong>Задачи:</strong> - [ ] VisualProducerAgent implementation - [ ] Генерация изображений для сцен - [ ] Использование user character для консистентности - [ ] Генерация thumbnails - [ ] Batch generation (параллельная обработка) - [ ] Брендирование (логотип, цвета)</p>
+<p><strong>Deliverables:</strong> - ✅ Генерация сцен с user character - ✅ Генерация обложек - ✅ Быстрая параллельная обработка</p>
+<p><strong>Тестирование:</strong></p>
+<div class="sourceCode" id="cb22"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true"></a><span class="co"># Test case</span></span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true"></a>script <span class="cf">with</span> <span class="dv">4</span> scenes <span class="op">+</span> thumbnail</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true"></a>→ All <span class="dv">5</span> images generated <span class="kw">in</span> <span class="dv">30</span><span class="op">-</span><span class="dv">60</span> seconds (parallel)</span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true"></a>→ Character consistent across <span class="bu">all</span> scenes</span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true"></a>→ High quality (1080x1920)</span></code></pre></div>
+<hr />
+<h3 id="phase-6-video-editor-3-недели">PHASE 6: Video Editor (3 недели)</h3>
+<p><strong>Цель:</strong> Монтаж финального видео</p>
+<p><strong>Задачи:</strong> - [ ] VideoEditorAgent implementation - [ ] FFmpeg pipeline setup - [ ] MoviePy integration - [ ] Scene assembly (images → video) - [ ] Voice overlay - [ ] Background music mixing - [ ] Transitions &amp; effects - [ ] Subtitle generation (Whisper API) - [ ] Subtitle overlay - [ ] Branding (logo, intro, outro) - [ ] Final rendering</p>
+<p><strong>Deliverables:</strong> - ✅ Полный монтажный конвейер - ✅ Субтитры - ✅ Брендирование - ✅ Высокое качество экспорта</p>
+<p><strong>Тестирование:</strong></p>
+<div class="sourceCode" id="cb23"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true"></a><span class="co"># Test case E2E</span></span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true"></a>topic <span class="op">=</span> <span class="st">&quot;Как увеличить продажи&quot;</span></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true"></a>→ Full video created <span class="kw">in</span> <span class="dv">5</span> minutes</span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true"></a>→ Quality: 1080x1920, 30fps</span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true"></a>→ Voiceover matches scenes</span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true"></a>→ Subtitles accurate (<span class="dv">95</span><span class="op">%+</span>)</span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true"></a>→ Professional look</span></code></pre></div>
+<hr />
+<h3 id="phase-7-multi-platform-publisher-2-недели">PHASE 7: Multi-Platform Publisher (2 недели)</h3>
+<p><strong>Цель:</strong> Публикация на все платформы</p>
+<p><strong>Задачи:</strong> - [ ] YouTube API integration - [ ] Instagram API integration (уже частично есть!) - [ ] TikTok API integration - [ ] Twitter API integration (уже есть!) - [ ] Telegram integration (уже есть!) - [ ] OAuth flows для всех платформ - [ ] Metadata optimization per platform - [ ] Scheduling system - [ ] Retry logic</p>
+<p><strong>Deliverables:</strong> - ✅ Публикация на YouTube Shorts - ✅ Публикация на Instagram Reels - ✅ Публикация на TikTok - ✅ Публикация на Twitter/X - ✅ Публикация в Telegram - ✅ Планирование публикаций</p>
+<p><strong>Тестирование:</strong></p>
+<div class="sourceCode" id="cb24"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true"></a><span class="co"># Test case</span></span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true"></a>video ready</span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true"></a>→ One click publishes to <span class="bu">all</span> <span class="dv">5</span> platforms</span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true"></a>→ Each platform gets optimized metadata</span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true"></a>→ Success rate: <span class="dv">95</span><span class="op">%+</span></span></code></pre></div>
+<hr />
+<h3 id="phase-8-batch-production-1-неделя">PHASE 8: Batch Production (1 неделя)</h3>
+<p><strong>Цель:</strong> Массовое создание роликов</p>
+<p><strong>Задачи:</strong> - [ ] Batch job queue system - [ ] Parallel processing - [ ] Progress tracking - [ ] Error handling &amp; retry - [ ] Cost estimation - [ ] Batch publishing</p>
+<p><strong>Deliverables:</strong> - ✅ Создание 50+ роликов за раз - ✅ Параллельная обработка - ✅ Progress dashboard</p>
+<p><strong>Тестирование:</strong></p>
+<div class="sourceCode" id="cb25"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true"></a><span class="co"># Test case</span></span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true"></a><span class="dv">50</span> topics</span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true"></a>→ All <span class="dv">50</span> videos created <span class="kw">in</span> <span class="dv">2</span><span class="op">-</span><span class="dv">3</span> hours (parallel)</span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true"></a>→ Success rate: <span class="dv">90</span><span class="op">%+</span></span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true"></a>→ Total cost: $<span class="fl">12.50</span> ($<span class="fl">0.25</span> each)</span></code></pre></div>
+<hr />
+<h3 id="phase-9-analytics-dashboard-1-неделя">PHASE 9: Analytics &amp; Dashboard (1 неделя)</h3>
+<p><strong>Цель:</strong> Аналитика и insights</p>
+<p><strong>Задачи:</strong> - [ ] Сбор метрик с платформ - [ ] Analytics API endpoints - [ ] Dashboard визуализация - [ ] Performance insights - [ ] Recommendations engine</p>
+<p><strong>Deliverables:</strong> - ✅ Аналитика по всем платформам - ✅ Best performing content - ✅ AI рекомендации</p>
+<hr />
+<h3 id="phase-10-frontend-4-6-недель">PHASE 10: Frontend (4-6 недель)</h3>
+<p><strong>Параллельно с backend разработкой</strong></p>
+<p><strong>Задачи:</strong> - [ ] Voice Studio UI - [ ] Character Studio UI - [ ] One-Click Creator UI - [ ] Timeline Editor UI - [ ] Publishing Dashboard - [ ] Analytics Dashboard - [ ] Settings &amp; Billing</p>
+<hr />
+<h3 id="phase-11-polish-optimization-2-недели">PHASE 11: Polish &amp; Optimization (2 недели)</h3>
+<p><strong>Задачи:</strong> - [ ] Performance optimization - [ ] Cost optimization - [ ] Error handling improvements - [ ] UI/UX polish - [ ] Documentation - [ ] Video tutorials</p>
+<hr />
+<h2 id="интеграции-и-зависимости">📦 ИНТЕГРАЦИИ И ЗАВИСИМОСТИ</h2>
+<h3 id="external-apis-required">External APIs Required</h3>
+<div class="sourceCode" id="cb26"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true"></a><span class="fu">TIER 1 (Critical)</span><span class="kw">:</span></span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">ElevenLabs API</span><span class="kw">:</span><span class="at"> Voice cloning &amp; TTS</span></span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Fal.ai API</span><span class="kw">:</span><span class="at"> Image generation (FLUX)</span></span>
+<span id="cb26-4"><a href="#cb26-4" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">OpenAI API</span><span class="kw">:</span><span class="at"> Scripts (GPT-4), Subtitles (Whisper)</span></span>
+<span id="cb26-5"><a href="#cb26-5" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">YouTube Data API v3</span><span class="kw">:</span><span class="at"> Publishing</span></span>
+<span id="cb26-6"><a href="#cb26-6" aria-hidden="true"></a><span class="at">  </span></span>
+<span id="cb26-7"><a href="#cb26-7" aria-hidden="true"></a><span class="fu">TIER 2 (Important)</span><span class="kw">:</span></span>
+<span id="cb26-8"><a href="#cb26-8" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Instagram Graph API</span><span class="kw">:</span><span class="at"> Publishing Reels</span></span>
+<span id="cb26-9"><a href="#cb26-9" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">TikTok Content Posting API</span><span class="kw">:</span><span class="at"> Publishing</span></span>
+<span id="cb26-10"><a href="#cb26-10" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Twitter API v2</span><span class="kw">:</span><span class="at"> Publishing videos</span></span>
+<span id="cb26-11"><a href="#cb26-11" aria-hidden="true"></a><span class="at">  </span></span>
+<span id="cb26-12"><a href="#cb26-12" aria-hidden="true"></a><span class="fu">TIER 3 (Nice to have)</span><span class="kw">:</span></span>
+<span id="cb26-13"><a href="#cb26-13" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Epidemic Sound API</span><span class="kw">:</span><span class="at"> Music library</span></span>
+<span id="cb26-14"><a href="#cb26-14" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Pexels/Unsplash API</span><span class="kw">:</span><span class="at"> Stock footage</span></span>
+<span id="cb26-15"><a href="#cb26-15" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">AssemblyAI</span><span class="kw">:</span><span class="at"> Subtitle alternative</span></span></code></pre></div>
+<h3 id="api-costs-monthly-estimates-for-1000-videos">API Costs (Monthly estimates for 1000 videos)</h3>
+<div class="sourceCode" id="cb27"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true"></a><span class="fu">Voice (ElevenLabs)</span><span class="kw">:</span></span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Cloning</span><span class="kw">:</span><span class="at"> FREE (3 voices)</span></span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Generation</span><span class="kw">:</span><span class="at"> $150 (500k characters)</span></span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true"></a></span>
+<span id="cb27-5"><a href="#cb27-5" aria-hidden="true"></a><span class="fu">Images (Fal.ai FLUX)</span><span class="kw">:</span></span>
+<span id="cb27-6"><a href="#cb27-6" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">5000 images (5 per video)</span><span class="kw">:</span><span class="at"> $25</span></span>
+<span id="cb27-7"><a href="#cb27-7" aria-hidden="true"></a></span>
+<span id="cb27-8"><a href="#cb27-8" aria-hidden="true"></a><span class="fu">Scripts (OpenAI GPT-4)</span><span class="kw">:</span></span>
+<span id="cb27-9"><a href="#cb27-9" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">1000 scripts</span><span class="kw">:</span><span class="at"> $10</span></span>
+<span id="cb27-10"><a href="#cb27-10" aria-hidden="true"></a></span>
+<span id="cb27-11"><a href="#cb27-11" aria-hidden="true"></a><span class="fu">Subtitles (Whisper)</span><span class="kw">:</span></span>
+<span id="cb27-12"><a href="#cb27-12" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">1000 videos (30 sec each)</span><span class="kw">:</span><span class="at"> $15</span></span>
+<span id="cb27-13"><a href="#cb27-13" aria-hidden="true"></a></span>
+<span id="cb27-14"><a href="#cb27-14" aria-hidden="true"></a><span class="fu">YouTube API</span><span class="kw">:</span><span class="at"> FREE</span></span>
+<span id="cb27-15"><a href="#cb27-15" aria-hidden="true"></a><span class="fu">Instagram API</span><span class="kw">:</span><span class="at"> FREE</span></span>
+<span id="cb27-16"><a href="#cb27-16" aria-hidden="true"></a><span class="fu">TikTok API</span><span class="kw">:</span><span class="at"> FREE</span></span>
+<span id="cb27-17"><a href="#cb27-17" aria-hidden="true"></a><span class="fu">Twitter API</span><span class="kw">:</span><span class="at"> FREE</span></span>
+<span id="cb27-18"><a href="#cb27-18" aria-hidden="true"></a></span>
+<span id="cb27-19"><a href="#cb27-19" aria-hidden="true"></a><span class="fu">TOTAL</span><span class="kw">:</span><span class="at"> ~$200/month for 1000 videos</span></span>
+<span id="cb27-20"><a href="#cb27-20" aria-hidden="true"></a><span class="at">       = $0.20 per video</span></span></code></pre></div>
+<h3 id="infrastructure-costs">Infrastructure Costs</h3>
+<div class="sourceCode" id="cb28"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true"></a><span class="fu">Database (PostgreSQL)</span><span class="kw">:</span></span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Development</span><span class="kw">:</span><span class="at"> FREE (Railway/Supabase)</span></span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Production</span><span class="kw">:</span><span class="at"> $50/month (Managed)</span></span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true"></a></span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true"></a><span class="fu">Storage (S3/R2)</span><span class="kw">:</span></span>
+<span id="cb28-6"><a href="#cb28-6" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">500GB storage</span><span class="kw">:</span><span class="at"> $10/month</span></span>
+<span id="cb28-7"><a href="#cb28-7" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Bandwidth</span><span class="kw">:</span><span class="at"> $20/month</span></span>
+<span id="cb28-8"><a href="#cb28-8" aria-hidden="true"></a></span>
+<span id="cb28-9"><a href="#cb28-9" aria-hidden="true"></a><span class="fu">Server</span><span class="kw">:</span></span>
+<span id="cb28-10"><a href="#cb28-10" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Development</span><span class="kw">:</span><span class="at"> Local</span></span>
+<span id="cb28-11"><a href="#cb28-11" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Production</span><span class="kw">:</span><span class="at"> $100/month (4 CPU, 16GB RAM)</span></span>
+<span id="cb28-12"><a href="#cb28-12" aria-hidden="true"></a></span>
+<span id="cb28-13"><a href="#cb28-13" aria-hidden="true"></a><span class="fu">CDN</span><span class="kw">:</span></span>
+<span id="cb28-14"><a href="#cb28-14" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">CloudFlare</span><span class="kw">:</span><span class="at"> FREE or $20/month</span></span>
+<span id="cb28-15"><a href="#cb28-15" aria-hidden="true"></a></span>
+<span id="cb28-16"><a href="#cb28-16" aria-hidden="true"></a><span class="fu">Redis</span><span class="kw">:</span></span>
+<span id="cb28-17"><a href="#cb28-17" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Development</span><span class="kw">:</span><span class="at"> FREE</span></span>
+<span id="cb28-18"><a href="#cb28-18" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Production</span><span class="kw">:</span><span class="at"> $30/month</span></span>
+<span id="cb28-19"><a href="#cb28-19" aria-hidden="true"></a></span>
+<span id="cb28-20"><a href="#cb28-20" aria-hidden="true"></a><span class="fu">TOTAL</span><span class="kw">:</span><span class="at"> ~$230/month infrastructure</span></span></code></pre></div>
+<hr />
+<h2 id="стоимость-и-ресурсы">💰 СТОИМОСТЬ И РЕСУРСЫ</h2>
+<h3 id="development-resources">Development Resources</h3>
+<div class="sourceCode" id="cb29"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true"></a><span class="fu">Team Needed</span><span class="kw">:</span></span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Backend Developer (Python/Flask)</span><span class="kw">:</span><span class="at"> 1 FTE</span></span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Frontend Developer (React/Vue)</span><span class="kw">:</span><span class="at"> 1 FTE</span></span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">DevOps Engineer</span><span class="kw">:</span><span class="at"> 0.5 FTE</span></span>
+<span id="cb29-5"><a href="#cb29-5" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">UI/UX Designer</span><span class="kw">:</span><span class="at"> 0.5 FTE</span></span>
+<span id="cb29-6"><a href="#cb29-6" aria-hidden="true"></a><span class="at">  </span></span>
+<span id="cb29-7"><a href="#cb29-7" aria-hidden="true"></a><span class="fu">Timeline</span><span class="kw">:</span><span class="at"> 12-16 weeks</span></span>
+<span id="cb29-8"><a href="#cb29-8" aria-hidden="true"></a><span class="at">  </span></span>
+<span id="cb29-9"><a href="#cb29-9" aria-hidden="true"></a><span class="fu">Budget Estimate</span><span class="kw">:</span></span>
+<span id="cb29-10"><a href="#cb29-10" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Development</span><span class="kw">:</span><span class="at"> $40,000 - $60,000</span></span>
+<span id="cb29-11"><a href="#cb29-11" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Infrastructure (3 months)</span><span class="kw">:</span><span class="at"> $700</span></span>
+<span id="cb29-12"><a href="#cb29-12" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">APIs testing</span><span class="kw">:</span><span class="at"> $500</span></span>
+<span id="cb29-13"><a href="#cb29-13" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Total</span><span class="kw">:</span><span class="at"> $41,200 - $61,200</span></span></code></pre></div>
+<h3 id="pricing-model-для-пользователей">Pricing Model (для пользователей)</h3>
+<div class="sourceCode" id="cb30"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true"></a><span class="fu">FREE TIER</span><span class="kw">:</span></span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> 5 videos/month</span></span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> 1 voice clone</span></span>
+<span id="cb30-4"><a href="#cb30-4" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> 1 character</span></span>
+<span id="cb30-5"><a href="#cb30-5" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Watermark on videos</span></span>
+<span id="cb30-6"><a href="#cb30-6" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> $0/month</span></span>
+<span id="cb30-7"><a href="#cb30-7" aria-hidden="true"></a></span>
+<span id="cb30-8"><a href="#cb30-8" aria-hidden="true"></a><span class="fu">CREATOR ($29/month)</span><span class="kw">:</span></span>
+<span id="cb30-9"><a href="#cb30-9" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> 50 videos/month</span></span>
+<span id="cb30-10"><a href="#cb30-10" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> 3 voice clones</span></span>
+<span id="cb30-11"><a href="#cb30-11" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> 3 characters</span></span>
+<span id="cb30-12"><a href="#cb30-12" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> No watermark</span></span>
+<span id="cb30-13"><a href="#cb30-13" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> All platforms</span></span>
+<span id="cb30-14"><a href="#cb30-14" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Basic analytics</span></span>
+<span id="cb30-15"><a href="#cb30-15" aria-hidden="true"></a></span>
+<span id="cb30-16"><a href="#cb30-16" aria-hidden="true"></a><span class="fu">PRO ($99/month)</span><span class="kw">:</span></span>
+<span id="cb30-17"><a href="#cb30-17" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> 200 videos/month</span></span>
+<span id="cb30-18"><a href="#cb30-18" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> 10 voice clones</span></span>
+<span id="cb30-19"><a href="#cb30-19" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> 10 characters</span></span>
+<span id="cb30-20"><a href="#cb30-20" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Priority processing</span></span>
+<span id="cb30-21"><a href="#cb30-21" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Advanced analytics</span></span>
+<span id="cb30-22"><a href="#cb30-22" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Batch production</span></span>
+<span id="cb30-23"><a href="#cb30-23" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> API access</span></span>
+<span id="cb30-24"><a href="#cb30-24" aria-hidden="true"></a></span>
+<span id="cb30-25"><a href="#cb30-25" aria-hidden="true"></a><span class="fu">AGENCY ($299/month)</span><span class="kw">:</span></span>
+<span id="cb30-26"><a href="#cb30-26" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Unlimited videos</span></span>
+<span id="cb30-27"><a href="#cb30-27" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Unlimited voices</span></span>
+<span id="cb30-28"><a href="#cb30-28" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Unlimited characters</span></span>
+<span id="cb30-29"><a href="#cb30-29" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> White-label</span></span>
+<span id="cb30-30"><a href="#cb30-30" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Team collaboration</span></span>
+<span id="cb30-31"><a href="#cb30-31" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> Dedicated support</span></span></code></pre></div>
+<h3 id="unit-economics">Unit Economics</h3>
+<div class="sourceCode" id="cb31"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true"></a><span class="fu">At $99/month (PRO plan)</span><span class="kw">:</span></span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Revenue</span><span class="kw">:</span><span class="at"> $99</span></span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Costs (200 videos × $0.20)</span><span class="kw">:</span><span class="at"> $40</span></span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Infrastructure</span><span class="kw">:</span><span class="at"> $5</span></span>
+<span id="cb31-5"><a href="#cb31-5" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Gross Margin</span><span class="kw">:</span><span class="at"> $54 (54.5%)</span></span>
+<span id="cb31-6"><a href="#cb31-6" aria-hidden="true"></a><span class="at">  </span></span>
+<span id="cb31-7"><a href="#cb31-7" aria-hidden="true"></a><span class="fu">Break-even</span><span class="kw">:</span><span class="at"> ~80 paying users</span></span>
+<span id="cb31-8"><a href="#cb31-8" aria-hidden="true"></a><span class="fu">Healthy</span><span class="kw">:</span><span class="at"> 200+ paying users</span></span></code></pre></div>
+<hr />
+<h2 id="метрики-успеха">📊 МЕТРИКИ УСПЕХА</h2>
+<h3 id="technical-metrics">Technical Metrics</h3>
+<div class="sourceCode" id="cb32"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true"></a><span class="fu">Performance</span><span class="kw">:</span></span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Video creation time</span><span class="kw">:</span><span class="at"> &lt; 5 minutes per Short</span></span>
+<span id="cb32-3"><a href="#cb32-3" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Batch processing</span><span class="kw">:</span><span class="at"> 50 videos in &lt; 3 hours</span></span>
+<span id="cb32-4"><a href="#cb32-4" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">API response time</span><span class="kw">:</span><span class="at"> &lt; 200ms (p95)</span></span>
+<span id="cb32-5"><a href="#cb32-5" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Uptime</span><span class="kw">:</span><span class="at"> 99.9%</span></span>
+<span id="cb32-6"><a href="#cb32-6" aria-hidden="true"></a></span>
+<span id="cb32-7"><a href="#cb32-7" aria-hidden="true"></a><span class="fu">Quality</span><span class="kw">:</span></span>
+<span id="cb32-8"><a href="#cb32-8" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Voice clone quality</span><span class="kw">:</span><span class="at"> &gt; 8/10 (user rating)</span></span>
+<span id="cb32-9"><a href="#cb32-9" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Character consistency</span><span class="kw">:</span><span class="at"> &gt; 95% similarity</span></span>
+<span id="cb32-10"><a href="#cb32-10" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Subtitle accuracy</span><span class="kw">:</span><span class="at"> &gt; 95%</span></span>
+<span id="cb32-11"><a href="#cb32-11" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Publishing success rate</span><span class="kw">:</span><span class="at"> &gt; 95%</span></span>
+<span id="cb32-12"><a href="#cb32-12" aria-hidden="true"></a></span>
+<span id="cb32-13"><a href="#cb32-13" aria-hidden="true"></a><span class="fu">Cost</span><span class="kw">:</span></span>
+<span id="cb32-14"><a href="#cb32-14" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Production cost per video</span><span class="kw">:</span><span class="at"> &lt; $0.25</span></span>
+<span id="cb32-15"><a href="#cb32-15" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">Gross margin</span><span class="kw">:</span><span class="at"> &gt; 50%</span></span></code></pre></div>
+<h3 id="business-metrics">Business Metrics</h3>
+<div class="sourceCode" id="cb33"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true"></a><span class="fu">Month 1-3 (Beta)</span><span class="kw">:</span></span>
+<span id="cb33-2"><a href="#cb33-2" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> 100 beta users</span></span>
+<span id="cb33-3"><a href="#cb33-3" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> 50 paying users</span></span>
+<span id="cb33-4"><a href="#cb33-4" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> 1000 videos created</span></span>
+<span id="cb33-5"><a href="#cb33-5" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> $2,500 MRR</span></span>
+<span id="cb33-6"><a href="#cb33-6" aria-hidden="true"></a></span>
+<span id="cb33-7"><a href="#cb33-7" aria-hidden="true"></a><span class="fu">Month 4-6 (Growth)</span><span class="kw">:</span></span>
+<span id="cb33-8"><a href="#cb33-8" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> 500 total users</span></span>
+<span id="cb33-9"><a href="#cb33-9" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> 200 paying users</span></span>
+<span id="cb33-10"><a href="#cb33-10" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> 10,000 videos created</span></span>
+<span id="cb33-11"><a href="#cb33-11" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> $12,000 MRR</span></span>
+<span id="cb33-12"><a href="#cb33-12" aria-hidden="true"></a></span>
+<span id="cb33-13"><a href="#cb33-13" aria-hidden="true"></a><span class="fu">Month 7-12 (Scale)</span><span class="kw">:</span></span>
+<span id="cb33-14"><a href="#cb33-14" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> 2000 total users</span></span>
+<span id="cb33-15"><a href="#cb33-15" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> 800 paying users</span></span>
+<span id="cb33-16"><a href="#cb33-16" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> 50,000 videos created</span></span>
+<span id="cb33-17"><a href="#cb33-17" aria-hidden="true"></a><span class="at">  </span><span class="kw">-</span><span class="at"> $50,000 MRR</span></span></code></pre></div>
+<hr />
+<h2 id="next-steps">✅ NEXT STEPS</h2>
+<h3 id="immediate-actions">Immediate Actions</h3>
+<ol type="1">
+<li><strong>Review this roadmap</strong> и уточнить приоритеты</li>
+<li><strong>Получить API ключи</strong> для тестирования:
+<ul>
+<li>ElevenLabs API key</li>
+<li>Fal.ai API key</li>
+<li>OpenAI API key</li>
+</ul></li>
+<li><strong>Начать с PHASE 1 + PHASE 2</strong> (Foundation + Voice Studio)</li>
+<li><strong>Настроить окружение</strong> и базовую инфраструктуру</li>
+</ol>
+<h3 id="priority-order">Priority Order</h3>
+<pre><code>1. Foundation (БД, storage, queue)     [WEEK 1-2]
+2. Voice Studio (клонирование голоса)  [WEEK 3-4]
+3. Script Generator (AI сценарии)      [WEEK 5]
+4. Character Studio (AI персонажи)     [WEEK 6-7]
+5. Visual Producer (генерация сцен)    [WEEK 8-9]
+6. Video Editor (монтаж)               [WEEK 10-12]
+7. Publisher (multi-platform)          [WEEK 13-14]
+8. Batch Production                    [WEEK 15]
+9. Frontend                           [PARALLEL]
+10. Polish &amp; Launch                    [WEEK 16]</code></pre>
+<hr />
+<h2 id="notes">📝 NOTES</h2>
+<ul>
+<li>Этот документ - живой roadmap, будет обновляться</li>
+<li>Каждая фаза будет иметь свой detailed spec</li>
+<li>Тестирование критично на каждом этапе</li>
+<li>MVP можно запустить после Phase 6 (без batch и некоторых платформ)</li>
+<li>Некоторые интеграции уже готовы (Instagram, Twitter, Telegram)</li>
+</ul>
+<hr />
+<h2 id="связанные-документы">🔗 СВЯЗАННЫЕ ДОКУМЕНТЫ</h2>
+<ul>
+<li><a href="SOCIAL_MEDIA_SETUP.md">SOCIAL_MEDIA_SETUP.md</a> - Настройка соцсетей (Instagram, Twitter, Telegram)</li>
+<li><a href="TELEGRAM_CHANNELS_SETUP.md">TELEGRAM_CHANNELS_SETUP.md</a> - Telegram интеграция</li>
+<li><a href="INSTAGRAM_TWITTER_READY.md">INSTAGRAM_TWITTER_READY.md</a> - Instagram &amp; Twitter готовность</li>
+</ul>
+<hr />
+<p><strong>Статус:</strong> 📋 Roadmap готов к реализации<br />
+<strong>Дата обновления:</strong> 20 октября 2025<br />
+<strong>Следующий шаг:</strong> Получить одобрение и начать Phase 1</p>
+<p>🚀 <strong>Ready to build the future of content creation!</strong></p>
+</body>
+</html>
