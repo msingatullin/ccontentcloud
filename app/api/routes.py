@@ -532,7 +532,7 @@ def handle_exception(e: Exception) -> tuple:
 class ContentCreate(Resource):
     @jwt_required
     @api.doc('create_content', description='Создает контент через AI агентов')
-    @api.expect(content_request_model, validate=True)
+    @api.expect(content_request_model, validate=False)
     @api.response(201, 'Контент успешно создан')
     @api.response(400, 'Ошибка валидации')
     @api.response(500, 'Внутренняя ошибка сервера')
