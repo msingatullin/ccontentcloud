@@ -82,8 +82,8 @@ class WorkflowStatusEnum(str, Enum):
 class ContentRequestSchema(BaseModel):
     """Схема запроса на создание контента"""
     title: str = Field(..., min_length=1, max_length=200, description="Заголовок контента")
-    description: str = Field(..., min_length=10, max_length=1000, description="Описание контента")
-    target_audience: str = Field(..., min_length=1, max_length=200, description="Целевая аудитория")
+    description: str = Field(..., min_length=10, max_length=2000, description="Описание контента")
+    target_audience: str = Field(..., min_length=1, max_length=1000, description="Целевая аудитория")
     business_goals: List[str] = Field(..., min_items=1, max_items=10, description="Бизнес-цели")
     call_to_action: List[str] = Field(default=[], max_items=10, description="Призывы к действию (текст, ссылки, действия)")
     tone: ToneEnum = Field(default=ToneEnum.PROFESSIONAL, description="Тон контента")

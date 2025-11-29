@@ -161,8 +161,8 @@ common_models = create_common_models(api)
 
 content_request_model = api.model('ContentRequest', {
     'title': fields.String(required=True, min_length=1, max_length=200, description='Заголовок контента'),
-    'description': fields.String(required=True, min_length=10, max_length=1000, description='Описание контента'),
-    'target_audience': fields.String(required=True, min_length=1, max_length=200, description='Целевая аудитория'),
+    'description': fields.String(required=True, min_length=10, max_length=2000, description='Описание контента'),
+    'target_audience': fields.String(required=True, min_length=1, max_length=1000, description='Целевая аудитория'),
     'business_goals': fields.List(fields.String, required=True, min_items=1, max_items=10, description='Бизнес-цели'),
     'call_to_action': fields.List(fields.String, description='Призывы к действию (текст, ссылки, действия)', max_items=10),
     'tone': fields.String(description='Тон контента', enum=['professional', 'casual', 'friendly', 'authoritative'], default='professional'),
