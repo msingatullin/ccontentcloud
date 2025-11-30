@@ -5,7 +5,7 @@ MCP Integrations
 
 from .base import BaseMCPIntegration, MCPResponse, MCPError, MCPStatus
 from .openai import OpenAIMCP
-from .vertex_ai import VertexAIIntegration
+from .vertex_ai import VertexAIMCP
 from .telegram import TelegramMCP
 from .huggingface import HuggingFaceMCP
 from .news import NewsMCP
@@ -20,7 +20,7 @@ __all__ = [
     'MCPError',
     'MCPStatus',
     'OpenAIMCP',
-    'VertexAIIntegration',
+    'VertexAIMCP',
     'TelegramMCP',
     'HuggingFaceMCP',
     'NewsMCP',

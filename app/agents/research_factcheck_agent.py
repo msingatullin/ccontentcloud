@@ -15,7 +15,7 @@ from ..orchestrator.agent_manager import BaseAgent, AgentCapability
 from ..orchestrator.workflow_engine import Task, TaskType, TaskPriority
 from ..mcp.integrations.news import NewsMCP
 from ..mcp.integrations.wikipedia import WikipediaMCP
-from ..mcp.integrations.vertex_ai import VertexAIIntegration
+from ..mcp.integrations.vertex_ai import VertexAIMCP
 from ..mcp.config import get_mcp_config, is_mcp_enabled
 
 logger = logging.getLogger(__name__)
@@ -167,10 +167,10 @@ class ResearchFactCheckAgent(BaseAgent):
             # Vertex AI для фактчека с Grounding (приоритетный метод)
             if is_mcp_enabled('vertex_ai'):
                 try:
-                    self.vertex_mcp = VertexAIIntegration()
-                    logger.info("VertexAIIntegration инициализирован в ResearchFactCheckAgent")
+                    self.vertex_mcp = VertexAIMCP()
+                    logger.info("VertexAIMCP инициализирован в ResearchFactCheckAgent")
                 except Exception as e:
-                    logger.warning(f"VertexAIIntegration недоступен: {e} - будет использоваться fallback")
+                    logger.warning(f"VertexAIMCP недоступен: {e} - будет использоваться fallback")
                     self.vertex_mcp = None
             else:
                 logger.warning("Vertex AI недоступен - будет использоваться fallback")
