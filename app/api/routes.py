@@ -1911,7 +1911,6 @@ class AuthMe(Resource):
             
             token = auth_header.split(' ')[1]
             
-            # Простая проверка токена (заглушка)
             if not token or len(token) < 10:
                 return {
                     "error": "Unauthorized",
@@ -1920,14 +1919,19 @@ class AuthMe(Resource):
                     "timestamp": datetime.now().isoformat()
                 }, 401
             
-            # Проверка на валидные mock токены
-            valid_tokens = [
-                'mock_access_token_admin@example.com',
-                'mock_access_token_user@example.com',
-                'mock_access_token_test@example.com'
-            ]
+            # Проверяем JWT токен
+            payload = verify_jwt_token(token)
+            if not payload:
+                return {
+                    "error": "Unauthorized",
+                    "message": "Неверный или истекший токен",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
             
-            if token not in valid_tokens:
+            # Получаем пользователя из БД
+            user_id = payload.get('user_id')
+            if not user_id:
                 return {
                     "error": "Unauthorized",
                     "message": "Неверный токен",
@@ -1935,32 +1939,29 @@ class AuthMe(Resource):
                     "timestamp": datetime.now().isoformat()
                 }, 401
             
-            # Извлекаем email из токена
-            email = token.replace('mock_access_token_', '')
+            from ..auth.models.user import User
+            db_session = get_db_session()
+            user = db_session.query(User).filter(User.id == user_id).first()
+            
+            if not user:
+                db_session.close()
+                return {
+                    "error": "Unauthorized",
+                    "message": "Пользователь не найден",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
             
             # Возвращаем информацию о пользователе
+            user_data = user.to_dict()
+            db_session.close()
+            
             return {
-                "user": {
-                    "id": 1,
-                    "email": email,
-                    "username": email.split('@')[0],
-                    "first_name": "Test",
-                    "last_name": "User",
-                    "is_verified": True,
-                    "role": "user",
-                    "created_at": "2024-01-01T00:00:00Z",
-                    "updated_at": "2024-01-01T00:00:00Z"
-                },
-                "usage_stats": {
-                    "posts_used": 5,
-                    "posts_limit": 50,
-                    "api_calls_used": 100,
-                    "api_calls_limit": 1000
-                }
+                "user": user_data
             }, 200
                 
         except Exception as e:
-            logger.error(f"Ошибка получения профиля: {e}")
+            logger.error(f"Ошибка получения профиля: {e}", exc_info=True)
             return {
                 "error": "Internal server error",
                 "message": "Внутренняя ошибка сервера",
