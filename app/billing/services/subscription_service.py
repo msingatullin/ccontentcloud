@@ -2,10 +2,12 @@
 Сервис для управления подписками
 """
 
+import json
 import logging
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
+from sqlalchemy import inspect, text
 
 from app.billing.models.subscription import (
     Subscription, Payment, UsageRecord, BillingEvent,
@@ -36,6 +38,75 @@ class SubscriptionService:
     
     def __init__(self, db_session):
         self.db = db_session
+
+    def create_default_tariff_plans(self):
+        """
+        Создает дефолтные тарифные планы в таблице tariff_plans, если она существует и пуста.
+        Метод безопасно завершается, если таблицы нет или схема отличается — нужны лишь лог и отсутствие исключения,
+        чтобы инициализация БД не падала на старте.
+        """
+        try:
+            bind = self.db.get_bind()
+            if bind is None:
+                logger.info("DB engine is not available, skip default tariff plans seeding")
+                return
+
+            inspector = inspect(bind)
+            if not inspector.has_table("tariff_plans"):
+                logger.info("tariff_plans table not found, skip seeding")
+                return
+
+            columns = {col["name"] for col in inspector.get_columns("tariff_plans")}
+            required_columns = {
+                "name",
+                "display_name",
+                "description",
+                "price_monthly",
+                "price_yearly",
+                "features",
+                "limits"
+            }
+            if not required_columns.issubset(columns):
+                logger.info("tariff_plans table has unexpected schema, skip seeding")
+                return
+
+            with bind.begin() as conn:
+                count = conn.execute(text("SELECT COUNT(*) FROM tariff_plans")).scalar() or 0
+                if count > 0:
+                    logger.info("tariff_plans already populated (count=%s), skip seeding", count)
+                    return
+
+                for plan_id, plan in PLANS.items():
+                    conn.execute(
+                        text(
+                            """
+                            INSERT INTO tariff_plans (
+                                name, display_name, description,
+                                price_monthly, price_yearly,
+                                features, limits
+                            )
+                            VALUES (
+                                :name, :display_name, :description,
+                                :price_monthly, :price_yearly,
+                                :features, :limits
+                            )
+                            """
+                        ),
+                        {
+                            "name": plan_id,
+                            "display_name": plan.name,
+                            "description": plan.description,
+                            # В коде цены в копейках, сохраняем в рублях для таблицы
+                            "price_monthly": (plan.price_monthly or 0) / 100,
+                            "price_yearly": (plan.price_yearly or 0) / 100,
+                            "features": json.dumps(plan.features),
+                            "limits": json.dumps(asdict(plan.limits)),
+                        },
+                    )
+
+                logger.info("Default tariff plans inserted into tariff_plans table")
+        except Exception as e:
+            logger.warning("Skipping default tariff plans seeding due to error: %s", e)
     
     def create_subscription(
         self,
