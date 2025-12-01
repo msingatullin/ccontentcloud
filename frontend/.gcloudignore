@@ -1,0 +1,54 @@
+# gcloud ignore file for frontend deployment
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+
+# Production build (will be created during Docker build)
+build/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# Documentation (not needed for build)
+README.md
+DEPLOYMENT.md
+MANUAL_DEPLOYMENT.md
+LANDING_PAGE.md
+
+# Scripts (not needed for build)
+deploy-script.sh
+deploy-cloud-run.sh
+
+# Archive files
+*.tar.gz
+
+# DO NOT exclude public/ - it's needed for React build!
+

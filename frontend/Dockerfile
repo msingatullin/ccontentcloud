@@ -35,12 +35,14 @@ COPY nginx.conf /etc/nginx/nginx.conf
 
 # Set permissions
 RUN adduser -D -S -G www-data www-data && \
+    mkdir -p /var/cache/nginx /var/log/nginx /etc/nginx/conf.d /run/nginx && \
     chown -R www-data:www-data /var/www/localhost/htdocs && \
     chown -R www-data:www-data /var/cache/nginx && \
     chown -R www-data:www-data /var/log/nginx && \
     chown -R www-data:www-data /etc/nginx/conf.d && \
-    touch /var/run/nginx.pid && \
-    chown -R www-data:www-data /var/run/nginx.pid
+    chown -R www-data:www-data /run/nginx && \
+    touch /run/nginx/nginx.pid && \
+    chown -R www-data:www-data /run/nginx/nginx.pid
 
 # Switch to non-root user
 USER www-data
