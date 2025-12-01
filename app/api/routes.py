@@ -1556,9 +1556,9 @@ class AuthVerifyEmail(Resource):
     def post(self):
         """Верификация email"""
         try:
-            from ...auth.services.auth_service import AuthService
-            from ...auth.utils.email import EmailService
-            from ...database.connection import get_db_session
+            from ..auth.services.auth_service import AuthService
+            from ..auth.utils.email import EmailService
+            from ..database.connection import get_db_session
             
             db_session = get_db_session()
             email_service = EmailService()
@@ -1602,9 +1602,9 @@ class AuthResendVerification(Resource):
     def post(self):
         """Повторная отправка email верификации"""
         try:
-            from ...auth.services.auth_service import AuthService
-            from ...auth.utils.email import EmailService
-            from ...database.connection import get_db_session
+            from ..auth.services.auth_service import AuthService
+            from ..auth.utils.email import EmailService
+            from ..database.connection import get_db_session
             
             db_session = get_db_session()
             email_service = EmailService()
@@ -1649,9 +1649,9 @@ class AuthForgotPassword(Resource):
     def post(self):
         """Запрос сброса пароля"""
         try:
-            from ...auth.services.auth_service import AuthService
-            from ...auth.utils.email import EmailService
-            from ...database.connection import get_db_session
+            from ..auth.services.auth_service import AuthService
+            from ..auth.utils.email import EmailService
+            from ..database.connection import get_db_session
             
             db_session = get_db_session()
             email_service = EmailService()
@@ -1688,9 +1688,9 @@ class AuthResetPassword(Resource):
     def post(self):
         """Сброс пароля"""
         try:
-            from ...auth.services.auth_service import AuthService
-            from ...auth.utils.email import EmailService
-            from ...database.connection import get_db_session
+            from ..auth.services.auth_service import AuthService
+            from ..auth.utils.email import EmailService
+            from ..database.connection import get_db_session
             
             db_session = get_db_session()
             email_service = EmailService()
@@ -1739,9 +1739,9 @@ class AuthRefresh(Resource):
     def post(self):
         """Обновление токена"""
         try:
-            from ...auth.services.auth_service import AuthService
-            from ...auth.utils.email import EmailService
-            from ...database.connection import get_db_session
+            from ..auth.services.auth_service import AuthService
+            from ..auth.utils.email import EmailService
+            from ..database.connection import get_db_session
             
             db_session = get_db_session()
             email_service = EmailService()
@@ -1840,10 +1840,10 @@ class AuthLogoutAll(Resource):
     def post(self):
         """Выход из всех сессий"""
         try:
-            from ...auth.services.auth_service import AuthService
-            from ...auth.utils.email import EmailService
-            from ...database.connection import get_db_session
-            from ...auth.middleware.jwt import JWTMiddleware
+            from ..auth.services.auth_service import AuthService
+            from ..auth.utils.email import EmailService
+            from ..database.connection import get_db_session
+            from ..auth.middleware.jwt import JWTMiddleware
             
             db_session = get_db_session()
             email_service = EmailService()
@@ -1983,10 +1983,10 @@ class AuthProfile(Resource):
     def put(self):
         """Обновление профиля пользователя"""
         try:
-            from ...auth.services.auth_service import AuthService
-            from ...auth.utils.email import EmailService
-            from ...database.connection import get_db_session
-            from ...auth.middleware.jwt import JWTMiddleware
+            from ..auth.services.auth_service import AuthService
+            from ..auth.utils.email import EmailService
+            from ..database.connection import get_db_session
+            from ..auth.middleware.jwt import JWTMiddleware
             
             db_session = get_db_session()
             email_service = EmailService()
@@ -2054,10 +2054,10 @@ class AuthChangePassword(Resource):
     def post(self):
         """Смена пароля"""
         try:
-            from ...auth.services.auth_service import AuthService
-            from ...auth.utils.email import EmailService
-            from ...database.connection import get_db_session
-            from ...auth.middleware.jwt import JWTMiddleware
+            from ..auth.services.auth_service import AuthService
+            from ..auth.utils.email import EmailService
+            from ..database.connection import get_db_session
+            from ..auth.middleware.jwt import JWTMiddleware
             
             db_session = get_db_session()
             email_service = EmailService()
@@ -2128,10 +2128,10 @@ class AuthSessions(Resource):
     def get(self):
         """Получить активные сессии пользователя"""
         try:
-            from ...auth.services.auth_service import AuthService
-            from ...auth.utils.email import EmailService
-            from ...database.connection import get_db_session
-            from ...auth.middleware.jwt import JWTMiddleware
+            from ..auth.services.auth_service import AuthService
+            from ..auth.utils.email import EmailService
+            from ..database.connection import get_db_session
+            from ..auth.middleware.jwt import JWTMiddleware
             
             db_session = get_db_session()
             email_service = EmailService()
@@ -2191,10 +2191,10 @@ class AuthSession(Resource):
     def delete(self, session_id):
         """Отозвать конкретную сессию"""
         try:
-            from ...auth.services.auth_service import AuthService
-            from ...auth.utils.email import EmailService
-            from ...database.connection import get_db_session
-            from ...auth.middleware.jwt import JWTMiddleware
+            from ..auth.services.auth_service import AuthService
+            from ..auth.utils.email import EmailService
+            from ..database.connection import get_db_session
+            from ..auth.middleware.jwt import JWTMiddleware
             
             db_session = get_db_session()
             email_service = EmailService()
@@ -2269,7 +2269,7 @@ class BillingPlans(Resource):
     def get(self):
         """Получить все доступные тарифные планы"""
         try:
-            from ...billing.models.subscription import get_all_plans
+            from ..billing.models.subscription import get_all_plans
             
             plans = get_all_plans()
             
@@ -2314,7 +2314,7 @@ class BillingPlan(Resource):
     def get(self, plan_id):
         """Получить конкретный тарифный план"""
         try:
-            from ...billing.models.subscription import get_plan_by_id
+            from ..billing.models.subscription import get_plan_by_id
             
             plan = get_plan_by_id(plan_id)
             if not plan:
@@ -2411,8 +2411,8 @@ class BillingSubscription(Resource):
     def post(self):
         """Создать подписку"""
         try:
-            from ...billing.models.subscription import get_plan_by_id
-            from ...billing.services.yookassa_service import YooKassaService, PaymentRequest
+            from ..billing.models.subscription import get_plan_by_id
+            from ..billing.services.yookassa_service import YooKassaService, PaymentRequest
             
             data = request.get_json()
             user_id = request.headers.get('X-User-ID')
@@ -2606,7 +2606,7 @@ class BillingPaymentMethods(Resource):
     def get(self):
         """Получить доступные способы оплаты"""
         try:
-            from ...billing.services.yookassa_service import YooKassaService
+            from ..billing.services.yookassa_service import YooKassaService
             
             yookassa_service = YooKassaService()
             payment_methods = yookassa_service.get_payment_methods()
@@ -2629,7 +2629,7 @@ class BillingPayment(Resource):
     def get(self, payment_id):
         """Получить статус платежа"""
         try:
-            from ...billing.services.yookassa_service import YooKassaService
+            from ..billing.services.yookassa_service import YooKassaService
             
             yookassa_service = YooKassaService()
             payment_info = yookassa_service.get_payment(payment_id)
@@ -2710,7 +2710,7 @@ class WebhookYooKassa(Resource):
     def post(self):
         """Обработчик webhook от ЮКассы"""
         try:
-            from ...billing.services.yookassa_service import YooKassaService
+            from ..billing.services.yookassa_service import YooKassaService
             
             # Получаем данные запроса
             request_body = request.get_data(as_text=True)
