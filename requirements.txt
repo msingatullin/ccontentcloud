@@ -18,12 +18,12 @@ alembic==1.13.1
 redis==5.0.1
 
 # HTTP Requests
-requests==2.31.0
-httpx==0.25.2
+requests>=2.31.0
+httpx>=0.25.2
 
 # Environment & Config
 python-dotenv==1.0.0
-pydantic==2.5.0
+pydantic>=2.5.0
 
 # Social Media APIs
 python-telegram-bot==20.7
