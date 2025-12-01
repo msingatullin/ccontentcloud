@@ -15,7 +15,7 @@ import SocialProofSection from './sections/SocialProofSection';
 import FinalCTASection from './sections/FinalCTASection';
 
 // Импорт компонентов
-import Navigation from '../../components/Navigation/Navigation';
+import LandingNavbar from './components/LandingNavbar';
 import Footer from './components/Footer';
 
 const LandingContainer = styled.div`
@@ -72,7 +72,7 @@ const LandingPage = () => {
       </Helmet>
 
       <LandingContainer>
-        <Navigation />
+        <LandingNavbar />
         
         <HeroSection />
         
