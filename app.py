@@ -53,7 +53,7 @@ from app.api.twitter_ns import twitter_ns
 from app.api.scheduled_posts_ns import scheduled_posts_ns
 from app.api.auto_posting_ns import auto_posting_ns
 from app.api.projects_ns import projects_ns
-from app.api.routes import content_sources_ns
+from app.api.content_sources_ns import content_sources_ns
 from app.api.swagger_config import create_swagger_api
 from app.workers import ScheduledPostsWorker, AutoPostingWorker
 from app.workers.web_crawler_worker import WebCrawlerWorker
