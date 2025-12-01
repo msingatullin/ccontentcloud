@@ -1526,15 +1526,26 @@ class AuthLogin(Resource):
                     "status_code": 401,
                     "timestamp": datetime.now().isoformat()
                 }, 401
-            
+
+            # Логирование полученных токенов
+            logger.info(f"=== LOGIN ENDPOINT DEBUG ===")
+            logger.info(f"tokens dict keys: {list(tokens.keys()) if tokens else 'NULL'}")
+            logger.info(f"access_token type: {type(tokens.get('access_token'))}, value: {tokens.get('access_token', 'NONE')[:20] if tokens.get('access_token') else 'NULL'}...")
+            logger.info(f"refresh_token type: {type(tokens.get('refresh_token'))}, value: {tokens.get('refresh_token', 'NONE')[:20] if tokens.get('refresh_token') else 'NULL'}...")
+            logger.info(f"expires_in: {tokens.get('expires_in')}")
+
             # Успешная авторизация
-            return {
+            response_data = {
                 "message": message,
                 "access_token": tokens.get('access_token'),
                 "refresh_token": tokens.get('refresh_token'),
                 "expires_in": tokens.get('expires_in', 3600),
                 "user": tokens.get('user', {})
-            }, 200
+            }
+
+            logger.info(f"Response data before marshal: {dict((k, v[:20] + '...' if isinstance(v, str) and len(v) > 20 and k != 'user' else v) for k, v in response_data.items())}")
+
+            return response_data, 200
                 
         except Exception as e:
             logger.error(f"Ошибка авторизации: {e}", exc_info=True)
