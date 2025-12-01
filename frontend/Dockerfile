@@ -33,19 +33,15 @@ RUN mkdir -p /usr/share/nginx/html && cp -r build/* /usr/share/nginx/html/
 # Copy nginx config
 COPY nginx.conf /etc/nginx/nginx.conf
 
-# Set permissions
-RUN adduser -D -S -G www-data www-data && \
-    mkdir -p /var/cache/nginx /var/log/nginx /etc/nginx/conf.d /run/nginx && \
-    chown -R www-data:www-data /usr/share/nginx/html && \
-    chown -R www-data:www-data /var/cache/nginx && \
-    chown -R www-data:www-data /var/log/nginx && \
-    chown -R www-data:www-data /etc/nginx/conf.d && \
-    chown -R www-data:www-data /run/nginx && \
+# Set permissions - create all nginx directories
+RUN mkdir -p /var/cache/nginx /var/log/nginx /etc/nginx/conf.d /run/nginx \
+    /var/lib/nginx/tmp/client_body /var/lib/nginx/tmp/proxy \
+    /var/lib/nginx/tmp/fastcgi /var/lib/nginx/tmp/uwsgi /var/lib/nginx/tmp/scgi \
+    /var/lib/nginx/logs && \
     touch /run/nginx/nginx.pid && \
-    chown -R www-data:www-data /run/nginx/nginx.pid
+    chmod -R 755 /var/lib/nginx /var/cache/nginx /var/log/nginx /run/nginx /usr/share/nginx/html
 
-# Switch to non-root user
-USER www-data
+# Run as root (simpler for Cloud Run)
 
 # Expose port
 EXPOSE 8080
