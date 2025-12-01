@@ -1422,28 +1422,36 @@ class AuthRegister(Resource):
                     "timestamp": datetime.now().isoformat()
                 }, 400
             
-            # Проверка на существующего пользователя (заглушка)
-            if email == 'existing@example.com':
+            # Регистрация через AuthService
+            db_session = get_db_session()
+            secret_key = current_app.config.get('JWT_SECRET_KEY') or current_app.config.get('SECRET_KEY', 'dev-secret-key')
+            email_service = EmailService()
+            auth_service = AuthService(db_session, secret_key, email_service)
+            
+            success, message, user = auth_service.register_user(
+                email=email,
+                password=password,
+                username=username,
+                first_name=data.get('first_name', ''),
+                last_name=data.get('last_name', '')
+            )
+            
+            if not success:
                 return {
                     "error": "Registration Failed",
-                    "message": "Пользователь с таким email уже существует",
+                    "message": message,
                     "status_code": 400,
                     "timestamp": datetime.now().isoformat()
                 }, 400
             
             # Успешная регистрация
             return {
-                "message": "Пользователь успешно зарегистрирован",
-                "user": {
-                    "id": 1,
-                    "email": email,
-                    "username": username,
-                    "is_verified": False
-                }
+                "message": message,
+                "user": user.to_dict() if hasattr(user, 'to_dict') else user
             }, 201
                 
         except Exception as e:
-            logger.error(f"Ошибка регистрации: {e}")
+            logger.error(f"Ошибка регистрации: {e}", exc_info=True)
             return {
                 "error": "Internal server error",
                 "message": "Внутренняя ошибка сервера",
@@ -1788,7 +1796,6 @@ class AuthLogout(Resource):
             
             token = auth_header.split(' ')[1]
             
-            # Простая проверка токена (заглушка)
             if not token or len(token) < 10:
                 return {
                     "error": "Unauthorized",
@@ -1797,22 +1804,17 @@ class AuthLogout(Resource):
                     "timestamp": datetime.now().isoformat()
                 }, 401
             
-            # Проверка на валидные mock токены
-            valid_tokens = [
-                'mock_access_token_admin@example.com',
-                'mock_access_token_user@example.com',
-                'mock_access_token_test@example.com'
-            ]
-            
-            if token not in valid_tokens:
+            # Проверяем JWT токен
+            payload = verify_jwt_token(token)
+            if not payload:
                 return {
                     "error": "Unauthorized",
-                    "message": "Неверный токен",
+                    "message": "Неверный или истекший токен",
                     "status_code": 401,
                     "timestamp": datetime.now().isoformat()
                 }, 401
             
-            # Успешный выход
+            # Успешный выход (токен валиден, клиент удалит его на своей стороне)
             return {
                 "success": True,
                 "message": "Успешный выход из системы",
