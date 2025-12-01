@@ -2,11 +2,11 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 
 // Базовый URL API
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://content-curator-dt3n7kzpwq-uc.a.run.app';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://content-curator-1046574462613.us-central1.run.app';
 
 // Создаем экземпляр axios с базовой конфигурацией
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: `${API_BASE_URL}/api/v1`,
   timeout: 30000, // 30 секунд
   headers: {
     'Content-Type': 'application/json',
