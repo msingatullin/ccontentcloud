@@ -43,7 +43,11 @@ class Project(Base):
     deleted_at = Column(DateTime, nullable=True)
     
     # Связи
-    user = relationship("User", backref="projects")
+    user = relationship("User", back_populates="projects")
+    scheduled_posts = relationship("ScheduledPostDB", back_populates="project", cascade="all, delete-orphan")
+    telegram_channels = relationship("TelegramChannel", back_populates="project", cascade="all, delete-orphan")
+    content_pieces = relationship("ContentPieceDB", back_populates="project", cascade="all, delete-orphan")
+    instagram_accounts = relationship("InstagramAccount", back_populates="project", cascade="all, delete-orphan")
     
     def to_dict(self) -> Dict[str, Any]:
         """Преобразует проект в словарь"""
