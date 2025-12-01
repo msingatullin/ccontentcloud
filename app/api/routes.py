@@ -37,6 +37,7 @@ auth_ns = Namespace('auth', description='Authentication API')
 billing_ns = Namespace('billing', description='Billing API')
 webhook_ns = Namespace('webhook', description='Webhook API')
 health_ns = Namespace('health', description='Health Check API')
+ai_ns = Namespace('ai', description='AI Generation API')
 
 # Создаем общие модели
 common_models = create_common_models(api)
