@@ -281,7 +281,7 @@ const PricingSection = () => {
   // Загрузка тарифных планов
   const { data: plans, isLoading, error } = useQuery(
     'billing-plans',
-    () => api.get('/billing/plans').then(res => res.data),
+    () => api.get('/api/v1/billing/plans').then(res => res.data),
     {
       staleTime: 5 * 60 * 1000, // 5 минут
       cacheTime: 10 * 60 * 1000, // 10 минут
@@ -291,7 +291,7 @@ const PricingSection = () => {
   const handleSubscribe = async (planId) => {
     setLoadingPlan(planId);
     try {
-      const response = await api.post('/billing/subscription', {
+      const response = await api.post('/api/v1/billing/subscription', {
         plan_id: planId,
         billing_period: isYearly ? 'yearly' : 'monthly'
       });

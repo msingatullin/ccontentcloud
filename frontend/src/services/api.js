@@ -148,7 +148,7 @@ export const systemAPI = {
 
   // Health check
   healthCheck: async () => {
-    const response = await api.get('/health');
+    const response = await api.get('/api/v1/health');
     return response.data;
   },
 };
@@ -315,7 +315,7 @@ export const apiUtils = {
   // Проверить подключение к API
   checkConnection: async () => {
     try {
-      const response = await api.get('/health');
+      const response = await api.get('/api/v1/health');
       return response.status === 200;
     } catch (error) {
       return false;
