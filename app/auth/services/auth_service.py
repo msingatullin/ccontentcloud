@@ -437,14 +437,22 @@ class AuthService:
         )
         
         self.db.add(session)
-        
-        return {
+
+        result = {
             'access_token': access_token,
             'refresh_token': refresh_token,
             'token_type': 'bearer',
             'expires_in': self.access_token_expire_minutes * 60,
             'user': user.to_dict()
         }
+
+        logger.info(f"_create_tokens returning: access_token={result['access_token'][:20] if result.get('access_token') else 'NULL'}...")
+        logger.info(f"_create_tokens returning: refresh_token={result['refresh_token'][:20] if result.get('refresh_token') else 'NULL'}...")
+        logger.info(f"_create_tokens returning: expires_in={result.get('expires_in')}")
+        logger.info(f"_create_tokens returning: token_type={result.get('token_type')}")
+        logger.info(f"_create_tokens returning: user_id={result.get('user', {}).get('id')}")
+
+        return result
 
     def _generate_jti(self) -> str:
         """Генерация JWT ID"""

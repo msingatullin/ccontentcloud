@@ -135,12 +135,20 @@ def init_auth_routes(db_session: Session, secret_key: str):
                 ip_address=request.remote_addr,
                 user_agent=request.headers.get('User-Agent')
             )
-            
+
             if success:
-                return jsonify({
+                logger.info(f"Login successful, tokens received: access_token={tokens.get('access_token', 'NONE')[:20] if tokens.get('access_token') else 'NULL'}...")
+                logger.info(f"Tokens dict keys: {list(tokens.keys()) if tokens else 'NULL'}")
+                logger.info(f"Tokens dict: {dict((k, v[:20] + '...' if isinstance(v, str) and len(v) > 20 and k != 'user' else v) for k, v in tokens.items()) if tokens else 'NULL'}")
+
+                response_data = {
                     'message': message,
                     **tokens
-                }), 200
+                }
+                logger.info(f"Response data keys: {list(response_data.keys())}")
+                logger.info(f"Response access_token: {response_data.get('access_token', 'NONE')[:20] if response_data.get('access_token') else 'NULL'}...")
+
+                return jsonify(response_data), 200
             else:
                 return jsonify({'error': message}), 401
                 
