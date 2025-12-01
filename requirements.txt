@@ -28,6 +28,7 @@ pydantic==2.5.0
 # Social Media APIs
 python-telegram-bot==20.7
 vk-api==11.9.9
+instagrapi>=2.0.0
 
 # Utilities
 python-dateutil==2.8.2
