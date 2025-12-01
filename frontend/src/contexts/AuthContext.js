@@ -99,7 +99,7 @@ export function AuthProvider({ children }) {
           api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
           
           // Проверяем валидность токена
-          const response = await api.get('/auth/me');
+          const response = await api.get('/api/v1/auth/me');
           
           dispatch({
             type: AUTH_ACTIONS.SET_USER,
@@ -142,7 +142,7 @@ export function AuthProvider({ children }) {
       throw new Error('No refresh token available');
     }
 
-    const response = await api.post('/auth/refresh', {
+    const response = await api.post('/api/v1/auth/refresh', {
       refresh_token: refreshToken
     });
 
@@ -172,7 +172,7 @@ export function AuthProvider({ children }) {
       dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: true });
       dispatch({ type: AUTH_ACTIONS.CLEAR_ERROR });
 
-      const response = await api.post('/auth/login', {
+      const response = await api.post('/api/v1/auth/login', {
         email,
         password
       });
@@ -218,7 +218,7 @@ export function AuthProvider({ children }) {
       dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: true });
       dispatch({ type: AUTH_ACTIONS.CLEAR_ERROR });
 
-      const response = await api.post('/auth/register', userData);
+      const response = await api.post('/api/v1/auth/register', userData);
       
       dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: false });
       
@@ -239,7 +239,7 @@ export function AuthProvider({ children }) {
   const logout = async () => {
     try {
       // Отзываем токен на сервере
-      await api.post('/auth/logout');
+      await api.post('/api/v1/auth/logout');
     } catch (error) {
       // Игнорируем ошибки при выходе
       console.warn('Error during logout:', error);
@@ -262,7 +262,7 @@ export function AuthProvider({ children }) {
   // Функция обновления профиля
   const updateProfile = async (profileData) => {
     try {
-      const response = await api.put('/auth/profile', profileData);
+      const response = await api.put('/api/v1/auth/profile', profileData);
       
       dispatch({
         type: AUTH_ACTIONS.SET_USER,
@@ -281,7 +281,7 @@ export function AuthProvider({ children }) {
   // Функция смены пароля
   const changePassword = async (currentPassword, newPassword) => {
     try {
-      await api.post('/auth/change-password', {
+      await api.post('/api/v1/auth/change-password', {
         current_password: currentPassword,
         new_password: newPassword
       });
@@ -298,7 +298,7 @@ export function AuthProvider({ children }) {
   // Функция верификации email
   const verifyEmail = async (token) => {
     try {
-      await api.post('/auth/verify-email', { token });
+      await api.post('/api/v1/auth/verify-email', { token });
       toast.success('Email успешно подтвержден!');
       return { success: true };
     } catch (error) {
@@ -311,7 +311,7 @@ export function AuthProvider({ children }) {
   // Функция запроса сброса пароля
   const forgotPassword = async (email) => {
     try {
-      await api.post('/auth/forgot-password', { email });
+      await api.post('/api/v1/auth/forgot-password', { email });
       toast.success('Инструкции по сбросу пароля отправлены на email');
       return { success: true };
     } catch (error) {
@@ -324,7 +324,7 @@ export function AuthProvider({ children }) {
   // Функция сброса пароля
   const resetPassword = async (token, newPassword) => {
     try {
-      await api.post('/auth/reset-password', {
+      await api.post('/api/v1/auth/reset-password', {
         token,
         new_password: newPassword
       });

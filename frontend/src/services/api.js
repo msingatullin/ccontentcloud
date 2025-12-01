@@ -6,7 +6,7 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://content-curator-1
 
 // Создаем экземпляр axios с базовой конфигурацией
 const api = axios.create({
-  baseURL: `${API_BASE_URL}/api/v1`,
+  baseURL: API_BASE_URL,
   timeout: 30000, // 30 секунд
   headers: {
     'Content-Type': 'application/json',
