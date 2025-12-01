@@ -419,7 +419,13 @@ class AuthService:
         
         logger.info(f"Access token payload: {access_token_payload}")
         access_token = jwt.encode(access_token_payload, self.secret_key, algorithm=self.jwt_algorithm)
-        logger.info(f"Access token created: {access_token[:20]}...")
+
+        # Ensure token is string, not bytes (for PyJWT < 2.0 compatibility)
+        if isinstance(access_token, bytes):
+            access_token = access_token.decode('utf-8')
+            logger.info(f"Access token converted from bytes to string")
+
+        logger.info(f"Access token created (type={type(access_token).__name__}): {access_token[:20]}...")
         
         # Refresh token
         refresh_token = self._generate_refresh_token()
@@ -446,9 +452,9 @@ class AuthService:
             'user': user.to_dict()
         }
 
-        logger.info(f"_create_tokens returning: access_token={result['access_token'][:20] if result.get('access_token') else 'NULL'}...")
-        logger.info(f"_create_tokens returning: refresh_token={result['refresh_token'][:20] if result.get('refresh_token') else 'NULL'}...")
-        logger.info(f"_create_tokens returning: expires_in={result.get('expires_in')}")
+        logger.info(f"_create_tokens returning: access_token={result['access_token'][:20] if result.get('access_token') else 'NULL'}... (type={type(result.get('access_token')).__name__})")
+        logger.info(f"_create_tokens returning: refresh_token={result['refresh_token'][:20] if result.get('refresh_token') else 'NULL'}... (type={type(result.get('refresh_token')).__name__})")
+        logger.info(f"_create_tokens returning: expires_in={result.get('expires_in')} (type={type(result.get('expires_in')).__name__})")
         logger.info(f"_create_tokens returning: token_type={result.get('token_type')}")
         logger.info(f"_create_tokens returning: user_id={result.get('user', {}).get('id')}")
 
