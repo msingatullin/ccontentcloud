@@ -204,8 +204,8 @@ def create_app():
 
     # Создаем и регистрируем Flask-RESTX API с Swagger
     swagger_api = create_swagger_api(app)
-    swagger_api.add_namespace(api)
-    swagger_api.add_namespace(auth_ns)
+    swagger_api.add_namespace(api, path='/')
+    swagger_api.add_namespace(auth_ns, path='/auth')
     swagger_api.add_namespace(billing_ns)
     swagger_api.add_namespace(webhook_ns)
     swagger_api.add_namespace(health_ns)
