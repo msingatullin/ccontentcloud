@@ -86,7 +86,16 @@ def init_database():
         # Import all models to ensure they are registered
         from app.auth.models.user import User, UserSession
         from app.billing.models.subscription import Subscription, Payment, UsageRecord
+        from app.billing.models.agent_subscription import AgentSubscription
         from app.models.project import Project
+        from app.models.telegram_channels import TelegramChannel
+        from app.models.instagram_accounts import InstagramAccount
+        from app.models.twitter_accounts import TwitterAccount
+        from app.models.scheduled_posts import ScheduledPostDB
+        from app.models.auto_posting_rules import AutoPostingRuleDB
+        from app.models.content_sources import ContentSource, MonitoredItem
+        from app.models.content import ContentPieceDB, TokenUsageDB
+        from app.models.uploads import FileUploadDB
         
         # Create all tables
         Base.metadata.create_all(bind=engine)
