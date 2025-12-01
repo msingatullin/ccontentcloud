@@ -12,6 +12,9 @@ from flask_restx import Namespace, Resource, fields
 from pydantic import ValidationError
 
 from ..orchestrator.main_orchestrator import orchestrator
+from ..database.connection import get_db_session
+from ..auth.services.auth_service import AuthService
+from ..auth.utils.email import EmailService
 from .schemas import (
     ContentRequestSchema,
     ContentResponseSchema,
@@ -1444,37 +1447,47 @@ class AuthLogin(Resource):
                     "timestamp": datetime.now().isoformat()
                 }, 400
             
-            # Проверка учетных данных (заглушка)
-            valid_credentials = {
-                'admin@example.com': 'admin123',
-                'user@example.com': 'user123',
-                'test@example.com': 'test123'
+            # Получаем сессию БД и инициализируем AuthService
+            db_session = get_db_session()
+            # Используем JWT_SECRET_KEY если доступен, иначе SECRET_KEY
+            secret_key = current_app.config.get('JWT_SECRET_KEY') or current_app.config.get('SECRET_KEY', 'dev-secret-key')
+            email_service = EmailService()
+            auth_service = AuthService(db_session, secret_key, email_service)
+            
+            # Получение информации об устройстве
+            device_info = {
+                'user_agent': request.headers.get('User-Agent'),
+                'ip': request.remote_addr
             }
             
-            if email not in valid_credentials or valid_credentials[email] != password:
+            # Авторизация через реальный сервис
+            success, message, tokens = auth_service.login_user(
+                email,
+                password,
+                device_info=device_info,
+                ip_address=request.remote_addr,
+                user_agent=request.headers.get('User-Agent')
+            )
+            
+            if not success or not tokens:
                 return {
                     "error": "Authentication Failed",
-                    "message": "Неверный email или пароль",
+                    "message": message or "Неверный email или пароль",
                     "status_code": 401,
                     "timestamp": datetime.now().isoformat()
                 }, 401
             
             # Успешная авторизация
             return {
-                "message": "Успешная авторизация",
-                "access_token": f"mock_access_token_{email}",
-                "refresh_token": f"mock_refresh_token_{email}",
-                "expires_in": 3600,
-                "user": {
-                    "id": 1,
-                    "email": email,
-                    "username": email.split('@')[0],
-                    "is_verified": True
-                }
+                "message": message,
+                "access_token": tokens.get('access_token'),
+                "refresh_token": tokens.get('refresh_token'),
+                "expires_in": tokens.get('expires_in', 3600),
+                "user": tokens.get('user', {})
             }, 200
                 
         except Exception as e:
-            logger.error(f"Ошибка авторизации: {e}")
+            logger.error(f"Ошибка авторизации: {e}", exc_info=True)
             return {
                 "error": "Internal server error",
                 "message": "Внутренняя ошибка сервера",
