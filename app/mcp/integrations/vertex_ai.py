@@ -231,3 +231,4 @@ class VertexAIMCP(BaseMCPIntegration):
         """Алиас для generate_content"""
         return await self.generate_content(prompt, **kwargs)
 
+
