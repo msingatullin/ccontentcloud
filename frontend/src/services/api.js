@@ -22,6 +22,12 @@ api.interceptors.request.use(
       _t: Date.now(),
     };
     
+    // Добавляем токен авторизации из localStorage
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    
     console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`);
     return config;
   },
