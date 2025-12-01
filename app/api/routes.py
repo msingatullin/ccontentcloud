@@ -6,7 +6,9 @@ RESTful endpoints для работы с контентом и агентами
 
 import asyncio
 import logging
-from datetime import datetime
+import jwt
+from datetime import datetime, timedelta
+from functools import wraps
 from flask import request, current_app
 from flask_restx import Namespace, Resource, fields
 from pydantic import ValidationError
@@ -30,6 +32,45 @@ from .swagger_config import create_common_models, get_example_data
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
+
+# ==================== JWT HELPERS ====================
+
+def verify_jwt_token(token):
+    """Проверка JWT токена"""
+    try:
+        secret_key = current_app.config.get('JWT_SECRET_KEY') or current_app.config.get('SECRET_KEY', 'dev-secret-key')
+        payload = jwt.decode(token, secret_key, algorithms=['HS256'])
+        return payload
+    except Exception as e:
+        logger.warning(f"JWT verification failed: {e}")
+        return None
+
+def jwt_required(f):
+    """Декоратор для проверки JWT токена"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        token = None
+        
+        # Извлечь токен из Authorization header
+        if 'Authorization' in request.headers:
+            auth_header = request.headers['Authorization']
+            try:
+                token = auth_header.split(" ")[1]  # Bearer <token>
+            except:
+                return {"error": "Invalid token format. Use: Bearer <token>"}, 401
+        
+        if not token:
+            return {"error": "Authorization token is missing"}, 401
+        
+        # Проверить токен
+        payload = verify_jwt_token(token)
+        if not payload:
+            return {"error": "Invalid or expired token"}, 401
+        
+        # Передать user info в функцию
+        return f(*args, current_user=payload, **kwargs)
+    
+    return decorated_function
 
 # Создаем namespaces для API
 api = Namespace('api', description='AI Content Orchestrator API')
