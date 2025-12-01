@@ -19,20 +19,30 @@ SessionLocal = None
 
 def get_database_url():
     """Get database URL from environment variables"""
+    # Check for explicit DATABASE_URL first
+    database_url = os.getenv('DATABASE_URL')
+    if database_url:
+        return database_url
+    
     # For production, use Cloud SQL or external database
     if os.getenv('ENVIRONMENT') == 'production':
-        # Cloud SQL connection
-        db_host = os.getenv('DB_HOST', 'localhost')
-        db_port = os.getenv('DB_PORT', '5432')
         db_name = os.getenv('DB_NAME', 'content_curator')
         db_user = os.getenv('DB_USER', 'postgres')
         db_password = os.getenv('DB_PASSWORD', '')
+        db_host = os.getenv('DB_HOST', 'localhost')
         
+        # Cloud SQL Unix socket connection (for Cloud Run)
+        # DB_HOST может содержать путь к сокету: /cloudsql/INSTANCE_CONNECTION_NAME
+        if db_host.startswith('/cloudsql/'):
+            # Unix socket format for Cloud SQL
+            return f"postgresql+psycopg2://{db_user}:{db_password}@/{db_name}?host={db_host}"
+        
+        # Fallback to TCP connection
+        db_port = os.getenv('DB_PORT', '5432')
         return f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
     
     # For development, use SQLite
-    db_path = os.getenv('DATABASE_URL', 'sqlite:///./content_curator.db')
-    return db_path
+    return 'sqlite:///./content_curator.db'
 
 def get_db_connection():
     """Get database connection"""
