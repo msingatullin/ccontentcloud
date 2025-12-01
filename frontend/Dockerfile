@@ -1,5 +1,5 @@
-# Simple Dockerfile that builds from source
-FROM node:18-alpine
+# Simple Frontend Dockerfile for Google Cloud Run
+FROM node:18-alpine AS build
 
 WORKDIR /app
 
@@ -21,30 +21,30 @@ RUN npm ci
 COPY src/ ./src/
 COPY public/ ./public/
 
-# Build the application with environment variables
+# Build the application
 RUN npm run build
 
-# Install nginx
-RUN apk add --no-cache nginx
+# Production stage with serve
+FROM node:18-alpine
 
-# Copy built files to nginx directory
-RUN mkdir -p /usr/share/nginx/html && cp -r build/* /usr/share/nginx/html/
+# Install serve globally
+RUN npm install -g serve
 
-# Copy nginx config
-COPY nginx.conf /etc/nginx/nginx.conf
+WORKDIR /app
 
-# Set permissions - create all nginx directories
-RUN mkdir -p /var/cache/nginx /var/log/nginx /etc/nginx/conf.d /run/nginx \
-    /var/lib/nginx/tmp/client_body /var/lib/nginx/tmp/proxy \
-    /var/lib/nginx/tmp/fastcgi /var/lib/nginx/tmp/uwsgi /var/lib/nginx/tmp/scgi \
-    /var/lib/nginx/logs && \
-    touch /run/nginx/nginx.pid && \
-    chmod -R 755 /var/lib/nginx /var/cache/nginx /var/log/nginx /run/nginx /usr/share/nginx/html
+# Copy built application
+COPY --from=build /app/build ./build
 
-# Run as root (simpler for Cloud Run)
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S -D -H -u 1001 -h /app -s /sbin/nologin -G nodejs -g nodejs nodejs && \
+    chown -R nodejs:nodejs /app
+
+# Switch to non-root user
+USER nodejs
 
 # Expose port
 EXPOSE 8080
 
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Start serve
+CMD ["serve", "-s", "build", "-l", "8080"]
