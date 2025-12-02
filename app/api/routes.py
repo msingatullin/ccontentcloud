@@ -951,7 +951,7 @@ class ProjectsList(Resource):
     }), code=200)
     @api.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
     @jwt_required
-    def get(self):
+    def get(self, current_user=None):
         """Получает список проектов пользователя"""
         try:
             from app.models.project import Project, ProjectStatus
