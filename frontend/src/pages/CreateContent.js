@@ -8,12 +8,11 @@ import {
   Wand2, 
   Upload, 
   Image as ImageIcon, 
-  Send,
-  Check,
-  X
+  Send
 } from 'lucide-react';
 import { contentAPI } from '../services/api';
 import { useProject } from '../contexts/ProjectContext';
+import { SmartAIModal } from '../components/SmartAIModal';
 
 // --- Styled Components ---
 
@@ -205,110 +204,7 @@ const ToggleSwitch = styled.label`
   border-radius: ${props => props.theme.borderRadius.md};
 `;
 
-// --- AI Modal Component ---
-
-const ModalOverlay = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-`;
-
-const ModalContent = styled.div`
-  background: ${props => props.theme.colors.background};
-  padding: 2rem;
-  border-radius: ${props => props.theme.borderRadius.lg};
-  width: 90%;
-  max-width: 500px;
-  position: relative;
-`;
-
-const AIModal = ({ isOpen, onClose, onComplete }) => {
-  const [step, setStep] = useState(1);
-  const [answers, setAnswers] = useState({ topic: '', audience: '', goal: '' });
-
-  if (!isOpen) return null;
-
-  const handleNext = () => {
-    if (step < 3) setStep(step + 1);
-    else {
-      onComplete(answers);
-      onClose();
-    }
-  };
-
-  return (
-    <ModalOverlay>
-      <ModalContent>
-        <h2 style={{ marginBottom: '1rem' }}>🤖 AI Помощник</h2>
-        
-        {step === 1 && (
-          <div>
-            <Label>О чем хотите написать?</Label>
-            <Input 
-              autoFocus
-              placeholder="Например: Новые услуги монтажа..."
-              value={answers.topic}
-              onChange={e => setAnswers({...answers, topic: e.target.value})}
-            />
-          </div>
-        )}
-
-        {step === 2 && (
-          <div>
-            <Label>Для кого этот пост?</Label>
-            <Input 
-              autoFocus
-              placeholder="Например: Владельцы частных домов..."
-              value={answers.audience}
-              onChange={e => setAnswers({...answers, audience: e.target.value})}
-            />
-          </div>
-        )}
-
-        {step === 3 && (
-          <div>
-            <Label>Какая главная цель?</Label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {['Продажи', 'Вовлечение', 'Информация'].map(g => (
-                <Button 
-                  key={g} 
-                  type="button" 
-                  onClick={() => {
-                    setAnswers({...answers, goal: g});
-                    onComplete({...answers, goal: g});
-                    onClose();
-                  }}
-                  style={{ background: '#f0f0f0', color: '#333' }}
-                >
-                  {g}
-                </Button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1.5rem' }}>
-          {step > 1 && <Button type="button" onClick={() => setStep(step - 1)} style={{ width: 'auto', background: 'gray' }}>Назад</Button>}
-          {step < 3 && <Button type="button" onClick={handleNext} style={{ width: 'auto', marginLeft: 'auto' }}>Далее</Button>}
-        </div>
-        
-        <button 
-          onClick={onClose} 
-          style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', cursor: 'pointer' }}
-        >
-          <X size={24} />
-        </button>
-      </ModalContent>
-    </ModalOverlay>
-  );
-};
+// --- AI Modal Component удален, используется SmartAIModal из components ---
 
 // --- Main Page ---
 
@@ -346,13 +242,37 @@ export const CreateContent = () => {
   }, []);
 
   const handleAIComplete = (data) => {
-    setValue('title', data.topic);
-    setValue('description', `Напиши пост на тему "${data.topic}". Цель: ${data.goal}.`);
-    if (data.audience) setValue('target_audience', data.audience);
-    if (data.goal && BUSINESS_GOALS.includes(data.goal)) {
-        setValue('business_goals', [data.goal]);
+    // Заполняем форму на основе ответов из опросника
+    if (data.title) setValue('title', data.title);
+    if (data.description) setValue('description', data.description);
+    if (data.target_audience) setValue('target_audience', data.target_audience);
+    if (data.business_goals && data.business_goals.length > 0) {
+      setValue('business_goals', data.business_goals);
     }
-    toast.success('AI заполнил форму! Проверьте и дополните.');
+    if (data.platforms && data.platforms.length > 0) {
+      setValue('platforms', data.platforms);
+    }
+    if (data.tone) setValue('tone', data.tone);
+    if (data.call_to_action && data.call_to_action.length > 0) {
+      // call_to_action может быть массивом или строкой
+      const ctaValue = Array.isArray(data.call_to_action) 
+        ? data.call_to_action[0] 
+        : data.call_to_action;
+      // Сохраняем в description если нужно, или в отдельное поле если есть
+      const currentDesc = watch('description') || '';
+      if (ctaValue && !currentDesc.includes(ctaValue)) {
+        setValue('description', `${currentDesc}\n\nПризыв к действию: ${ctaValue}`);
+      }
+    }
+    if (data.keywords && data.keywords.length > 0) {
+      // Ключевые слова можно добавить в description
+      const currentDesc = watch('description') || '';
+      const keywordsText = data.keywords.join(', ');
+      if (!currentDesc.includes(keywordsText)) {
+        setValue('description', `${currentDesc}\n\nКлючевые слова: ${keywordsText}`);
+      }
+    }
+    toast.success('Форма заполнена на основе ваших ответов! Проверьте и дополните при необходимости.');
   };
 
   const onSubmit = async (data) => {
@@ -395,7 +315,7 @@ export const CreateContent = () => {
 
   return (
     <Container>
-      <AIModal 
+      <SmartAIModal 
         isOpen={isAIModalOpen} 
         onClose={() => setIsAIModalOpen(false)} 
         onComplete={handleAIComplete} 
