@@ -115,9 +115,26 @@ class ProjectsList(Resource):
             else:
                 projects = query.order_by(Project.created_at.desc()).all()
             
+            # Подсчитываем каналы для каждого проекта
+            from app.models.telegram_channels import TelegramChannel
+            projects_list = []
+            for project in projects:
+                project_dict = project.to_dict()
+                # Подсчитываем активные каналы проекта
+                try:
+                    channels_count = db.query(TelegramChannel).filter(
+                        TelegramChannel.project_id == project.id,
+                        TelegramChannel.is_active == True
+                    ).count()
+                    project_dict['channels_count'] = channels_count
+                except Exception as e:
+                    logger.warning(f"Ошибка подсчета каналов для проекта {project.id}: {e}")
+                    project_dict['channels_count'] = 0
+                projects_list.append(project_dict)
+            
             return {
                 'success': True,
-                'projects': [p.to_dict() for p in projects],
+                'projects': projects_list,
                 'count': len(projects)
             }, 200
             
@@ -200,9 +217,13 @@ class ProjectsList(Resource):
             
             logger.info(f"Создан проект {project.id} для пользователя {user_id}")
             
+            # Добавляем channels_count (для нового проекта всегда 0)
+            project_dict = project.to_dict()
+            project_dict['channels_count'] = 0
+            
             return {
                 'success': True,
-                'project': project.to_dict()
+                'project': project_dict
             }, 201
             
         except Exception as e:
@@ -237,9 +258,22 @@ class ProjectResource(Resource):
             if not project:
                 return {'success': False, 'error': 'Проект не найден'}, 404
             
+            # Подсчитываем каналы проекта
+            from app.models.telegram_channels import TelegramChannel
+            project_dict = project.to_dict()
+            try:
+                channels_count = db.query(TelegramChannel).filter(
+                    TelegramChannel.project_id == project.id,
+                    TelegramChannel.is_active == True
+                ).count()
+                project_dict['channels_count'] = channels_count
+            except Exception as e:
+                logger.warning(f"Ошибка подсчета каналов для проекта {project.id}: {e}")
+                project_dict['channels_count'] = 0
+            
             return {
                 'success': True,
-                'project': project.to_dict()
+                'project': project_dict
             }, 200
             
         except Exception as e:
@@ -328,9 +362,22 @@ class ProjectResource(Resource):
             
             logger.info(f"Обновлен проект {project_id}")
             
+            # Подсчитываем каналы проекта
+            from app.models.telegram_channels import TelegramChannel
+            project_dict = project.to_dict()
+            try:
+                channels_count = db.query(TelegramChannel).filter(
+                    TelegramChannel.project_id == project.id,
+                    TelegramChannel.is_active == True
+                ).count()
+                project_dict['channels_count'] = channels_count
+            except Exception as e:
+                logger.warning(f"Ошибка подсчета каналов для проекта {project.id}: {e}")
+                project_dict['channels_count'] = 0
+            
             return {
                 'success': True,
-                'project': project.to_dict()
+                'project': project_dict
             }, 200
             
         except Exception as e:

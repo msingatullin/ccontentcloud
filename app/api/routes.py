@@ -431,9 +431,34 @@ class ContentCreate(Resource):
         с участием всех необходимых агентов.
         """
         try:
+            # Получаем данные запроса
+            data = request.json or {}
+            
+            # Преобразуем platforms из строк в PlatformEnum перед валидацией
+            if 'platforms' in data and isinstance(data['platforms'], list):
+                from app.api.schemas import PlatformEnum
+                converted_platforms = []
+                for platform in data['platforms']:
+                    try:
+                        # Преобразуем строку в PlatformEnum
+                        if isinstance(platform, str):
+                            converted_platforms.append(PlatformEnum(platform.lower()))
+                        elif isinstance(platform, PlatformEnum):
+                            converted_platforms.append(platform)
+                        else:
+                            converted_platforms.append(PlatformEnum(str(platform).lower()))
+                    except ValueError:
+                        return {
+                            "error": "Validation Error",
+                            "message": f"Некорректная платформа: {platform}. Доступные: {[p.value for p in PlatformEnum]}",
+                            "status_code": 400,
+                            "timestamp": datetime.now().isoformat()
+                        }, 400
+                data['platforms'] = converted_platforms
+            
             # Валидируем входные данные
             try:
-                content_request = ContentRequestSchema(**request.json)
+                content_request = ContentRequestSchema(**data)
             except ValidationError as e:
                 return handle_validation_error(e)
             
