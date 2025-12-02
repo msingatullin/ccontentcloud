@@ -21,6 +21,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { projectsAPI, telegramAPI, instagramAPI } from '../services/api';
+import api from '../services/api';
 import { useProject } from '../contexts/ProjectContext';
 
 // Styled Components
@@ -472,6 +473,8 @@ export const ProjectSettings = () => {
   const [customTone, setCustomTone] = useState('');
   const [keywords, setKeywords] = useState([]);
   const [keywordInput, setKeywordInput] = useState('');
+  const [resourceUrl, setResourceUrl] = useState('');
+  const [isAnalyzingResource, setIsAnalyzingResource] = useState(false);
   
   // Integrations
   const [telegramChannels, setTelegramChannels] = useState([]);
@@ -496,6 +499,7 @@ export const ProjectSettings = () => {
       setToneOfVoice(settings.tone_of_voice || 'professional');
       setCustomTone(settings.custom_tone || '');
       setKeywords(settings.keywords || []);
+      setResourceUrl(settings.resource_url || '');
     } catch (err) {
       console.error('Error loading project:', err);
       toast.error('Не удалось загрузить проект');
@@ -535,6 +539,57 @@ export const ProjectSettings = () => {
     loadChannels();
   }, [loadProject, loadChannels]);
 
+  // Анализ ресурса для автозаполнения
+  const handleAnalyzeResource = async () => {
+    if (!resourceUrl.trim()) {
+      toast.error('Введите URL ресурса');
+      return;
+    }
+    
+    setIsAnalyzingResource(true);
+    try {
+      const response = await api.post('/api/v1/ai-assistant/analyze-resource', {
+        url: resourceUrl.trim()
+      });
+      
+      const data = response.data;
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Не удалось проанализировать ресурс');
+      }
+      
+      const suggestions = data.suggestions || {};
+      
+      // Автозаполняем поля на основе анализа
+      if (suggestions.product_service) {
+        setBusinessDescription(suggestions.product_service);
+      }
+      if (suggestions.target_audience) {
+        setTargetAudience(suggestions.target_audience);
+      }
+      if (suggestions.tone) {
+        // Преобразуем tone в tone_of_voice
+        const toneMapping = {
+          'professional': 'professional',
+          'casual': 'casual',
+          'friendly': 'friendly',
+          'authoritative': 'professional'
+        };
+        setToneOfVoice(toneMapping[suggestions.tone] || 'professional');
+      }
+      if (suggestions.keywords && suggestions.keywords.length > 0) {
+        setKeywords(suggestions.keywords);
+      }
+      
+      toast.success('Настройки заполнены на основе анализа ресурса!');
+    } catch (err) {
+      console.error('Error analyzing resource:', err);
+      toast.error(err.response?.data?.error || err.message || 'Не удалось проанализировать ресурс');
+    } finally {
+      setIsAnalyzingResource(false);
+    }
+  };
+
   // Сохранение настроек AI
   const handleSaveSettings = async () => {
     try {
@@ -546,6 +601,7 @@ export const ProjectSettings = () => {
         tone_of_voice: toneOfVoice,
         custom_tone: toneOfVoice === 'custom' ? customTone : '',
         keywords: keywords,
+        resource_url: resourceUrl, // Сохраняем resource_url
       };
 
       await projectsAPI.update(id, { settings });
@@ -666,6 +722,39 @@ export const ProjectSettings = () => {
 
       {activeTab === 'ai' && (
         <TabContent>
+          <FormGroup>
+            <Label>Ссылка на ваш ресурс (опционально)</Label>
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+              <Input
+                type="url"
+                value={resourceUrl}
+                onChange={(e) => setResourceUrl(e.target.value)}
+                placeholder="https://example.com или https://t.me/channel"
+                style={{ flex: 1 }}
+              />
+              <Button
+                type="button"
+                onClick={handleAnalyzeResource}
+                disabled={!resourceUrl.trim() || isAnalyzingResource}
+                style={{ width: 'auto', padding: '0.75rem 1.5rem' }}
+              >
+                {isAnalyzingResource ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" style={{ marginRight: '0.5rem' }} />
+                    Анализирую...
+                  </>
+                ) : (
+                  <>
+                    🤖 Проанализировать
+                  </>
+                )}
+              </Button>
+            </div>
+            <HelpText>
+              AI изучит ваш ресурс и автоматически заполнит настройки проекта
+            </HelpText>
+          </FormGroup>
+
           <FormGroup>
             <Label>Описание бизнеса / проекта</Label>
             <Textarea

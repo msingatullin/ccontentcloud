@@ -456,6 +456,70 @@ class ContentCreate(Resource):
                         }, 400
                 data['platforms'] = converted_platforms
             
+            # Объединяем данные из проекта (если указан project_id)
+            project_id = data.get('project_id')
+            if project_id:
+                try:
+                    from app.models.project import Project
+                    from app.database.connection import get_db_session
+                    
+                    db = get_db_session()
+                    project = db.query(Project).filter(Project.id == project_id).first()
+                    
+                    if project:
+                        project_settings = project.settings or {}
+                        project_ai_settings = project.ai_settings or {}
+                        
+                        # Объединяем настройки проекта с данными запроса
+                        # Приоритет у данных запроса (если указаны)
+                        
+                        # Целевая аудитория
+                        if not data.get('target_audience') and project_settings.get('target_audience'):
+                            data['target_audience'] = project_settings['target_audience']
+                        
+                        # Тон (из settings или ai_settings)
+                        if not data.get('tone'):
+                            tone = project_settings.get('tone_of_voice') or project_ai_settings.get('formality_level')
+                            if tone:
+                                # Преобразуем formality_level в tone если нужно
+                                tone_mapping = {
+                                    'formal': 'professional',
+                                    'semi-formal': 'professional',
+                                    'informal': 'casual'
+                                }
+                                data['tone'] = tone_mapping.get(tone, tone)
+                        
+                        # Ключевые слова (объединяем)
+                        project_keywords = project_settings.get('keywords', [])
+                        survey_keywords = data.get('keywords', [])
+                        if isinstance(survey_keywords, list):
+                            all_keywords = list(set(project_keywords + survey_keywords))
+                            data['keywords'] = all_keywords
+                        elif project_keywords:
+                            data['keywords'] = project_keywords
+                        
+                        # CTA (если не указан в запросе)
+                        if not data.get('call_to_action') and project_settings.get('default_cta'):
+                            data['call_to_action'] = [project_settings['default_cta']]
+                        
+                        # Сохраняем контекст проекта для промпта
+                        data['project_context'] = {
+                            'business_description': project_settings.get('business_description', ''),
+                            'brand_name': project_settings.get('brand_name', ''),
+                            'brand_description': project_settings.get('brand_description', ''),
+                            'resource_url': project_settings.get('resource_url', ''),
+                            'preferred_style': project_ai_settings.get('preferred_style', ''),
+                            'content_length': project_ai_settings.get('content_length', 'medium'),
+                            'emoji_usage': project_ai_settings.get('emoji_usage', 'minimal')
+                        }
+                        
+                        logger.info(f"Объединены данные проекта {project_id} с запросом на создание контента")
+                    
+                    db.close()
+                except Exception as e:
+                    logger.warning(f"Ошибка загрузки данных проекта {project_id}: {e}. Продолжаем без данных проекта.")
+                    # Продолжаем без данных проекта - не ломаем существующий функционал
+            
             # Валидируем входные данные
             try:
                 content_request = ContentRequestSchema(**data)
