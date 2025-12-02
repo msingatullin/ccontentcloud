@@ -119,7 +119,7 @@ export const Dashboard = () => {
   const stats = React.useMemo(() => {
     if (!agentsData) return null;
 
-    const agents = Object.values(agentsData);
+    const agents = Object.values(agentsData).filter(agent => agent !== null && agent !== undefined);
     const totalAgents = agents.length;
     const activeAgents = agents.filter(agent => agent.status === 'idle' || agent.status === 'busy').length;
     const busyAgents = agents.filter(agent => agent.status === 'busy').length;

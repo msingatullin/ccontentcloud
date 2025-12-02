@@ -159,7 +159,7 @@ export const AgentsOverview = ({ agents }) => {
     );
   }
 
-  const agentsList = Object.values(agents);
+  const agentsList = Object.values(agents).filter(agent => agent !== null && agent !== undefined);
 
   return (
     <Container>
