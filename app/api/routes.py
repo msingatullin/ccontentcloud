@@ -17,7 +17,6 @@ from ..orchestrator.main_orchestrator import orchestrator
 from ..database.connection import get_db_session
 from ..auth.services.auth_service import AuthService
 from ..auth.utils.email import EmailService
-from ..auth.middleware.jwt import require_auth_response
 from .schemas import (
     ContentRequestSchema,
     ContentResponseSchema,
@@ -51,7 +50,7 @@ def jwt_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         token = None
-        
+
         # Извлечь токен из Authorization header
         if 'Authorization' in request.headers:
             auth_header = request.headers['Authorization']
@@ -59,18 +58,23 @@ def jwt_required(f):
                 token = auth_header.split(" ")[1]  # Bearer <token>
             except:
                 return {"error": "Invalid token format. Use: Bearer <token>"}, 401
-        
+
         if not token:
             return {"error": "Authorization token is missing"}, 401
-        
+
         # Проверить токен
         payload = verify_jwt_token(token)
         if not payload:
             return {"error": "Invalid or expired token"}, 401
-        
+
+        # Set user_id in Flask global object (like JWTMiddleware does)
+        g.current_user_id = payload.get('user_id')
+        g.current_user_email = payload.get('email')
+        g.current_user_role = payload.get('role')
+
         # Передать user info в функцию
-        return f(*args, current_user=payload, **kwargs)
-    
+        return f(*args, **kwargs)
+
     return decorated_function
 
 # Создаем namespaces для API
@@ -945,7 +949,7 @@ class ProjectsList(Resource):
         'total': fields.Integer(description='Общее количество проектов')
     }), code=200)
     @api.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
-    @require_auth_response
+    @jwt_required
     def get(self):
         """Получает список проектов пользователя"""
         try:
