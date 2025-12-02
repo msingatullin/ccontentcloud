@@ -1046,8 +1046,7 @@ class ProjectDetail(Resource):
 
             db = get_db_session()
             project = db.query(Project).filter(
-                Project.id == project_id,
-                Project.deleted_at.is_(None)
+                Project.id == project_id
             ).first()
             db.close()
             
@@ -1123,21 +1122,19 @@ class ProjectDetail(Resource):
                 "timestamp": datetime.now().isoformat()
             }, 500
     
-    @api.doc('delete_project', description='Удаляет проект (soft delete)')
+    @api.doc('delete_project', description='Удаляет проект')
     @api.marshal_with(common_models['success'], code=200, description='Проект удален')
     @api.marshal_with(common_models['error'], code=404, description='Проект не найден')
     @api.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
     def delete(self, project_id):
-        """Удаляет проект (soft delete)"""
+        """Удаляет проект"""
         try:
             from app.models.project import Project
             from app.database.connection import get_db_session
-            from datetime import datetime as dt
 
             db = get_db_session()
             project = db.query(Project).filter(
-                Project.id == project_id,
-                Project.deleted_at.is_(None)
+                Project.id == project_id
             ).first()
 
             if not project:
@@ -1149,9 +1146,8 @@ class ProjectDetail(Resource):
                     "timestamp": datetime.now().isoformat()
                 }, 404
 
-            # Soft delete - only set deleted_at timestamp
-            project.deleted_at = dt.utcnow()
-            
+            # Hard delete - remove from database
+            db.delete(project)
             db.commit()
             db.close()
             
