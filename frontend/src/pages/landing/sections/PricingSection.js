@@ -371,7 +371,7 @@ const PricingSection = () => {
     }
   ];
 
-  const displayPlans = plans || fallbackPlans;
+  const displayPlans = plans?.plans || fallbackPlans;
 
   const formatPrice = (priceInKopecks) => {
     if (priceInKopecks === 0) return 'Бесплатно';
@@ -466,14 +466,20 @@ const PricingSection = () => {
                 </PlanPrice>
                 
                 <PlanFeatures>
-                  {plan.features.map((feature, featureIndex) => (
-                    <Feature key={featureIndex} included={feature.included}>
-                      <FeatureIcon included={feature.included}>
-                        {feature.included ? <Check size={12} /> : <X size={12} />}
-                      </FeatureIcon>
-                      {feature.name}
-                    </Feature>
-                  ))}
+                  {plan.features.map((feature, featureIndex) => {
+                    // Поддержка как строк так и объектов {name, included}
+                    const featureName = typeof feature === 'string' ? feature : feature.name;
+                    const featureIncluded = typeof feature === 'string' ? true : feature.included;
+                    
+                    return (
+                      <Feature key={featureIndex} included={featureIncluded}>
+                        <FeatureIcon included={featureIncluded}>
+                          {featureIncluded ? <Check size={12} /> : <X size={12} />}
+                        </FeatureIcon>
+                        {featureName}
+                      </Feature>
+                    );
+                  })}
                 </PlanFeatures>
                 
                 <PlanButton
