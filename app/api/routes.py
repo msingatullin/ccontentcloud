@@ -574,6 +574,157 @@ class ContentExample(Resource):
         }
 
 
+@api.route('/upload')
+class FileUpload(Resource):
+    @jwt_required
+    @api.doc('upload_file', security='BearerAuth', description='Загружает файл (изображение) на сервер')
+    @api.response(200, 'OK')
+    @api.response(400, 'Bad Request')
+    @api.response(401, 'Unauthorized')
+    @api.response(500, 'Internal Server Error')
+    def post(self, current_user):
+        """
+        Загружает файл на сервер
+        
+        Принимает multipart/form-data с полем 'file'
+        Возвращает ID загруженного файла для использования в content/create
+        """
+        try:
+            from werkzeug.utils import secure_filename
+            from ..services.storage_service import StorageService
+            from ..models.uploads import FileUploadDB
+            import uuid
+            import asyncio
+            
+            user_id = current_user.get('user_id')
+            if not user_id:
+                return {
+                    "error": "Unauthorized",
+                    "message": "Пользователь не авторизован",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
+            
+            # Проверяем наличие файла
+            if 'file' not in request.files:
+                return {
+                    "error": "Bad Request",
+                    "message": "Файл не предоставлен",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            file = request.files['file']
+            if file.filename == '':
+                return {
+                    "error": "Bad Request",
+                    "message": "Имя файла пустое",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            # Проверяем тип файла (только изображения)
+            allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+            filename = secure_filename(file.filename)
+            file_ext = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
+            
+            if file_ext not in allowed_extensions:
+                return {
+                    "error": "Bad Request",
+                    "message": f"Неподдерживаемый тип файла. Разрешены: {', '.join(allowed_extensions)}",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            # Читаем содержимое файла
+            file_content = file.read()
+            file_size = len(file_content)
+            
+            # Проверяем размер (максимум 10MB)
+            max_size = 10 * 1024 * 1024  # 10MB
+            if file_size > max_size:
+                return {
+                    "error": "Bad Request",
+                    "message": f"Файл слишком большой. Максимальный размер: 10MB",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            # Загружаем файл в GCS
+            storage_service = StorageService()
+            upload_result = asyncio.run(
+                storage_service.upload_file(
+                    file_content=file_content,
+                    filename=filename,
+                    user_id=str(user_id),
+                    folder="content_images",
+                    optimize=True
+                )
+            )
+            
+            if not upload_result.get('success'):
+                return {
+                    "error": "Upload Failed",
+                    "message": upload_result.get('error', 'Не удалось загрузить файл'),
+                    "status_code": 500,
+                    "timestamp": datetime.now().isoformat()
+                }, 500
+            
+            # Сохраняем информацию о файле в БД
+            db = get_db_session()
+            try:
+                file_id = str(uuid.uuid4())
+                file_upload = FileUploadDB(
+                    id=file_id,
+                    user_id=user_id,
+                    filename=upload_result['filename'],
+                    original_filename=filename,
+                    file_type='image',
+                    mime_type=upload_result['content_type'],
+                    size_bytes=upload_result['size_bytes'],
+                    storage_url=upload_result['url'],
+                    storage_bucket=upload_result['bucket'],
+                    storage_path=upload_result['path'],
+                    is_public=True
+                )
+                
+                db.add(file_upload)
+                db.commit()
+                db.refresh(file_upload)
+                
+                logger.info(f"Файл {filename} загружен пользователем {user_id}, ID: {file_id}")
+                
+                return {
+                    "success": True,
+                    "file_id": file_id,
+                    "url": upload_result['url'],
+                    "filename": upload_result['filename'],
+                    "size_bytes": upload_result['size_bytes'],
+                    "timestamp": datetime.now().isoformat()
+                }, 200
+                
+            except Exception as e:
+                db.rollback()
+                logger.error(f"Ошибка сохранения файла в БД: {e}")
+                return {
+                    "error": "Database Error",
+                    "message": f"Не удалось сохранить информацию о файле: {str(e)}",
+                    "status_code": 500,
+                    "timestamp": datetime.now().isoformat()
+                }, 500
+            finally:
+                db.close()
+                
+        except Exception as e:
+            logger.error(f"Ошибка загрузки файла: {e}", exc_info=True)
+            return {
+                "error": "Internal Server Error",
+                "message": f"Внутренняя ошибка сервера: {str(e)}",
+                "status_code": 500,
+                "timestamp": datetime.now().isoformat()
+            }, 500
+
+
 # ==================== WORKFLOW ENDPOINTS ====================
 
 @api.route('/workflow/<string:workflow_id>/status')
