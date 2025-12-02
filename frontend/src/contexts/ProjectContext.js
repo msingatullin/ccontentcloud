@@ -36,7 +36,7 @@ export function ProjectProvider({ children }) {
       setError(null);
       
       const data = await projectsAPI.getAll();
-      const projectsList = Array.isArray(data) ? data : [];
+      const projectsList = Array.isArray(data) ? data : (data.projects || []);
       setProjects(projectsList);
 
       if (projectsList.length > 0) {
