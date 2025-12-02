@@ -1546,7 +1546,11 @@ class AuthLogin(Resource):
 
             logger.info(f"Response data before marshal: {dict((k, v[:20] + '...' if isinstance(v, str) and len(v) > 20 and k != 'user' else v) for k, v in response_data.items())}")
 
-            return response_data, 200
+            # Return response WITHOUT Flask-RESTX marshalling to avoid null tokens issue
+            from flask import make_response, jsonify
+            response = make_response(jsonify(response_data), 200)
+            response.headers['Content-Type'] = 'application/json'
+            return response
                 
         except Exception as e:
             logger.error(f"Ошибка авторизации: {e}", exc_info=True)
