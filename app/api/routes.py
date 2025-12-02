@@ -9,7 +9,7 @@ import logging
 import jwt
 from datetime import datetime, timedelta
 from functools import wraps
-from flask import request, current_app
+from flask import request, current_app, g
 from flask_restx import Namespace, Resource, fields
 from pydantic import ValidationError
 
@@ -17,6 +17,7 @@ from ..orchestrator.main_orchestrator import orchestrator
 from ..database.connection import get_db_session
 from ..auth.services.auth_service import AuthService
 from ..auth.utils.email import EmailService
+from ..auth.middleware.jwt import require_auth_response
 from .schemas import (
     ContentRequestSchema,
     ContentResponseSchema,
