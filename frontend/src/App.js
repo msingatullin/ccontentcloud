@@ -118,9 +118,23 @@ const ContentArea = styled.div`
 `;
 
 function App() {
+  // Убеждаемся, что тема полностью инициализирована
+  const safeTheme = {
+    ...theme,
+    borderRadius: {
+      ...theme.borderRadius,
+      xl: theme.borderRadius.xl || '24px',
+      xxl: theme.borderRadius.xxl || '32px',
+    },
+    fontSize: {
+      ...theme.fontSize,
+      xxl: theme.fontSize.xxl || '24px',
+    },
+  };
+
   return (
     <HelmetProvider>
-      <ThemeProvider theme={theme}>
+      <ThemeProvider theme={safeTheme}>
         <GlobalStyle />
         <AuthProvider>
           <ProjectProvider>
