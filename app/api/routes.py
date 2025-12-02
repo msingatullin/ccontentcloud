@@ -954,7 +954,7 @@ class ProjectsList(Resource):
     def get(self, current_user=None):
         """Получает список проектов пользователя"""
         try:
-            from app.models.project import Project, ProjectStatus
+            from app.models.project import Project
             from app.database.connection import get_db_session
 
             db = get_db_session()
@@ -1011,7 +1011,6 @@ class ProjectsList(Resource):
                 name=data.get('name'),
                 description=data.get('description'),
                 user_id=user_id,
-                status=ProjectStatus.ACTIVE.value,
                 settings=data.get('settings', {})
             )
             
@@ -1042,13 +1041,13 @@ class ProjectDetail(Resource):
     def get(self, project_id):
         """Получает проект по ID"""
         try:
-            from app.models.project import Project, ProjectStatus
+            from app.models.project import Project
             from app.database.connection import get_db_session
-            
+
             db = get_db_session()
             project = db.query(Project).filter(
                 Project.id == project_id,
-                Project.status != ProjectStatus.DELETED.value
+                Project.deleted_at.is_(None)
             ).first()
             db.close()
             
@@ -1079,15 +1078,15 @@ class ProjectDetail(Resource):
     def put(self, project_id):
         """Обновляет проект"""
         try:
-            from app.models.project import Project, ProjectStatus
+            from app.models.project import Project
             from app.database.connection import get_db_session
-            
+
             data = request.json
             db = get_db_session()
-            
+
             project = db.query(Project).filter(
                 Project.id == project_id,
-                Project.status != ProjectStatus.DELETED.value
+                Project.deleted_at.is_(None)
             ).first()
             
             if not project:
@@ -1131,16 +1130,16 @@ class ProjectDetail(Resource):
     def delete(self, project_id):
         """Удаляет проект (soft delete)"""
         try:
-            from app.models.project import Project, ProjectStatus
+            from app.models.project import Project
             from app.database.connection import get_db_session
             from datetime import datetime as dt
-            
+
             db = get_db_session()
             project = db.query(Project).filter(
                 Project.id == project_id,
-                Project.status != ProjectStatus.DELETED.value
+                Project.deleted_at.is_(None)
             ).first()
-            
+
             if not project:
                 db.close()
                 return {
@@ -1149,8 +1148,8 @@ class ProjectDetail(Resource):
                     "status_code": 404,
                     "timestamp": datetime.now().isoformat()
                 }, 404
-            
-            project.status = ProjectStatus.DELETED.value
+
+            # Soft delete - only set deleted_at timestamp
             project.deleted_at = dt.utcnow()
             
             db.commit()
