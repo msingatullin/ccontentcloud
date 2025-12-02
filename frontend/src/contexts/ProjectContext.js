@@ -91,7 +91,10 @@ export function ProjectProvider({ children }) {
   // Создание проекта
   const createProject = useCallback(async (projectData) => {
     try {
-      const newProject = await projectsAPI.create(projectData);
+      const response = await projectsAPI.create(projectData);
+      // Извлекаем project из ответа {success: True, project: {...}}
+      const newProject = response.project || response;
+      
       setProjects(prev => [...prev, newProject]);
       
       // Если это первый проект — выбираем его
@@ -112,7 +115,9 @@ export function ProjectProvider({ children }) {
   // Обновление проекта
   const updateProject = useCallback(async (projectId, projectData) => {
     try {
-      const updatedProject = await projectsAPI.update(projectId, projectData);
+      const response = await projectsAPI.update(projectId, projectData);
+      // Извлекаем project из ответа {success: True, project: {...}}
+      const updatedProject = response.project || response;
       
       setProjects(prev => prev.map(p => 
         p.id === projectId ? updatedProject : p
