@@ -104,10 +104,16 @@ class ProjectsList(Resource):
             db = get_db_session()
             
             query = db.query(Project).filter(Project.user_id == user_id)
-            if active_only:
+            
+            # Фильтрация по is_active если колонка есть
+            if active_only and 'is_active' in Project.__table__.columns:
                 query = query.filter(Project.is_active == True)
             
-            projects = query.order_by(Project.is_default.desc(), Project.created_at.desc()).all()
+            # Сортировка по is_default если колонка есть
+            if 'is_default' in Project.__table__.columns:
+                projects = query.order_by(Project.is_default.desc(), Project.created_at.desc()).all()
+            else:
+                projects = query.order_by(Project.created_at.desc()).all()
             
             return {
                 'success': True,
@@ -156,15 +162,37 @@ class ProjectsList(Resource):
                     Project.is_default == True
                 ).update({'is_default': False})
             
-            project = Project(
-                user_id=user_id,
-                name=data['name'],
-                description=data.get('description'),
-                settings=data.get('settings', {}),
-                ai_settings=data.get('ai_settings', {}),
-                is_default=is_default,
-                is_active=True
-            )
+            # Проверяем наличие колонок в таблице
+            table = Project.__table__
+            has_ai_settings = 'ai_settings' in table.columns
+            has_is_default = 'is_default' in table.columns
+            has_is_active = 'is_active' in table.columns
+            
+            # Создаем проект с доступными полями
+            project_kwargs = {
+                'user_id': user_id,
+                'name': data['name'],
+                'description': data.get('description'),
+                'settings': data.get('settings', {})
+            }
+            
+            if has_ai_settings:
+                project_kwargs['ai_settings'] = data.get('ai_settings', {})
+            elif data.get('ai_settings'):
+                # Сохраняем в settings если колонки нет
+                project_kwargs['settings']['ai_settings'] = data.get('ai_settings', {})
+            
+            if has_is_default:
+                project_kwargs['is_default'] = is_default
+            elif is_default:
+                project_kwargs['settings']['is_default'] = True
+            
+            if has_is_active:
+                project_kwargs['is_active'] = True
+            else:
+                project_kwargs['settings']['is_active'] = True
+            
+            project = Project(**project_kwargs)
             
             db.add(project)
             db.commit()
@@ -253,21 +281,47 @@ class ProjectResource(Resource):
                 current_settings = project.settings or {}
                 current_settings.update(data['settings'])
                 project.settings = current_settings
+            # Проверяем наличие колонок
+            table = Project.__table__
+            has_ai_settings = 'ai_settings' in table.columns
+            has_is_default = 'is_default' in table.columns
+            has_is_active = 'is_active' in table.columns
+            
             if 'ai_settings' in data:
-                # Merge ai_settings
-                current_ai = project.ai_settings or {}
-                current_ai.update(data['ai_settings'])
-                project.ai_settings = current_ai
+                if has_ai_settings:
+                    # Merge ai_settings
+                    current_ai = getattr(project, 'ai_settings', None) or {}
+                    current_ai.update(data['ai_settings'])
+                    project.ai_settings = current_ai
+                else:
+                    # Сохраняем в settings если колонки нет
+                    current_settings = project.settings or {}
+                    current_settings['ai_settings'] = data['ai_settings']
+                    project.settings = current_settings
+            
             if 'is_active' in data:
-                project.is_active = data['is_active']
+                if has_is_active:
+                    project.is_active = data['is_active']
+                else:
+                    # Сохраняем в settings если колонки нет
+                    current_settings = project.settings or {}
+                    current_settings['is_active'] = data['is_active']
+                    project.settings = current_settings
+            
             if data.get('is_default'):
-                # Сбрасываем default у других проектов
-                db.query(Project).filter(
-                    Project.user_id == user_id,
-                    Project.id != project_id,
-                    Project.is_default == True
-                ).update({'is_default': False})
-                project.is_default = True
+                if has_is_default:
+                    # Сбрасываем default у других проектов
+                    db.query(Project).filter(
+                        Project.user_id == user_id,
+                        Project.id != project_id,
+                        Project.is_default == True
+                    ).update({'is_default': False})
+                    project.is_default = True
+                else:
+                    # Сохраняем в settings если колонки нет
+                    current_settings = project.settings or {}
+                    current_settings['is_default'] = True
+                    project.settings = current_settings
             
             db.commit()
             db.refresh(project)
