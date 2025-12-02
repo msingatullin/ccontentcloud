@@ -72,8 +72,9 @@ def jwt_required(f):
         g.current_user_email = payload.get('email')
         g.current_user_role = payload.get('role')
 
-        # Передать user info в функцию
-        return f(*args, **kwargs)
+        # BACKWARD COMPATIBILITY: Pass current_user as parameter for existing endpoints
+        # while also setting g.current_user_id for new code
+        return f(*args, current_user=payload, **kwargs)
 
     return decorated_function
 
@@ -958,12 +959,12 @@ class ProjectsList(Resource):
 
             db = get_db_session()
 
-            # Get user_id from JWT token (set by @require_auth_response decorator)
+            # Get user_id from JWT token (set by @jwt_required decorator)
             user_id = g.current_user_id
 
+            # Get all projects for user (no status filter - column doesn't exist in DB)
             projects = db.query(Project).filter(
-                Project.user_id == user_id,
-                Project.status != ProjectStatus.DELETED.value
+                Project.user_id == user_id
             ).order_by(Project.created_at.desc()).all()
 
             db.close()
