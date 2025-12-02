@@ -944,37 +944,31 @@ class ProjectsList(Resource):
         'total': fields.Integer(description='Общее количество проектов')
     }), code=200)
     @api.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    @require_auth_response
     def get(self):
         """Получает список проектов пользователя"""
         try:
             from app.models.project import Project, ProjectStatus
             from app.database.connection import get_db_session
-            
+
             db = get_db_session()
-            
-            # TODO: Получать user_id из токена аутентификации
-            user_id = request.args.get('user_id', type=int)
-            if not user_id:
-                return {
-                    "error": "Bad Request",
-                    "message": "user_id required",
-                    "status_code": 400,
-                    "timestamp": datetime.now().isoformat()
-                }, 400
-            
+
+            # Get user_id from JWT token (set by @require_auth_response decorator)
+            user_id = g.current_user_id
+
             projects = db.query(Project).filter(
                 Project.user_id == user_id,
                 Project.status != ProjectStatus.DELETED.value
             ).order_by(Project.created_at.desc()).all()
-            
+
             db.close()
-            
+
             return {
                 "success": True,
                 "projects": [project.to_dict() for project in projects],
                 "total": len(projects)
             }, 200
-            
+
         except Exception as e:
             logger.error(f"Ошибка получения списка проектов: {e}")
             return {
