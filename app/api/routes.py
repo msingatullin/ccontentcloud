@@ -1464,11 +1464,12 @@ class AuthRegister(Resource):
 class AuthLogin(Resource):
     @auth_ns.doc('login_user', description='Авторизация пользователя')
     @auth_ns.expect(login_model, validate=True)
-    # TEMPORARILY DISABLED marshal_with to debug null tokens issue
+    # ALL marshal_with decorators DISABLED to fix null tokens issue
+    # Flask-RESTX marshalling was converting tokens to null
     # @auth_ns.marshal_with(auth_response_model, code=200, description='Успешная авторизация')
-    @auth_ns.marshal_with(common_models['error'], code=400, description='Ошибка валидации')
-    @auth_ns.marshal_with(common_models['error'], code=401, description='Неверные учетные данные')
-    @auth_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    # @auth_ns.marshal_with(common_models['error'], code=400, description='Ошибка валидации')
+    # @auth_ns.marshal_with(common_models['error'], code=401, description='Неверные учетные данные')
+    # @auth_ns.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
     def post(self):
         """Авторизация пользователя"""
         try:
