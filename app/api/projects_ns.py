@@ -124,7 +124,6 @@ class ProjectsList(Resource):
 
     @jwt_required
     @projects_ns.doc('create_project', security='BearerAuth')
-    @projects_ns.expect(create_project_request)
     @projects_ns.response(201, 'Created', single_response)
     @projects_ns.response(400, 'Bad Request', error_model)
     def post(self, current_user):
@@ -133,6 +132,11 @@ class ProjectsList(Resource):
         try:
             user_id = current_user.get('user_id')
             data = request.get_json()
+            
+            logger.info(f"Creating project for user {user_id}, data: {data}")
+            
+            if not data:
+                return {'success': False, 'error': 'Данные проекта обязательны'}, 400
             
             if not data.get('name'):
                 return {'success': False, 'error': 'Название проекта обязательно'}, 400
