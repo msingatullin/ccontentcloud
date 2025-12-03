@@ -1165,6 +1165,100 @@ class TrendsAnalyze(Resource):
 # /projects/<int:project_id> endpoint removed - use projects_ns.py instead
 
 
+@api.route('/projects/<int:project_id>/auto-fill')
+class ProjectAutoFill(Resource):
+    @api.doc('auto_fill_project', description='Автоматически заполняет настройки проекта на основе Telegram канала')
+    @api.marshal_with(project_model, code=200, description='Проект обновлен')
+    @api.marshal_with(common_models['error'], code=404, description='Проект или канал не найден')
+    @api.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
+    @jwt_required
+    def post(self, project_id, current_user=None):
+        """Автоматически заполняет настройки проекта на основе связанного Telegram канала"""
+        try:
+            from app.models.project import Project
+            from app.models.telegram_channels import TelegramChannel
+            from app.database.connection import get_db_session
+
+            db = get_db_session()
+
+            # Получаем проект
+            project = db.query(Project).filter(
+                Project.id == project_id
+            ).first()
+
+            if not project:
+                db.close()
+                return {
+                    "error": "Not Found",
+                    "message": f"Проект {project_id} не найден",
+                    "status_code": 404,
+                    "timestamp": datetime.now().isoformat()
+                }, 404
+
+            # Ищем связанный Telegram канал
+            telegram_channel = db.query(TelegramChannel).filter(
+                TelegramChannel.project_id == project_id,
+                TelegramChannel.is_active == True
+            ).first()
+
+            if not telegram_channel:
+                db.close()
+                return {
+                    "error": "Not Found",
+                    "message": f"Не найден активный Telegram канал для проекта {project_id}",
+                    "status_code": 404,
+                    "timestamp": datetime.now().isoformat()
+                }, 404
+
+            # Автоматически заполняем настройки проекта на основе данных Telegram канала
+            settings = project.settings or {}
+
+            # Обновляем настройки с данными из Telegram
+            settings.update({
+                'telegram': {
+                    'channel_id': telegram_channel.id,
+                    'channel_name': telegram_channel.channel_name,
+                    'channel_username': telegram_channel.channel_username,
+                    'chat_id': telegram_channel.chat_id,
+                    'channel_link': f"https://t.me/{telegram_channel.channel_username.lstrip('@')}" if telegram_channel.channel_username else None,
+                    'members_count': telegram_channel.members_count,
+                    'auto_filled_at': datetime.now().isoformat()
+                },
+                'content_strategy': {
+                    'target_audience': f"Подписчики канала {telegram_channel.channel_name}",
+                    'platform': 'telegram',
+                    'tone': 'professional' if telegram_channel.members_count and telegram_channel.members_count > 1000 else 'friendly'
+                }
+            })
+
+            # Если название проекта пустое или дефолтное, обновляем его
+            if not project.name or project.name in ['Новый проект', 'New Project']:
+                project.name = telegram_channel.channel_name
+
+            # Если описание пустое, добавляем описание на основе канала
+            if not project.description:
+                project.description = f"Контент-проект для Telegram канала {telegram_channel.channel_name}"
+                if telegram_channel.members_count:
+                    project.description += f" ({telegram_channel.members_count} подписчиков)"
+
+            project.settings = settings
+            db.commit()
+            db.refresh(project)
+            db.close()
+
+            logger.info(f"Автозаполнение проекта {project_id} выполнено на основе Telegram канала {telegram_channel.id}")
+            return project.to_dict(), 200
+
+        except Exception as e:
+            logger.error(f"Ошибка автозаполнения проекта: {e}")
+            return {
+                "error": "Internal server error",
+                "message": f"Ошибка автозаполнения проекта: {str(e)}",
+                "status_code": 500,
+                "timestamp": datetime.now().isoformat()
+            }, 500
+
+
 @api.route('/trends/viral')
 class ViralTrends(Resource):
     @api.doc('get_viral_trends', description='Получает вирусные тренды')
