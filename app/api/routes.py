@@ -432,9 +432,6 @@ def handle_exception(e: Exception) -> tuple:
 class ContentCreate(Resource):
     @api.doc('create_content', description='Создает контент через AI агентов')
     @api.expect(content_request_model, validate=True)
-    @api.marshal_with(content_response_model, code=201, description='Контент успешно создан')
-    @api.marshal_with(common_models['error'], code=400, description='Ошибка валидации')
-    @api.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
     def post(self):
         """
         Создает контент через AI агентов
@@ -550,7 +547,7 @@ class ContentCreate(Resource):
             
             if result["success"]:
                 logger.info(f"Контент успешно создан: {result['workflow_id']}")
-                
+
                 # Формируем ответ
                 response_data = {
                     "success": True,
@@ -559,8 +556,12 @@ class ContentCreate(Resource):
                     "result": result["result"],
                     "timestamp": datetime.now().isoformat()
                 }
-                
-                return response_data, 201
+
+                # Возвращаем ответ БЕЗ Flask-RESTX marshalling
+                from flask import make_response, jsonify
+                response = make_response(jsonify(response_data), 201)
+                response.headers['Content-Type'] = 'application/json'
+                return response
             else:
                 logger.error(f"Ошибка создания контента: {result['error']}")
                 return {
