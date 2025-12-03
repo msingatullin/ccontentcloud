@@ -104,14 +104,37 @@ class ProjectsList(Resource):
             db = get_db_session()
             
             query = db.query(Project).filter(Project.user_id == user_id)
-            if active_only:
+            
+            # Фильтрация по is_active если колонка есть
+            if active_only and 'is_active' in Project.__table__.columns:
                 query = query.filter(Project.is_active == True)
             
-            projects = query.order_by(Project.is_default.desc(), Project.created_at.desc()).all()
+            # Сортировка по is_default если колонка есть
+            if 'is_default' in Project.__table__.columns:
+                projects = query.order_by(Project.is_default.desc(), Project.created_at.desc()).all()
+            else:
+                projects = query.order_by(Project.created_at.desc()).all()
+            
+            # Подсчитываем каналы для каждого проекта
+            from app.models.telegram_channels import TelegramChannel
+            projects_list = []
+            for project in projects:
+                project_dict = project.to_dict()
+                # Подсчитываем активные каналы проекта
+                try:
+                    channels_count = db.query(TelegramChannel).filter(
+                        TelegramChannel.project_id == project.id,
+                        TelegramChannel.is_active == True
+                    ).count()
+                    project_dict['channels_count'] = channels_count
+                except Exception as e:
+                    logger.warning(f"Ошибка подсчета каналов для проекта {project.id}: {e}")
+                    project_dict['channels_count'] = 0
+                projects_list.append(project_dict)
             
             return {
                 'success': True,
-                'projects': [p.to_dict() for p in projects],
+                'projects': projects_list,
                 'count': len(projects)
             }, 200
             
@@ -124,7 +147,6 @@ class ProjectsList(Resource):
 
     @jwt_required
     @projects_ns.doc('create_project', security='BearerAuth')
-    @projects_ns.expect(create_project_request)
     @projects_ns.response(201, 'Created', single_response)
     @projects_ns.response(400, 'Bad Request', error_model)
     def post(self, current_user):
@@ -133,6 +155,11 @@ class ProjectsList(Resource):
         try:
             user_id = current_user.get('user_id')
             data = request.get_json()
+            
+            logger.info(f"Creating project for user {user_id}, data: {data}")
+            
+            if not data:
+                return {'success': False, 'error': 'Данные проекта обязательны'}, 400
             
             if not data.get('name'):
                 return {'success': False, 'error': 'Название проекта обязательно'}, 400
@@ -152,15 +179,37 @@ class ProjectsList(Resource):
                     Project.is_default == True
                 ).update({'is_default': False})
             
-            project = Project(
-                user_id=user_id,
-                name=data['name'],
-                description=data.get('description'),
-                settings=data.get('settings', {}),
-                ai_settings=data.get('ai_settings', {}),
-                is_default=is_default,
-                is_active=True
-            )
+            # Проверяем наличие колонок в таблице
+            table = Project.__table__
+            has_ai_settings = 'ai_settings' in table.columns
+            has_is_default = 'is_default' in table.columns
+            has_is_active = 'is_active' in table.columns
+            
+            # Создаем проект с доступными полями
+            project_kwargs = {
+                'user_id': user_id,
+                'name': data['name'],
+                'description': data.get('description'),
+                'settings': data.get('settings', {})
+            }
+            
+            if has_ai_settings:
+                project_kwargs['ai_settings'] = data.get('ai_settings', {})
+            elif data.get('ai_settings'):
+                # Сохраняем в settings если колонки нет
+                project_kwargs['settings']['ai_settings'] = data.get('ai_settings', {})
+            
+            if has_is_default:
+                project_kwargs['is_default'] = is_default
+            elif is_default:
+                project_kwargs['settings']['is_default'] = True
+            
+            if has_is_active:
+                project_kwargs['is_active'] = True
+            else:
+                project_kwargs['settings']['is_active'] = True
+            
+            project = Project(**project_kwargs)
             
             db.add(project)
             db.commit()
@@ -168,9 +217,13 @@ class ProjectsList(Resource):
             
             logger.info(f"Создан проект {project.id} для пользователя {user_id}")
             
+            # Добавляем channels_count (для нового проекта всегда 0)
+            project_dict = project.to_dict()
+            project_dict['channels_count'] = 0
+            
             return {
                 'success': True,
-                'project': project.to_dict()
+                'project': project_dict
             }, 201
             
         except Exception as e:
@@ -205,9 +258,22 @@ class ProjectResource(Resource):
             if not project:
                 return {'success': False, 'error': 'Проект не найден'}, 404
             
+            # Подсчитываем каналы проекта
+            from app.models.telegram_channels import TelegramChannel
+            project_dict = project.to_dict()
+            try:
+                channels_count = db.query(TelegramChannel).filter(
+                    TelegramChannel.project_id == project.id,
+                    TelegramChannel.is_active == True
+                ).count()
+                project_dict['channels_count'] = channels_count
+            except Exception as e:
+                logger.warning(f"Ошибка подсчета каналов для проекта {project.id}: {e}")
+                project_dict['channels_count'] = 0
+            
             return {
                 'success': True,
-                'project': project.to_dict()
+                'project': project_dict
             }, 200
             
         except Exception as e:
@@ -249,30 +315,69 @@ class ProjectResource(Resource):
                 current_settings = project.settings or {}
                 current_settings.update(data['settings'])
                 project.settings = current_settings
+            # Проверяем наличие колонок
+            table = Project.__table__
+            has_ai_settings = 'ai_settings' in table.columns
+            has_is_default = 'is_default' in table.columns
+            has_is_active = 'is_active' in table.columns
+            
             if 'ai_settings' in data:
-                # Merge ai_settings
-                current_ai = project.ai_settings or {}
-                current_ai.update(data['ai_settings'])
-                project.ai_settings = current_ai
+                if has_ai_settings:
+                    # Merge ai_settings
+                    current_ai = getattr(project, 'ai_settings', None) or {}
+                    current_ai.update(data['ai_settings'])
+                    project.ai_settings = current_ai
+                else:
+                    # Сохраняем в settings если колонки нет
+                    current_settings = project.settings or {}
+                    current_settings['ai_settings'] = data['ai_settings']
+                    project.settings = current_settings
+            
             if 'is_active' in data:
-                project.is_active = data['is_active']
+                if has_is_active:
+                    project.is_active = data['is_active']
+                else:
+                    # Сохраняем в settings если колонки нет
+                    current_settings = project.settings or {}
+                    current_settings['is_active'] = data['is_active']
+                    project.settings = current_settings
+            
             if data.get('is_default'):
-                # Сбрасываем default у других проектов
-                db.query(Project).filter(
-                    Project.user_id == user_id,
-                    Project.id != project_id,
-                    Project.is_default == True
-                ).update({'is_default': False})
-                project.is_default = True
+                if has_is_default:
+                    # Сбрасываем default у других проектов
+                    db.query(Project).filter(
+                        Project.user_id == user_id,
+                        Project.id != project_id,
+                        Project.is_default == True
+                    ).update({'is_default': False})
+                    project.is_default = True
+                else:
+                    # Сохраняем в settings если колонки нет
+                    current_settings = project.settings or {}
+                    current_settings['is_default'] = True
+                    project.settings = current_settings
             
             db.commit()
             db.refresh(project)
             
             logger.info(f"Обновлен проект {project_id}")
             
+            # Подсчитываем каналы проекта
+            from app.models.telegram_channels import TelegramChannel
+            project_dict = project.to_dict()
+            try:
+                channels_count = db.query(TelegramChannel).filter(
+                    TelegramChannel.project_id == project.id,
+                    TelegramChannel.is_active == True
+                ).count()
+                project_dict['channels_count'] = channels_count
+            except Exception as e:
+                logger.warning(f"Ошибка подсчета каналов для проекта {project.id}: {e}")
+                project_dict['channels_count'] = 0
+            
             return {
                 'success': True,
-                'project': project.to_dict()
+                'project': project_dict
             }, 200
             
         except Exception as e:

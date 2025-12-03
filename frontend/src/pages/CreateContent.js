@@ -8,12 +8,13 @@ import {
   Wand2, 
   Upload, 
   Image as ImageIcon, 
-  Send,
-  Check,
-  X
+  Send
 } from 'lucide-react';
 import { contentAPI } from '../services/api';
+import api from '../services/api';
 import { useProject } from '../contexts/ProjectContext';
+import { SmartAIModal } from '../components/SmartAIModal';
+import { ContentVariantsPreview } from '../components/ContentVariantsPreview';
 
 // --- Styled Components ---
 
@@ -205,110 +206,7 @@ const ToggleSwitch = styled.label`
   border-radius: ${props => props.theme.borderRadius.md};
 `;
 
-// --- AI Modal Component ---
-
-const ModalOverlay = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-`;
-
-const ModalContent = styled.div`
-  background: ${props => props.theme.colors.background};
-  padding: 2rem;
-  border-radius: ${props => props.theme.borderRadius.lg};
-  width: 90%;
-  max-width: 500px;
-  position: relative;
-`;
-
-const AIModal = ({ isOpen, onClose, onComplete }) => {
-  const [step, setStep] = useState(1);
-  const [answers, setAnswers] = useState({ topic: '', audience: '', goal: '' });
-
-  if (!isOpen) return null;
-
-  const handleNext = () => {
-    if (step < 3) setStep(step + 1);
-    else {
-      onComplete(answers);
-      onClose();
-    }
-  };
-
-  return (
-    <ModalOverlay>
-      <ModalContent>
-        <h2 style={{ marginBottom: '1rem' }}>🤖 AI Помощник</h2>
-        
-        {step === 1 && (
-          <div>
-            <Label>О чем хотите написать?</Label>
-            <Input 
-              autoFocus
-              placeholder="Например: Новые услуги монтажа..."
-              value={answers.topic}
-              onChange={e => setAnswers({...answers, topic: e.target.value})}
-            />
-          </div>
-        )}
-
-        {step === 2 && (
-          <div>
-            <Label>Для кого этот пост?</Label>
-            <Input 
-              autoFocus
-              placeholder="Например: Владельцы частных домов..."
-              value={answers.audience}
-              onChange={e => setAnswers({...answers, audience: e.target.value})}
-            />
-          </div>
-        )}
-
-        {step === 3 && (
-          <div>
-            <Label>Какая главная цель?</Label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {['Продажи', 'Вовлечение', 'Информация'].map(g => (
-                <Button 
-                  key={g} 
-                  type="button" 
-                  onClick={() => {
-                    setAnswers({...answers, goal: g});
-                    onComplete({...answers, goal: g});
-                    onClose();
-                  }}
-                  style={{ background: '#f0f0f0', color: '#333' }}
-                >
-                  {g}
-                </Button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1.5rem' }}>
-          {step > 1 && <Button type="button" onClick={() => setStep(step - 1)} style={{ width: 'auto', background: 'gray' }}>Назад</Button>}
-          {step < 3 && <Button type="button" onClick={handleNext} style={{ width: 'auto', marginLeft: 'auto' }}>Далее</Button>}
-        </div>
-        
-        <button 
-          onClick={onClose} 
-          style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', cursor: 'pointer' }}
-        >
-          <X size={24} />
-        </button>
-      </ModalContent>
-    </ModalOverlay>
-  );
-};
+// --- AI Modal Component удален, используется SmartAIModal из components ---
 
 // --- Main Page ---
 
@@ -322,6 +220,11 @@ export const CreateContent = () => {
   const { currentProject } = useProject();
   const [isAIModalOpen, setIsAIModalOpen] = useState(true); // Open by default
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadedFileId, setUploadedFileId] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [showVariants, setShowVariants] = useState(false);
+  const [contentVariants, setContentVariants] = useState([]);
+  const [workflowId, setWorkflowId] = useState(null);
 
   const { register, handleSubmit, control, setValue, watch, formState: { errors } } = useForm({
     defaultValues: {
@@ -346,13 +249,37 @@ export const CreateContent = () => {
   }, []);
 
   const handleAIComplete = (data) => {
-    setValue('title', data.topic);
-    setValue('description', `Напиши пост на тему "${data.topic}". Цель: ${data.goal}.`);
-    if (data.audience) setValue('target_audience', data.audience);
-    if (data.goal && BUSINESS_GOALS.includes(data.goal)) {
-        setValue('business_goals', [data.goal]);
+    // Заполняем форму на основе ответов из опросника
+    if (data.title) setValue('title', data.title);
+    if (data.description) setValue('description', data.description);
+    if (data.target_audience) setValue('target_audience', data.target_audience);
+    if (data.business_goals && data.business_goals.length > 0) {
+      setValue('business_goals', data.business_goals);
     }
-    toast.success('AI заполнил форму! Проверьте и дополните.');
+    if (data.platforms && data.platforms.length > 0) {
+      setValue('platforms', data.platforms);
+    }
+    if (data.tone) setValue('tone', data.tone);
+    if (data.call_to_action && data.call_to_action.length > 0) {
+      // call_to_action может быть массивом или строкой
+      const ctaValue = Array.isArray(data.call_to_action) 
+        ? data.call_to_action[0] 
+        : data.call_to_action;
+      // Сохраняем в description если нужно, или в отдельное поле если есть
+      const currentDesc = watch('description') || '';
+      if (ctaValue && !currentDesc.includes(ctaValue)) {
+        setValue('description', `${currentDesc}\n\nПризыв к действию: ${ctaValue}`);
+      }
+    }
+    if (data.keywords && data.keywords.length > 0) {
+      // Ключевые слова можно добавить в description
+      const currentDesc = watch('description') || '';
+      const keywordsText = data.keywords.join(', ');
+      if (!currentDesc.includes(keywordsText)) {
+        setValue('description', `${currentDesc}\n\nКлючевые слова: ${keywordsText}`);
+      }
+    }
+    toast.success('Форма заполнена на основе ваших ответов! Проверьте и дополните при необходимости.');
   };
 
   const onSubmit = async (data) => {
@@ -371,20 +298,56 @@ export const CreateContent = () => {
       return;
     }
 
+    // Проверка минимальной длины description
+    if (!data.description || data.description.trim().length < 10) {
+      toast.error('Описание должно содержать минимум 10 символов');
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       
       const payload = {
-        ...data,
+        title: data.title,
+        description: data.description,
+        target_audience: data.target_audience || '',
+        business_goals: data.business_goals,
+        call_to_action: [], // Обязательное поле, даже если пустое
+        tone: data.tone || 'professional',
+        keywords: [], // Можно добавить позже
+        platforms: data.platforms,
+        content_types: ['post'],
         project_id: currentProject.id,
-        content_types: ['post'], // Хардкод пока что
         generate_image: data.image_source === 'ai',
-        // Upload logic would go here (upload file -> get ID -> uploaded_files: [id])
+        image_source: data.image_source === 'ai' ? 'ai' : (data.image_source === 'stock' ? 'stock' : null),
+        publish_immediately: false, // Не публикуем сразу, показываем варианты для выбора
+        uploaded_files: uploadedFileId ? [uploadedFileId] : [], // ID загруженного файла
+        variants_count: 3 // Генерируем 3 варианта для выбора
       };
 
-      await contentAPI.createContent(payload);
-      toast.success('Контент создан и отправлен в работу!');
-      navigate('/dashboard/content');
+      const response = await contentAPI.createContent(payload);
+      
+      // Если есть варианты в ответе - показываем их для выбора
+      if (response.result?.results) {
+        // Ищем результаты DraftingAgent с вариантами
+        const draftingResults = Object.values(response.result.results).find(
+          r => r.variants && r.variants.length > 0
+        );
+        
+        if (draftingResults && draftingResults.variants) {
+          setContentVariants(draftingResults.variants);
+          setWorkflowId(response.workflow_id);
+          setShowVariants(true);
+          toast.success('Создано вариантов: ' + draftingResults.variants.length);
+        } else {
+          // Если вариантов нет - публикуем как обычно
+          toast.success('Контент создан и отправлен в работу!');
+          navigate('/dashboard/content');
+        }
+      } else {
+        toast.success('Контент создан и отправлен в работу!');
+        navigate('/dashboard/content');
+      }
     } catch (error) {
       console.error(error);
       toast.error('Ошибка создания: ' + (error.response?.data?.message || error.message));
@@ -393,12 +356,30 @@ export const CreateContent = () => {
     }
   };
 
+  const handleVariantSelect = async (variant, workflowId) => {
+    // TODO: Реализовать публикацию выбранного варианта
+    // Пока просто закрываем модалку и переходим на страницу контента
+    console.log('Selected variant:', variant, 'Workflow ID:', workflowId);
+    navigate('/dashboard/content');
+  };
+
   return (
     <Container>
-      <AIModal 
+      <SmartAIModal 
         isOpen={isAIModalOpen} 
         onClose={() => setIsAIModalOpen(false)} 
         onComplete={handleAIComplete} 
+      />
+      
+      <ContentVariantsPreview
+        isOpen={showVariants}
+        onClose={() => {
+          setShowVariants(false);
+          navigate('/dashboard/content');
+        }}
+        variants={contentVariants}
+        workflowId={workflowId}
+        onSelectVariant={handleVariantSelect}
       />
 
       <Header>
@@ -501,9 +482,16 @@ export const CreateContent = () => {
           <FormGroup>
             <Label>Описание / Ключевые мысли</Label>
             <TextArea 
-              {...register('description', { required: 'Опишите суть' })} 
+              {...register('description', { 
+                required: 'Опишите суть',
+                minLength: {
+                  value: 10,
+                  message: 'Описание должно содержать минимум 10 символов'
+                }
+              })} 
               placeholder="Тезисы, мысли, о чем нужно рассказать..."
             />
+            {errors.description && <span style={{color:'red', fontSize:'0.8rem'}}>{errors.description.message}</span>}
           </FormGroup>
 
           <FormGroup>
@@ -542,9 +530,65 @@ export const CreateContent = () => {
               )}
             />
             {selectedImageSource === 'upload' && (
-                <div style={{ marginTop: '1rem', padding: '1rem', border: '1px dashed gray', borderRadius: '8px', textAlign: 'center' }}>
-                    <p>Функция загрузки файла (в разработке)</p>
-                    {/* Здесь будет <input type="file" /> */}
+                <div style={{ marginTop: '1rem' }}>
+                    <input
+                        type="file"
+                        accept="image/*"
+                        disabled={isUploading}
+                        onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            
+                            // Проверка размера (10MB)
+                            const maxSize = 10 * 1024 * 1024;
+                            if (file.size > maxSize) {
+                                toast.error('Файл слишком большой. Максимальный размер: 10MB');
+                                return;
+                            }
+                            
+                            setIsUploading(true);
+                            try {
+                                const formData = new FormData();
+                                formData.append('file', file);
+                                
+                                const response = await api.post('/api/v1/upload', formData, {
+                                    headers: {
+                                        'Content-Type': 'multipart/form-data'
+                                    }
+                                });
+                                
+                                if (response.data.success) {
+                                    setUploadedFileId(response.data.file_id);
+                                    setValue('uploaded_file_id', response.data.file_id);
+                                    toast.success(`Файл ${file.name} успешно загружен!`);
+                                } else {
+                                    throw new Error(response.data.message || 'Ошибка загрузки файла');
+                                }
+                            } catch (error) {
+                                console.error('Error uploading file:', error);
+                                toast.error(error.response?.data?.message || error.message || 'Не удалось загрузить файл');
+                            } finally {
+                                setIsUploading(false);
+                            }
+                        }}
+                        style={{ 
+                            width: '100%',
+                            padding: '0.75rem',
+                            border: '1px dashed',
+                            borderColor: 'var(--border-color, #ccc)',
+                            borderRadius: '8px',
+                            cursor: isUploading ? 'not-allowed' : 'pointer',
+                            opacity: isUploading ? 0.6 : 1
+                        }}
+                    />
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary, #666)', marginTop: '0.5rem' }}>
+                        {isUploading ? 'Загрузка...' : 'Выберите изображение с компьютера (JPG, PNG, GIF, до 10MB)'}
+                    </p>
+                    {uploadedFileId && (
+                        <p style={{ fontSize: '0.8rem', color: 'green', marginTop: '0.5rem' }}>
+                            ✓ Файл загружен
+                        </p>
+                    )}
                 </div>
             )}
           </FormGroup>

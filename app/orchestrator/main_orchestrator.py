@@ -67,7 +67,8 @@ class ContentOrchestrator:
     
     async def create_content_workflow(self, brief: ContentBrief, 
                                     platforms: List[Platform] = None,
-                                    content_types: List[ContentType] = None) -> str:
+                                    content_types: List[ContentType] = None,
+                                    variants_count: int = 1) -> str:
         """Создает workflow для создания контента"""
         platforms = platforms or [Platform.TELEGRAM, Platform.VK]
         content_types = content_types or [ContentType.POST]
@@ -95,8 +96,19 @@ class ContentOrchestrator:
                     priority=TaskPriority.MEDIUM,
                     context={
                         "brief_id": brief.id,
+                        "brief_data": {
+                            "brief_id": brief.id,
+                            "title": brief.title,
+                            "description": brief.description,
+                            "target_audience": brief.target_audience,
+                            "business_goals": brief.business_goals,
+                            "call_to_action": brief.call_to_action,
+                            "tone": brief.tone,
+                            "keywords": brief.keywords
+                        },
                         "platform": platform.value,
-                        "content_type": content_type.value
+                        "content_type": content_type.value,
+                        "variants_count": variants_count  # Передаем количество вариантов
                     }
                 )
                 
@@ -225,9 +237,10 @@ class ContentOrchestrator:
             # Определяем платформы и типы контента
             platforms = [Platform(p) for p in request.get("platforms", ["telegram", "vk"])]
             content_types = [ContentType(ct) for ct in request.get("content_types", ["post"])]
+            variants_count = request.get("variants_count", 1)  # Количество вариантов (по умолчанию 1)
             
             # Создаем workflow
-            workflow_id = await self.create_content_workflow(brief, platforms, content_types)
+            workflow_id = await self.create_content_workflow(brief, platforms, content_types, variants_count=variants_count)
             
             # Проверяем нужен ли фактчекинг
             constraints = request.get("constraints", {})

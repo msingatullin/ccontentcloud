@@ -61,7 +61,8 @@ export const theme = {
     sm: '4px',
     md: '8px',
     lg: '12px',
-    xl: '16px',
+    xl: '24px',
+    xxl: '32px',
     full: '9999px',
   },
   
@@ -71,6 +72,7 @@ export const theme = {
     base: '16px',
     lg: '18px',
     xl: '20px',
+    xxl: '24px',
     '2xl': '24px',
     '3xl': '30px',
     '4xl': '36px',

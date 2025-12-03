@@ -431,9 +431,98 @@ class ContentCreate(Resource):
         с участием всех необходимых агентов.
         """
         try:
+            # Получаем данные запроса
+            data = request.json or {}
+            
+            # Преобразуем platforms из строк в PlatformEnum перед валидацией
+            if 'platforms' in data and isinstance(data['platforms'], list):
+                from app.api.schemas import PlatformEnum
+                converted_platforms = []
+                for platform in data['platforms']:
+                    try:
+                        # Преобразуем строку в PlatformEnum
+                        if isinstance(platform, str):
+                            converted_platforms.append(PlatformEnum(platform.lower()))
+                        elif isinstance(platform, PlatformEnum):
+                            converted_platforms.append(platform)
+                        else:
+                            converted_platforms.append(PlatformEnum(str(platform).lower()))
+                    except ValueError:
+                        return {
+                            "error": "Validation Error",
+                            "message": f"Некорректная платформа: {platform}. Доступные: {[p.value for p in PlatformEnum]}",
+                            "status_code": 400,
+                            "timestamp": datetime.now().isoformat()
+                        }, 400
+                data['platforms'] = converted_platforms
+            
+            # Объединяем данные из проекта (если указан project_id)
+            project_id = data.get('project_id')
+            if project_id:
+                try:
+                    from app.models.project import Project
+                    from app.database.connection import get_db_session
+                    
+                    db = get_db_session()
+                    project = db.query(Project).filter(Project.id == project_id).first()
+                    
+                    if project:
+                        project_settings = project.settings or {}
+                        project_ai_settings = project.ai_settings or {}
+                        
+                        # Объединяем настройки проекта с данными запроса
+                        # Приоритет у данных запроса (если указаны)
+                        
+                        # Целевая аудитория
+                        if not data.get('target_audience') and project_settings.get('target_audience'):
+                            data['target_audience'] = project_settings['target_audience']
+                        
+                        # Тон (из settings или ai_settings)
+                        if not data.get('tone'):
+                            tone = project_settings.get('tone_of_voice') or project_ai_settings.get('formality_level')
+                            if tone:
+                                # Преобразуем formality_level в tone если нужно
+                                tone_mapping = {
+                                    'formal': 'professional',
+                                    'semi-formal': 'professional',
+                                    'informal': 'casual'
+                                }
+                                data['tone'] = tone_mapping.get(tone, tone)
+                        
+                        # Ключевые слова (объединяем)
+                        project_keywords = project_settings.get('keywords', [])
+                        survey_keywords = data.get('keywords', [])
+                        if isinstance(survey_keywords, list):
+                            all_keywords = list(set(project_keywords + survey_keywords))
+                            data['keywords'] = all_keywords
+                        elif project_keywords:
+                            data['keywords'] = project_keywords
+                        
+                        # CTA (если не указан в запросе)
+                        if not data.get('call_to_action') and project_settings.get('default_cta'):
+                            data['call_to_action'] = [project_settings['default_cta']]
+                        
+                        # Сохраняем контекст проекта для промпта
+                        data['project_context'] = {
+                            'business_description': project_settings.get('business_description', ''),
+                            'brand_name': project_settings.get('brand_name', ''),
+                            'brand_description': project_settings.get('brand_description', ''),
+                            'resource_url': project_settings.get('resource_url', ''),
+                            'preferred_style': project_ai_settings.get('preferred_style', ''),
+                            'content_length': project_ai_settings.get('content_length', 'medium'),
+                            'emoji_usage': project_ai_settings.get('emoji_usage', 'minimal')
+                        }
+                        
+                        logger.info(f"Объединены данные проекта {project_id} с запросом на создание контента")
+                    
+                    db.close()
+                except Exception as e:
+                    logger.warning(f"Ошибка загрузки данных проекта {project_id}: {e}. Продолжаем без данных проекта.")
+                    # Продолжаем без данных проекта - не ломаем существующий функционал
+            
             # Валидируем входные данные
             try:
-                content_request = ContentRequestSchema(**request.json)
+                content_request = ContentRequestSchema(**data)
             except ValidationError as e:
                 return handle_validation_error(e)
             
@@ -483,6 +572,157 @@ class ContentExample(Resource):
             "example": get_example_data('content_request'),
             "schema": "ContentRequestSchema"
         }
+
+
+@api.route('/upload')
+class FileUpload(Resource):
+    @jwt_required
+    @api.doc('upload_file', security='BearerAuth', description='Загружает файл (изображение) на сервер')
+    @api.response(200, 'OK')
+    @api.response(400, 'Bad Request')
+    @api.response(401, 'Unauthorized')
+    @api.response(500, 'Internal Server Error')
+    def post(self, current_user):
+        """
+        Загружает файл на сервер
+        
+        Принимает multipart/form-data с полем 'file'
+        Возвращает ID загруженного файла для использования в content/create
+        """
+        try:
+            from werkzeug.utils import secure_filename
+            from ..services.storage_service import StorageService
+            from ..models.uploads import FileUploadDB
+            import uuid
+            import asyncio
+            
+            user_id = current_user.get('user_id')
+            if not user_id:
+                return {
+                    "error": "Unauthorized",
+                    "message": "Пользователь не авторизован",
+                    "status_code": 401,
+                    "timestamp": datetime.now().isoformat()
+                }, 401
+            
+            # Проверяем наличие файла
+            if 'file' not in request.files:
+                return {
+                    "error": "Bad Request",
+                    "message": "Файл не предоставлен",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            file = request.files['file']
+            if file.filename == '':
+                return {
+                    "error": "Bad Request",
+                    "message": "Имя файла пустое",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            # Проверяем тип файла (только изображения)
+            allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+            filename = secure_filename(file.filename)
+            file_ext = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
+            
+            if file_ext not in allowed_extensions:
+                return {
+                    "error": "Bad Request",
+                    "message": f"Неподдерживаемый тип файла. Разрешены: {', '.join(allowed_extensions)}",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            # Читаем содержимое файла
+            file_content = file.read()
+            file_size = len(file_content)
+            
+            # Проверяем размер (максимум 10MB)
+            max_size = 10 * 1024 * 1024  # 10MB
+            if file_size > max_size:
+                return {
+                    "error": "Bad Request",
+                    "message": f"Файл слишком большой. Максимальный размер: 10MB",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            # Загружаем файл в GCS
+            storage_service = StorageService()
+            upload_result = asyncio.run(
+                storage_service.upload_file(
+                    file_content=file_content,
+                    filename=filename,
+                    user_id=str(user_id),
+                    folder="content_images",
+                    optimize=True
+                )
+            )
+            
+            if not upload_result.get('success'):
+                return {
+                    "error": "Upload Failed",
+                    "message": upload_result.get('error', 'Не удалось загрузить файл'),
+                    "status_code": 500,
+                    "timestamp": datetime.now().isoformat()
+                }, 500
+            
+            # Сохраняем информацию о файле в БД
+            db = get_db_session()
+            try:
+                file_id = str(uuid.uuid4())
+                file_upload = FileUploadDB(
+                    id=file_id,
+                    user_id=user_id,
+                    filename=upload_result['filename'],
+                    original_filename=filename,
+                    file_type='image',
+                    mime_type=upload_result['content_type'],
+                    size_bytes=upload_result['size_bytes'],
+                    storage_url=upload_result['url'],
+                    storage_bucket=upload_result['bucket'],
+                    storage_path=upload_result['path'],
+                    is_public=True
+                )
+                
+                db.add(file_upload)
+                db.commit()
+                db.refresh(file_upload)
+                
+                logger.info(f"Файл {filename} загружен пользователем {user_id}, ID: {file_id}")
+                
+                return {
+                    "success": True,
+                    "file_id": file_id,
+                    "url": upload_result['url'],
+                    "filename": upload_result['filename'],
+                    "size_bytes": upload_result['size_bytes'],
+                    "timestamp": datetime.now().isoformat()
+                }, 200
+                
+            except Exception as e:
+                db.rollback()
+                logger.error(f"Ошибка сохранения файла в БД: {e}")
+                return {
+                    "error": "Database Error",
+                    "message": f"Не удалось сохранить информацию о файле: {str(e)}",
+                    "status_code": 500,
+                    "timestamp": datetime.now().isoformat()
+                }, 500
+            finally:
+                db.close()
+                
+        except Exception as e:
+            logger.error(f"Ошибка загрузки файла: {e}", exc_info=True)
+            return {
+                "error": "Internal Server Error",
+                "message": f"Внутренняя ошибка сервера: {str(e)}",
+                "status_code": 500,
+                "timestamp": datetime.now().isoformat()
+            }, 500
 
 
 # ==================== WORKFLOW ENDPOINTS ====================
@@ -917,254 +1157,12 @@ class TrendsAnalyze(Resource):
 
 # ==================== PROJECT ENDPOINTS ====================
 
-project_model = api.model('Project', {
-    'id': fields.Integer(description='ID проекта'),
-    'name': fields.String(required=True, min_length=1, max_length=255, description='Название проекта'),
-    'description': fields.String(description='Описание проекта'),
-    'user_id': fields.Integer(description='ID пользователя'),
-    'settings': fields.Raw(description='Настройки проекта'),
-    'created_at': fields.String(description='Дата создания'),
-    'updated_at': fields.String(description='Дата обновления')
-})
+# project_model, create_project_model, update_project_model removed - use projects_ns.py models instead
 
-create_project_model = api.model('CreateProjectRequest', {
-    'name': fields.String(required=True, min_length=1, max_length=255, description='Название проекта'),
-    'description': fields.String(description='Описание проекта'),
-    'settings': fields.Raw(description='Настройки проекта')
-})
-
-update_project_model = api.model('UpdateProjectRequest', {
-    'name': fields.String(min_length=1, max_length=255, description='Название проекта'),
-    'description': fields.String(description='Описание проекта'),
-    'status': fields.String(description='Статус проекта', enum=['active', 'archived', 'paused', 'deleted']),
-    'settings': fields.Raw(description='Настройки проекта')
-})
-
-@api.route('/projects')
-class ProjectsList(Resource):
-    @api.doc('list_projects', description='Получает список проектов пользователя')
-    @api.marshal_with(api.model('ProjectsListResponse', {
-        'success': fields.Boolean(description='Успешность операции'),
-        'projects': fields.List(fields.Nested(project_model), description='Список проектов'),
-        'total': fields.Integer(description='Общее количество проектов')
-    }), code=200)
-    @api.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
-    @jwt_required
-    def get(self, current_user=None):
-        """Получает список проектов пользователя"""
-        try:
-            from app.models.project import Project
-            from app.database.connection import get_db_session
-
-            db = get_db_session()
-
-            # Get user_id from JWT token (set by @jwt_required decorator)
-            user_id = g.current_user_id
-
-            # Get all projects for user (no status filter - column doesn't exist in DB)
-            projects = db.query(Project).filter(
-                Project.user_id == user_id
-            ).order_by(Project.created_at.desc()).all()
-
-            db.close()
-
-            return {
-                "success": True,
-                "projects": [project.to_dict() for project in projects],
-                "total": len(projects)
-            }, 200
-
-        except Exception as e:
-            logger.error(f"Ошибка получения списка проектов: {e}")
-            return {
-                "error": "Internal server error",
-                "message": f"Ошибка получения списка проектов: {str(e)}",
-                "status_code": 500,
-                "timestamp": datetime.now().isoformat()
-            }, 500
-    
-    @api.doc('create_project', description='Создает новый проект')
-    @api.expect(create_project_model, validate=True)
-    @api.marshal_with(project_model, code=201, description='Проект создан')
-    @api.marshal_with(common_models['error'], code=400, description='Ошибка валидации')
-    @api.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
-    def post(self):
-        """Создает новый проект"""
-        try:
-            from app.models.project import Project, ProjectStatus
-            from app.database.connection import get_db_session
-            
-            data = request.json
-            db = get_db_session()
-            
-            user_id = data.get('user_id')
-            if not user_id:
-                return {
-                    "error": "Bad Request",
-                    "message": "user_id required",
-                    "status_code": 400,
-                    "timestamp": datetime.now().isoformat()
-                }, 400
-            
-            project = Project(
-                name=data.get('name'),
-                description=data.get('description'),
-                user_id=user_id,
-                settings=data.get('settings', {})
-            )
-            
-            db.add(project)
-            db.commit()
-            db.refresh(project)
-            db.close()
-            
-            logger.info(f"Создан проект {project.id}: {project.name}")
-            return project.to_dict(), 201
-            
-        except Exception as e:
-            logger.error(f"Ошибка создания проекта: {e}")
-            return {
-                "error": "Internal server error",
-                "message": f"Ошибка создания проекта: {str(e)}",
-                "status_code": 500,
-                "timestamp": datetime.now().isoformat()
-            }, 500
+# /projects endpoint removed - use projects_ns.py instead with proper JWT auth and validation
 
 
-@api.route('/projects/<int:project_id>')
-class ProjectDetail(Resource):
-    @api.doc('get_project', description='Получает проект по ID')
-    @api.marshal_with(project_model, code=200, description='Проект найден')
-    @api.marshal_with(common_models['error'], code=404, description='Проект не найден')
-    @api.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
-    def get(self, project_id):
-        """Получает проект по ID"""
-        try:
-            from app.models.project import Project
-            from app.database.connection import get_db_session
-
-            db = get_db_session()
-            project = db.query(Project).filter(
-                Project.id == project_id
-            ).first()
-            db.close()
-            
-            if not project:
-                return {
-                    "error": "Not Found",
-                    "message": f"Проект {project_id} не найден",
-                    "status_code": 404,
-                    "timestamp": datetime.now().isoformat()
-                }, 404
-            
-            return project.to_dict(), 200
-            
-        except Exception as e:
-            logger.error(f"Ошибка получения проекта: {e}")
-            return {
-                "error": "Internal server error",
-                "message": f"Ошибка получения проекта: {str(e)}",
-                "status_code": 500,
-                "timestamp": datetime.now().isoformat()
-            }, 500
-    
-    @api.doc('update_project', description='Обновляет проект')
-    @api.expect(update_project_model, validate=False)
-    @api.marshal_with(project_model, code=200, description='Проект обновлен')
-    @api.marshal_with(common_models['error'], code=404, description='Проект не найден')
-    @api.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
-    def put(self, project_id):
-        """Обновляет проект"""
-        try:
-            from app.models.project import Project
-            from app.database.connection import get_db_session
-
-            data = request.json
-            db = get_db_session()
-
-            project = db.query(Project).filter(
-                Project.id == project_id,
-                Project.deleted_at.is_(None)
-            ).first()
-            
-            if not project:
-                db.close()
-                return {
-                    "error": "Not Found",
-                    "message": f"Проект {project_id} не найден",
-                    "status_code": 404,
-                    "timestamp": datetime.now().isoformat()
-                }, 404
-            
-            if 'name' in data:
-                project.name = data['name']
-            if 'description' in data:
-                project.description = data.get('description')
-            if 'status' in data:
-                project.status = data['status']
-            if 'settings' in data:
-                project.settings = data['settings']
-            
-            db.commit()
-            db.refresh(project)
-            db.close()
-            
-            logger.info(f"Обновлен проект {project.id}: {project.name}")
-            return project.to_dict(), 200
-            
-        except Exception as e:
-            logger.error(f"Ошибка обновления проекта: {e}")
-            return {
-                "error": "Internal server error",
-                "message": f"Ошибка обновления проекта: {str(e)}",
-                "status_code": 500,
-                "timestamp": datetime.now().isoformat()
-            }, 500
-    
-    @api.doc('delete_project', description='Удаляет проект')
-    @api.marshal_with(common_models['success'], code=200, description='Проект удален')
-    @api.marshal_with(common_models['error'], code=404, description='Проект не найден')
-    @api.marshal_with(common_models['error'], code=500, description='Внутренняя ошибка сервера')
-    def delete(self, project_id):
-        """Удаляет проект"""
-        try:
-            from app.models.project import Project
-            from app.database.connection import get_db_session
-
-            db = get_db_session()
-            project = db.query(Project).filter(
-                Project.id == project_id
-            ).first()
-
-            if not project:
-                db.close()
-                return {
-                    "error": "Not Found",
-                    "message": f"Проект {project_id} не найден",
-                    "status_code": 404,
-                    "timestamp": datetime.now().isoformat()
-                }, 404
-
-            # Hard delete - remove from database
-            db.delete(project)
-            db.commit()
-            db.close()
-            
-            logger.info(f"Удален проект {project_id}")
-            return {
-                "success": True,
-                "message": f"Проект {project_id} успешно удален",
-                "timestamp": datetime.now().isoformat()
-            }, 200
-            
-        except Exception as e:
-            logger.error(f"Ошибка удаления проекта: {e}")
-            return {
-                "error": "Internal server error",
-                "message": f"Ошибка удаления проекта: {str(e)}",
-                "status_code": 500,
-                "timestamp": datetime.now().isoformat()
-            }, 500
+# /projects/<int:project_id> endpoint removed - use projects_ns.py instead
 
 
 @api.route('/projects/<int:project_id>/auto-fill')

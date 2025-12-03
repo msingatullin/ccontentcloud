@@ -354,46 +354,72 @@ class DraftingAgent(BaseAgent):
             platform = task.context.get("platform", "telegram")
             content_type = task.context.get("content_type", "post")
             strategy_data = task.context.get("strategy", {})
+            variants_count = task.context.get("variants_count", 1)  # Количество вариантов (по умолчанию 1)
             
-            # Создаем контент
-            generated_content = await self._generate_content(
-                brief_data, platform, content_type, strategy_data
-            )
+            # Генерируем варианты контента
+            variants = []
+            for variant_num in range(1, variants_count + 1):
+                logger.info(f"Генерация варианта {variant_num} из {variants_count}")
+                
+                # Создаем контент с небольшими вариациями для каждого варианта
+                generated_content = await self._generate_content(
+                    brief_data, platform, content_type, strategy_data, variant_num=variant_num
+                )
+                
+                # Оптимизируем для платформы
+                optimized_content = await self._optimize_for_platform(
+                    generated_content, platform
+                )
+                
+                # Проверяем качество
+                quality_metrics = await self._assess_content_quality(optimized_content)
+                
+                variant_data = {
+                    "variant_number": variant_num,
+                    "content": {
+                        "id": optimized_content.content_piece.id,
+                        "title": optimized_content.content_piece.title,
+                        "text": optimized_content.content_piece.text,
+                        "hashtags": optimized_content.content_piece.hashtags,
+                        "call_to_action": optimized_content.content_piece.call_to_action,
+                        "platform": platform,
+                        "content_type": content_type
+                    },
+                    "quality_metrics": {
+                        "seo_score": optimized_content.seo_score,
+                        "engagement_potential": optimized_content.engagement_potential,
+                        "readability_score": optimized_content.readability_score,
+                        "platform_optimized": optimized_content.platform_optimized
+                    },
+                    "recommendations": await self._generate_improvement_recommendations(
+                        optimized_content, quality_metrics
+                    )
+                }
+                variants.append(variant_data)
             
-            # Оптимизируем для платформы
-            optimized_content = await self._optimize_for_platform(
-                generated_content, platform
-            )
+            # Если только один вариант - возвращаем старый формат для совместимости
+            if variants_count == 1:
+                result = {
+                    "task_id": task.id,
+                    "agent_id": self.agent_id,
+                    "content": variants[0]["content"],
+                    "quality_metrics": variants[0]["quality_metrics"],
+                    "recommendations": variants[0]["recommendations"],
+                    "status": "completed",
+                    "timestamp": datetime.now().isoformat()
+                }
+            else:
+                # Возвращаем все варианты
+                result = {
+                    "task_id": task.id,
+                    "agent_id": self.agent_id,
+                    "variants": variants,
+                    "variants_count": len(variants),
+                    "status": "completed",
+                    "timestamp": datetime.now().isoformat()
+                }
             
-            # Проверяем качество
-            quality_metrics = await self._assess_content_quality(optimized_content)
-            
-            result = {
-                "task_id": task.id,
-                "agent_id": self.agent_id,
-                "content": {
-                    "id": optimized_content.content_piece.id,
-                    "title": optimized_content.content_piece.title,
-                    "text": optimized_content.content_piece.text,
-                    "hashtags": optimized_content.content_piece.hashtags,
-                    "call_to_action": optimized_content.content_piece.call_to_action,
-                    "platform": platform,
-                    "content_type": content_type
-                },
-                "quality_metrics": {
-                    "seo_score": optimized_content.seo_score,
-                    "engagement_potential": optimized_content.engagement_potential,
-                    "readability_score": optimized_content.readability_score,
-                    "platform_optimized": optimized_content.platform_optimized
-                },
-                "recommendations": await self._generate_improvement_recommendations(
-                    optimized_content, quality_metrics
-                ),
-                "status": "completed",
-                "timestamp": datetime.now().isoformat()
-            }
-            
-            logger.info(f"DraftingAgent завершил задачу {task.id}")
+            logger.info(f"DraftingAgent завершил задачу {task.id}, создано вариантов: {len(variants)}")
             return result
             
         except Exception as e:
@@ -402,7 +428,8 @@ class DraftingAgent(BaseAgent):
     
     async def _generate_content(self, brief_data: Dict[str, Any], 
                               platform: str, content_type: str,
-                              strategy_data: Dict[str, Any]) -> GeneratedContent:
+                              strategy_data: Dict[str, Any],
+                              variant_num: int = 1) -> GeneratedContent:
         """Генерирует контент на основе брифа"""
         
         # Получаем шаблон для платформы
@@ -423,14 +450,14 @@ class DraftingAgent(BaseAgent):
         # Генерируем текст по шаблону
         text_parts = []
         
-        # Hook (зацепка)
+        # Hook (зацепка) - добавляем вариативность для разных вариантов
         if "hook" in template.required_elements:
-            hook = await self._generate_hook(brief_data, strategy_data, platform)
+            hook = await self._generate_hook(brief_data, strategy_data, platform, variant_num=variant_num)
             text_parts.append(hook)
         
-        # Основной контент
+        # Основной контент - добавляем вариативность для разных вариантов
         if "main_content" in template.required_elements:
-            main_content = await self._generate_main_content(brief_data, strategy_data, platform)
+            main_content = await self._generate_main_content(brief_data, strategy_data, platform, variant_num=variant_num)
             text_parts.append(main_content)
         
         # Call to action
@@ -460,7 +487,7 @@ class DraftingAgent(BaseAgent):
         )
     
     async def _generate_hook(self, brief_data: Dict[str, Any], 
-                           strategy_data: Dict[str, Any], platform: str) -> str:
+                           strategy_data: Dict[str, Any], platform: str, variant_num: int = 1) -> str:
         """Генерирует зацепку для контента"""
         tone = brief_data.get("tone", "professional")
         target_audience = brief_data.get("target_audience", "")
@@ -509,22 +536,22 @@ class DraftingAgent(BaseAgent):
         return hook
     
     async def _generate_main_content(self, brief_data: Dict[str, Any], 
-                                   strategy_data: Dict[str, Any], platform: str) -> str:
+                                   strategy_data: Dict[str, Any], platform: str, variant_num: int = 1) -> str:
         """Генерирует основной контент через AI или fallback на шаблоны"""
         try:
             # Пытаемся использовать AI генерацию
-            ai_content = await self._generate_content_with_ai(brief_data, strategy_data, platform)
+            ai_content = await self._generate_content_with_ai(brief_data, strategy_data, platform, variant_num=variant_num)
             if ai_content:
-                logger.info(f"Основной контент сгенерирован через AI для {platform}")
+                logger.info(f"Основной контент сгенерирован через AI для {platform}, вариант {variant_num}")
                 return ai_content
         except Exception as e:
             logger.warning(f"Ошибка AI генерации, используем fallback: {e}")
         
         # Fallback на шаблонную генерацию
-        return await self._generate_main_content_fallback(brief_data, strategy_data, platform)
+        return await self._generate_main_content_fallback(brief_data, strategy_data, platform, variant_num=variant_num)
     
     async def _generate_content_with_ai(self, brief_data: Dict[str, Any], 
-                                      strategy_data: Dict[str, Any], platform: str) -> Optional[str]:
+                                      strategy_data: Dict[str, Any], platform: str, variant_num: int = 1) -> Optional[str]:
         """Генерирует контент через AI модели"""
         try:
             # Получаем промпт для платформы
@@ -541,13 +568,27 @@ class DraftingAgent(BaseAgent):
             tone = brief_data.get("tone", "professional")
             keywords = ", ".join(brief_data.get("keywords", []))
             
+            # Добавляем вариативность для разных вариантов
+            variant_instruction = ""
+            if variant_num > 1:
+                variant_styles = [
+                    "Создай более эмоциональный и живой вариант",
+                    "Создай более структурированный и информативный вариант",
+                    "Создай более креативный и нестандартный вариант"
+                ]
+                variant_instruction = f"\n\nВАЖНО: {variant_styles[min(variant_num - 1, len(variant_styles) - 1)]}. Вариант должен отличаться от предыдущих."
+            
             # Формируем финальный промпт
             final_prompt = prompt.prompt_template.format(
                 topic=topic,
                 target_audience=target_audience,
                 tone=tone,
                 keywords=keywords
-            )
+            ) + variant_instruction
+            
+            # Увеличиваем temperature для большей вариативности при генерации нескольких вариантов
+            adjusted_temperature = prompt.temperature + (variant_num - 1) * 0.1
+            adjusted_temperature = min(adjusted_temperature, 1.0)  # Максимум 1.0
             
             # Приоритет 1: Vertex AI Gemini
             if hasattr(self, 'vertex_ai_mcp') and self.vertex_ai_mcp is not None:
@@ -555,7 +596,7 @@ class DraftingAgent(BaseAgent):
                     'generate_content',
                     prompt=final_prompt,
                     max_tokens=prompt.max_tokens,
-                    temperature=prompt.temperature
+                    temperature=adjusted_temperature
                 )
                 
                 if result.success and result.data:
@@ -567,7 +608,7 @@ class DraftingAgent(BaseAgent):
                     'generate_text',
                     prompt=final_prompt,
                     max_tokens=prompt.max_tokens,
-                    temperature=prompt.temperature
+                    temperature=adjusted_temperature
                 )
                 
                 if result.success and result.data:
@@ -579,7 +620,7 @@ class DraftingAgent(BaseAgent):
                     'generate_content',
                     prompt=final_prompt,
                     max_tokens=prompt.max_tokens,
-                    temperature=prompt.temperature
+                    temperature=adjusted_temperature
                 )
                 
                 if result.success and result.data:
@@ -592,7 +633,7 @@ class DraftingAgent(BaseAgent):
             return None
     
     async def _generate_main_content_fallback(self, brief_data: Dict[str, Any], 
-                                            strategy_data: Dict[str, Any], platform: str) -> str:
+                                            strategy_data: Dict[str, Any], platform: str, variant_num: int = 1) -> str:
         """Fallback метод для генерации основного контента (шаблонная логика)"""
         description = brief_data.get("description", "")
         target_audience = brief_data.get("target_audience", "")

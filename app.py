@@ -54,6 +54,7 @@ from app.api.scheduled_posts_ns import scheduled_posts_ns
 from app.api.auto_posting_ns import auto_posting_ns
 from app.api.projects_ns import projects_ns
 from app.api.content_sources_ns import content_sources_ns
+from app.api.ai_assistant_ns import ai_assistant_ns
 from app.api.swagger_config import create_swagger_api
 from app.workers import ScheduledPostsWorker, AutoPostingWorker
 from app.workers.web_crawler_worker import WebCrawlerWorker
@@ -218,6 +219,7 @@ def create_app():
     swagger_api.add_namespace(content_sources_ns, path='/content-sources')
     swagger_api.add_namespace(projects_ns, path='/projects')
     swagger_api.add_namespace(ai_ns, path='/ai')
+    swagger_api.add_namespace(ai_assistant_ns, path='/ai-assistant')
     
     # Регистрируем swagger_api в Flask app
     # swagger_api уже зарегистрирован в Flask app через create_swagger_api(app)

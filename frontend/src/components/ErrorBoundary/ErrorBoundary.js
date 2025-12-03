@@ -8,68 +8,68 @@ const ErrorContainer = styled.div`
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  padding: ${props => props.theme.spacing.xl};
-  background: ${props => props.theme.colors.background};
-  color: ${props => props.theme.colors.text};
+  padding: 32px;
+  background: #f8fafc;
+  color: #1e293b;
 `;
 
 const ErrorIcon = styled.div`
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background: ${props => props.theme.colors.error}20;
+  background: rgba(239, 68, 68, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: ${props => props.theme.spacing.xl};
+  margin-bottom: 32px;
   
   svg {
     width: 40px;
     height: 40px;
-    color: ${props => props.theme.colors.error};
+    color: #ef4444;
   }
 `;
 
 const ErrorTitle = styled.h1`
-  font-size: ${props => props.theme.fontSize.xxl};
-  font-weight: ${props => props.theme.fontWeight.bold};
-  color: ${props => props.theme.colors.text};
-  margin-bottom: ${props => props.theme.spacing.md};
+  font-size: 48px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 16px;
   text-align: center;
 `;
 
 const ErrorMessage = styled.p`
-  font-size: ${props => props.theme.fontSize.lg};
-  color: ${props => props.theme.colors.textSecondary};
+  font-size: 18px;
+  color: #64748b;
   text-align: center;
   max-width: 600px;
-  margin-bottom: ${props => props.theme.spacing.xl};
+  margin-bottom: 32px;
   line-height: 1.6;
 `;
 
 const ErrorDetails = styled.details`
-  background: ${props => props.theme.colors.backgroundSecondary};
-  border: 1px solid ${props => props.theme.colors.border};
-  border-radius: ${props => props.theme.borderRadius.md};
-  padding: ${props => props.theme.spacing.lg};
-  margin-bottom: ${props => props.theme.spacing.xl};
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 32px;
   max-width: 800px;
   width: 100%;
   
   summary {
     cursor: pointer;
-    font-weight: ${props => props.theme.fontWeight.semibold};
-    color: ${props => props.theme.colors.text};
-    margin-bottom: ${props => props.theme.spacing.md};
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 16px;
   }
   
   pre {
-    background: ${props => props.theme.colors.backgroundTertiary};
-    border-radius: ${props => props.theme.borderRadius.sm};
-    padding: ${props => props.theme.spacing.md};
+    background: #f1f5f9;
+    border-radius: 4px;
+    padding: 16px;
     overflow-x: auto;
-    font-size: ${props => props.theme.fontSize.sm};
-    color: ${props => props.theme.colors.textSecondary};
+    font-size: 14px;
+    color: #64748b;
     white-space: pre-wrap;
     word-break: break-word;
   }
@@ -77,7 +77,7 @@ const ErrorDetails = styled.details`
 
 const ActionButtons = styled.div`
   display: flex;
-  gap: ${props => props.theme.spacing.md};
+  gap: 16px;
   flex-wrap: wrap;
   justify-content: center;
 `;
@@ -85,31 +85,31 @@ const ActionButtons = styled.div`
 const ActionButton = styled.button`
   display: flex;
   align-items: center;
-  gap: ${props => props.theme.spacing.sm};
-  padding: ${props => props.theme.spacing.md} ${props => props.theme.spacing.lg};
+  gap: 8px;
+  padding: 16px 24px;
   border: none;
-  border-radius: ${props => props.theme.borderRadius.md};
-  font-size: ${props => props.theme.fontSize.md};
-  font-weight: ${props => props.theme.fontWeight.medium};
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
   cursor: pointer;
-  transition: all ${props => props.theme.transitions.normal};
+  transition: all 0.2s ease;
   
   ${props => props.primary ? `
-    background: ${props.theme.colors.primary};
+    background: #3b82f6;
     color: white;
     
     &:hover {
-      background: ${props.theme.colors.primaryHover};
+      background: #2563eb;
       transform: translateY(-2px);
     }
   ` : `
-    background: ${props.theme.colors.backgroundSecondary};
-    color: ${props.theme.colors.text};
-    border: 1px solid ${props.theme.colors.border};
+    background: #ffffff;
+    color: #1e293b;
+    border: 1px solid #e2e8f0;
     
     &:hover {
-      background: ${props.theme.colors.backgroundTertiary};
-      border-color: ${props.theme.colors.primary};
+      background: #f1f5f9;
+      border-color: #3b82f6;
     }
   `}
   

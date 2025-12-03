@@ -187,13 +187,13 @@ export const notificationsAPI = {
 export const projectsAPI = {
   // Получить все проекты пользователя
   getAll: async () => {
-    const response = await api.get('/api/v1/projects/');
+    const response = await api.get('/api/v1/projects');
     return response.data;
   },
 
   // Создать новый проект
   create: async (data) => {
-    const response = await api.post('/api/v1/projects/', data);
+    const response = await api.post('/api/v1/projects', data);
     return response.data;
   },
 

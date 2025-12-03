@@ -33,6 +33,11 @@ class Project(Base):
 
     # Настройки проекта
     settings = Column(JSON, default=dict, nullable=True)  # Дополнительные настройки
+    ai_settings = Column(JSON, default=dict, nullable=True)  # AI настройки
+    
+    # Флаги
+    is_default = Column(Boolean, default=False, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
     
     # Метаданные
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -53,6 +58,9 @@ class Project(Base):
             "description": self.description,
             "user_id": self.user_id,
             "settings": self.settings or {},
+            "ai_settings": self.ai_settings or {},
+            "is_default": getattr(self, 'is_default', False),
+            "is_active": getattr(self, 'is_active', True),
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None
         }

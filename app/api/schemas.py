@@ -102,6 +102,9 @@ class ContentRequestSchema(BaseModel):
     generate_image: bool = Field(default=False, description="Добавить изображение к посту")
     image_source: Optional[str] = Field(default=None, description="Источник изображения: 'stock' (стоковые из Unsplash) или 'ai' (генерировать через ИИ)")
     
+    # Генерация вариантов (опционально, по умолчанию 1 - для обратной совместимости)
+    variants_count: int = Field(default=1, ge=1, le=5, description="Количество вариантов контента для генерации (1-5). По умолчанию 1")
+    
     @validator('keywords')
     def validate_keywords(cls, v):
         """Валидация ключевых слов"""
