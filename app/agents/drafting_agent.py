@@ -506,50 +506,58 @@ class DraftingAgent(BaseAgent):
         tone = brief_data.get("tone", "professional")
         target_audience = brief_data.get("target_audience", "")
         title = brief_data.get("title", "")
+        description = brief_data.get("description", "")
         keywords = brief_data.get("keywords", [])
 
-        # Получаем гайд по тону
-        tone_guide = self.tone_guides.get(tone, self.tone_guides["professional"])
+        # Извлекаем КОРОТКУЮ тему из title или keywords
+        # НЕ используем полное предложение!
+        topic = None
 
-        # Используем заголовок как основу если он есть, иначе ключевые слова
-        topic = title if title else (keywords[0] if keywords else "важной теме")
+        # Если есть keywords - используем первый
+        if keywords and len(keywords) > 0:
+            topic = keywords[0].lower()
+        # Иначе пытаемся извлечь тему из title (первые 2-3 слова)
+        elif title:
+            # Берём только первые несколько слов из title
+            words = title.split()
+            if len(words) <= 3:
+                topic = title.lower()
+            else:
+                # Ищем ключевые существительные
+                for word in words:
+                    word_lower = word.lower().strip(',.!?')
+                    if len(word_lower) > 4 and word_lower not in ['канал', 'предлагая', 'посвящен']:
+                        topic = word_lower
+                        break
 
-        # Шаблоны зацепок с правильной грамматикой
+        # Fallback на общую тему
+        if not topic:
+            topic = "эту тему"
+
+        # Простые, универсальные зацепки
         hook_templates = {
-            "question": [
-                f"Знаете ли вы, как использовать {topic.lower()}?",
-                f"Что если бы вы могли улучшить результаты с помощью {topic.lower()}?",
-                f"Готовы узнать больше про {topic.lower()}?"
+            "professional": [
+                f"Разбираем тему: {topic}",
+                f"Важно знать про {topic}",
+                f"Коротко о главном: {topic}"
             ],
-            "statement": [
-                f"Сегодня поговорим про {topic.lower()}",
-                f"Разбираем тему: {topic.lower()}",
-                f"Всё, что нужно знать про {topic.lower()}"
-            ],
-            "statistic": [
-                f"3 факта про {topic.lower()}, которые вас удивят",
-                f"Главные ошибки в работе с {topic.lower()}",
-                f"Простой способ разобраться в теме: {topic.lower()}"
+            "casual": [
+                f"Поговорим про {topic}?",
+                f"Что нужно знать про {topic}",
+                f"Разбираемся с {topic}"
             ],
             "benefit": [
-                f"Как получить больше результатов",
-                f"Что даст вам понимание этой темы",
-                f"Почему это важно для вас"
+                f"Как использовать {topic} для роста",
+                f"Польза от {topic}",
+                f"Что даёт {topic}"
             ]
         }
 
-        # Выбираем тип зацепки в зависимости от тона
-        if tone == "professional":
-            hook_type = "statement"
-        elif tone == "casual":
-            hook_type = "question"
-        elif tone == "friendly":
-            hook_type = "benefit"
-        else:
-            hook_type = "statistic"
+        # Выбираем тип зацепки
+        template_key = tone if tone in hook_templates else "professional"
 
         import random
-        hook = random.choice(hook_templates[hook_type])
+        hook = random.choice(hook_templates[template_key])
 
         # Добавляем эмодзи в зависимости от платформы
         platform_guidelines = self.platform_guidelines.get(platform, {})
@@ -560,19 +568,24 @@ class DraftingAgent(BaseAgent):
         
         return hook
     
-    async def _generate_main_content(self, brief_data: Dict[str, Any], 
+    async def _generate_main_content(self, brief_data: Dict[str, Any],
                                    strategy_data: Dict[str, Any], platform: str, variant_num: int = 1) -> str:
         """Генерирует основной контент через AI или fallback на шаблоны"""
+        logger.info(f"🤖 Попытка AI генерации контента для {platform}, вариант {variant_num}")
+
         try:
             # Пытаемся использовать AI генерацию
             ai_content = await self._generate_content_with_ai(brief_data, strategy_data, platform, variant_num=variant_num)
             if ai_content:
-                logger.info(f"Основной контент сгенерирован через AI для {platform}, вариант {variant_num}")
+                logger.info(f"✅ Основной контент сгенерирован через AI для {platform}: {ai_content[:100]}...")
                 return ai_content
+            else:
+                logger.warning(f"⚠️ AI вернул пустой контент, используем fallback")
         except Exception as e:
-            logger.warning(f"Ошибка AI генерации, используем fallback: {e}")
-        
+            logger.error(f"❌ Ошибка AI генерации, используем fallback: {e}", exc_info=True)
+
         # Fallback на шаблонную генерацию
+        logger.warning(f"⚠️ Используем FALLBACK генерацию вместо AI")
         return await self._generate_main_content_fallback(brief_data, strategy_data, platform, variant_num=variant_num)
     
     async def _generate_content_with_ai(self, brief_data: Dict[str, Any], 
@@ -663,42 +676,63 @@ class DraftingAgent(BaseAgent):
         title = brief_data.get("title", "")
         description = brief_data.get("description", "")
         target_audience = brief_data.get("target_audience", "")
-        tone = brief_data.get("tone", "professional")
         keywords = brief_data.get("keywords", [])
         business_goals = brief_data.get("business_goals", [])
 
-        # Создаем основной контент
+        logger.warning(f"⚠️ ИСПОЛЬЗУЕТСЯ FALLBACK ГЕНЕРАЦИЯ! AI не работает. Brief: title='{title}', keywords={keywords}")
+
+        # Создаем основной контент БЕЗ технических фраз
         content_parts = []
 
-        # Введение - используем описание или заголовок
+        # 1. Основное описание (ТОЛЬКО суть, без "Пост о...")
         if description:
-            # Первое предложение из описания
-            first_sentence = description.split('.')[0].strip()
-            content_parts.append(first_sentence + ".")
-        elif title:
-            content_parts.append(title)
+            # Берём первое предложение и очищаем от технических фраз
+            sentences = description.split('.')
+            if sentences:
+                main_sentence = sentences[0].strip()
+                # Убираем технические фразы
+                main_sentence = main_sentence.replace("Канал посвящен", "Здесь вы найдёте информацию о")
+                main_sentence = main_sentence.replace("предлагая", "—")
+                content_parts.append(main_sentence + ".")
 
-        # Основные пункты из целей или ключевых слов
+        # 2. Что получит читатель (на основе business_goals)
         if business_goals:
-            # Формируем контент на основе бизнес-целей
-            if len(business_goals) == 1:
-                content_parts.append(f"\n{business_goals[0]} — главная задача, которую мы решаем.")
-            else:
-                points = "\n".join([f"• {goal}" for goal in business_goals[:3]])
-                content_parts.append(f"\nЧто это даёт:\n{points}")
-        elif keywords:
-            # Используем ключевые слова для структуры
-            if len(keywords) >= 2:
-                content_parts.append(f"\nОсновное внимание уделяем: {', '.join(keywords[:2])}.")
+            # Маппинг технических целей на понятный язык
+            goal_mapping = {
+                "охват": "широкий охват",
+                "вовлечение": "высокое вовлечение",
+                "creating_posts": "создание полезного контента",
+                "engagement": "взаимодействие с аудиторией",
+                "growth": "рост канала",
+                "sales": "увеличение продаж",
+                "awareness": "узнаваемость бренда",
+                "retention": "удержание аудитории"
+            }
 
-        # Завершающая фраза для целевой аудитории
-        if target_audience:
-            # Извлекаем суть аудитории без технических деталей
-            audience_parts = target_audience.lower().split(',')[0]
-            if 'включает' not in audience_parts and 'возраст' not in audience_parts:
-                content_parts.append(f"\nАктуально для тех, кто {audience_parts}.")
+            readable_goals = []
+            for goal in business_goals[:3]:
+                readable = goal_mapping.get(goal.lower(), goal)
+                readable_goals.append(readable)
 
-        return "\n".join(content_parts)
+            if readable_goals:
+                if len(readable_goals) == 1:
+                    content_parts.append(f"\nФокус на {readable_goals[0]}.")
+                else:
+                    content_parts.append(f"\nФокус: {', '.join(readable_goals)}.")
+
+        # 3. Призыв или ценность для аудитории
+        if keywords and len(keywords) > 0:
+            # Используем keywords для описания ценности
+            main_keyword = keywords[0].lower()
+            content_parts.append(f"\nПолезная информация про {main_keyword}.")
+
+        # Если контент всё ещё пустой - добавляем универсальную фразу
+        if not content_parts:
+            content_parts.append("Полезный контент для вас.")
+
+        result = "\n".join(content_parts)
+        logger.info(f"Fallback generated content: {result[:100]}...")
+        return result
     
     async def _generate_call_to_action(self, brief_data: Dict[str, Any], platform: str) -> str:
         """Генерирует призыв к действию"""
