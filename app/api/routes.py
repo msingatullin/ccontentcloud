@@ -393,7 +393,10 @@ def handle_validation_error(e: ValidationError) -> tuple:
             "message": error["msg"],
             "type": error["type"]
         })
-    
+
+    # Логируем ошибку валидации для отладки
+    logger.error(f"Validation error: {errors}")
+
     return {
         "error": "Validation Error",
         "message": "Некорректные данные запроса",
@@ -521,6 +524,8 @@ class ContentCreate(Resource):
                     # Продолжаем без данных проекта - не ломаем существующий функционал
             
             # Валидируем входные данные
+            logger.info(f"Validating content request data: {list(data.keys())}")
+            logger.debug(f"Full data: {data}")
             try:
                 content_request = ContentRequestSchema(**data)
             except ValidationError as e:
