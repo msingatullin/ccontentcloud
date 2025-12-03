@@ -93,16 +93,25 @@ common_models = create_common_models(api)
 
 content_request_model = api.model('ContentRequest', {
     'title': fields.String(required=True, min_length=1, max_length=200, description='Заголовок контента'),
-    'description': fields.String(required=True, min_length=10, max_length=1000, description='Описание контента'),
-    'target_audience': fields.String(required=True, min_length=1, max_length=200, description='Целевая аудитория'),
+    'description': fields.String(required=True, min_length=10, max_length=2000, description='Описание контента'),
+    'target_audience': fields.String(required=True, min_length=1, max_length=1000, description='Целевая аудитория'),
     'business_goals': fields.List(fields.String, required=True, min_items=1, max_items=10, description='Бизнес-цели'),
-    'call_to_action': fields.String(required=True, min_length=1, max_length=200, description='Призыв к действию'),
+    'call_to_action': fields.List(fields.String, max_items=10, description='Призывы к действию'),
     'tone': fields.String(description='Тон контента', enum=['professional', 'casual', 'friendly', 'authoritative'], default='professional'),
     'keywords': fields.List(fields.String, description='Ключевые слова', max_items=20),
-    'platforms': fields.List(fields.String, required=True, min_items=1, max_items=5, description='Платформы для публикации'),
+    'platforms': fields.List(fields.String, required=False, max_items=5, description='Платформы для публикации'),
     'content_types': fields.List(fields.String, description='Типы контента', default=['post']),
     'constraints': fields.Raw(description='Дополнительные ограничения'),
-    'test_mode': fields.Boolean(description='Тестовый режим', default=True)
+    'test_mode': fields.Boolean(description='Тестовый режим', default=False),
+    'channel_id': fields.Integer(description='ID канала для публикации'),
+    'publish_immediately': fields.Boolean(description='Публиковать сразу', default=True),
+    'project_id': fields.Integer(description='ID проекта'),
+    'uploaded_files': fields.List(fields.String, description='IDs загруженных файлов', max_items=10),
+    'reference_urls': fields.List(fields.String, description='URLs референсов', max_items=5),
+    'generate_image': fields.Boolean(description='Генерировать изображение', default=False),
+    'image_source': fields.String(description='Источник изображения', enum=['stock', 'ai']),
+    'variants_count': fields.Integer(description='Количество вариантов', default=1),
+    'add_ai_hashtags': fields.Boolean(description='Добавить AI хештеги', default=False)
 })
 
 content_response_model = api.model('ContentResponse', {
