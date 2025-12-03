@@ -432,14 +432,19 @@ def handle_exception(e: Exception) -> tuple:
 class ContentCreate(Resource):
     @api.doc('create_content', description='Создает контент через AI агентов')
     @api.expect(content_request_model, validate=True)
-    def post(self):
+    @jwt_required
+    def post(self, current_user=None):
         """
         Создает контент через AI агентов
-        
+
         Принимает запрос на создание контента и запускает workflow
         с участием всех необходимых агентов.
         """
         try:
+            # Получаем user_id из JWT токена
+            user_id = g.current_user_id
+            logger.info(f"Content create request from user_id={user_id}")
+
             # Получаем данные запроса
             data = request.json or {}
             
@@ -538,10 +543,14 @@ class ContentCreate(Resource):
                 return handle_validation_error(e)
             
             logger.info(f"Получен запрос на создание контента: {content_request.title}")
-            
+
             # Преобразуем Pydantic модель в словарь
             request_data = content_request.dict()
-            
+
+            # Добавляем user_id из JWT токена для публикации
+            request_data['user_id'] = user_id
+            logger.info(f"Added user_id={user_id} to request_data for publication")
+
             # Запускаем обработку через оркестратор
             result = run_async(orchestrator.process_content_request(request_data))
             

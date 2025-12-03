@@ -140,15 +140,27 @@ class ContentOrchestrator:
         """Выполняет workflow"""
         if workflow_id not in self.workflow_engine.workflows:
             raise ValueError(f"Workflow {workflow_id} не найден")
-        
+
         workflow = self.workflow_engine.workflows[workflow_id]
         workflow.status = TaskStatus.IN_PROGRESS
-        
+
         results = {}
-        
+
         try:
             # Выполняем задачи по порядку
             for task in workflow.tasks:
+                # Проверяем, нужно ли обновить контекст задачи из parent task
+                parent_task_id = task.context.get("parent_task_id")
+                if parent_task_id and parent_task_id in results:
+                    # Получаем результат родительской задачи
+                    parent_result = results[parent_task_id]
+
+                    # Если это задача публикации и у parent есть content, добавляем его в context
+                    if "Publish" in task.name and "content" in parent_result:
+                        task.context["content"] = parent_result["content"]
+                        logger.info(f"Обновлен контекст задачи {task.id} контентом из parent task {parent_task_id}")
+                        logger.info(f"Content keys: {list(parent_result['content'].keys())}")
+
                 if task.status == TaskStatus.PENDING:
                     # Назначаем задачу агенту
                     agent_id = self.agent_manager.assign_task_to_agent(task)
@@ -164,25 +176,25 @@ class ContentOrchestrator:
                     # Задача уже назначена, выполняем её
                     result = await self.agent_manager.execute_task(task.id)
                     results[task.id] = result
-            
+
             # Проверяем статус workflow
             completed_tasks = sum(1 for t in workflow.tasks if t.status == TaskStatus.COMPLETED)
             failed_tasks = sum(1 for t in workflow.tasks if t.status == TaskStatus.FAILED)
-            
+
             if failed_tasks == 0:
                 workflow.status = TaskStatus.COMPLETED
             elif completed_tasks > 0:
                 workflow.status = TaskStatus.FAILED
             else:
                 workflow.status = TaskStatus.FAILED
-            
+
             logger.info(f"Workflow {workflow_id} завершен со статусом {workflow.status.value}")
-            
+
         except Exception as e:
             workflow.status = TaskStatus.FAILED
             logger.error(f"Ошибка выполнения workflow {workflow_id}: {e}")
             raise
-        
+
         return {
             "workflow_id": workflow_id,
             "status": workflow.status.value,
@@ -233,15 +245,18 @@ class ContentOrchestrator:
                 keywords=request.get("keywords", []),
                 constraints=request.get("constraints", {})
             )
-            
+
             # Определяем платформы и типы контента
             platforms = [Platform(p) for p in request.get("platforms", ["telegram", "vk"])]
             content_types = [ContentType(ct) for ct in request.get("content_types", ["post"])]
             variants_count = request.get("variants_count", 1)  # Количество вариантов (по умолчанию 1)
-            
+
             # Создаем workflow
             workflow_id = await self.create_content_workflow(brief, platforms, content_types, variants_count=variants_count)
-            
+
+            # Получаем workflow для добавления дополнительных задач
+            workflow = self.workflow_engine.workflows[workflow_id]
+
             # Проверяем нужен ли фактчекинг
             constraints = request.get("constraints", {})
             if constraints.get("fact_checking", False):
@@ -261,7 +276,7 @@ class ContentOrchestrator:
                     }
                 )
                 logger.info(f"Добавлена задача фактчекинга в workflow {workflow_id}")
-                
+
                 # Принудительно назначаем задачу ResearchFactCheckAgent
                 if "research_factcheck_agent" in self.agent_manager.agents:
                     factcheck_agent = self.agent_manager.agents["research_factcheck_agent"]
@@ -271,24 +286,57 @@ class ContentOrchestrator:
                         # Устанавливаем статус IN_PROGRESS для выполнения
                         factcheck_task.status = TaskStatus.IN_PROGRESS
                         # Добавляем задачу в workflow для выполнения
-                        workflow = self.workflow_engine.workflows[workflow_id]
                         workflow.tasks.append(factcheck_task)
                         logger.info(f"Задача фактчекинга {factcheck_task.id} назначена ResearchFactCheckAgent и добавлена в workflow")
                     else:
                         logger.warning("ResearchFactCheckAgent недоступен для фактчекинга")
                 else:
                     logger.warning("ResearchFactCheckAgent не найден в системе")
-            
+
+            # Проверяем нужно ли публиковать сразу
+            publish_immediately = request.get("publish_immediately", True)
+            if publish_immediately:
+                # Добавляем задачи публикации для каждой платформы
+                channel_id = request.get("channel_id")
+                test_mode = request.get("test_mode", False)
+                user_id = request.get("user_id")  # ID пользователя (из JWT токена)
+
+                logger.info(f"Добавление задач публикации: publish_immediately={publish_immediately}, channel_id={channel_id}, test_mode={test_mode}, user_id={user_id}")
+
+                # Находим задачи создания контента, чтобы привязать к ним публикацию
+                content_tasks = [t for t in workflow.tasks if "Create" in t.name and "image" not in t.name.lower()]
+
+                for content_task in content_tasks:
+                    platform = content_task.context.get("platform", "telegram")
+
+                    # Создаем задачу публикации с зависимостью от контента
+                    publish_task = self.workflow_engine.add_task(
+                        workflow_id=workflow_id,
+                        task_name=f"Publish {platform} content",
+                        task_type=TaskType.PLANNED,
+                        priority=TaskPriority.HIGH,  # Высокий приоритет для публикации
+                        context={
+                            "platform": platform,
+                            "account_id": channel_id,  # ID канала/аккаунта для публикации
+                            "user_id": user_id,
+                            "test_mode": test_mode,
+                            "parent_task_id": content_task.id,  # Связь с задачей создания контента
+                            # content будет добавлен из результата parent task при выполнении
+                        },
+                        dependencies=[content_task.id]  # Публикация после создания контента
+                    )
+                    logger.info(f"Добавлена задача публикации {publish_task.id} для {platform} (зависит от {content_task.id})")
+
             # Выполняем workflow
             result = await self.execute_workflow(workflow_id)
-            
+
             return {
                 "success": True,
                 "workflow_id": workflow_id,
                 "brief_id": brief.id,
                 "result": result
             }
-            
+
         except Exception as e:
             logger.error(f"Ошибка обработки запроса: {e}")
             return {
