@@ -274,6 +274,7 @@ class LinkAnalysisService:
             from app.mcp.config import is_mcp_enabled
 
             if is_mcp_enabled('vertex_ai'):
+                logger.info("🤖 Vertex AI доступен, вызываем generate_content")
                 vertex_ai = VertexAIMCP()
                 response = await vertex_ai.generate_content(
                     prompt=prompt,
@@ -281,9 +282,12 @@ class LinkAnalysisService:
                     max_tokens=1000
                 )
 
+                logger.info(f"🔍 Vertex AI ответ: success={response.success}, data={bool(response.data)}")
+
                 if response.success and response.data:
                     import json
                     ai_text = response.data.get('generated_text', '{}')
+                    logger.info(f"📝 AI текст получен: {len(ai_text)} символов")
 
                     # Пытаемся извлечь JSON из ответа
                     try:
@@ -303,6 +307,13 @@ class LinkAnalysisService:
                             }
                     except json.JSONDecodeError as e:
                         logger.warning(f"⚠️ Не удалось распарсить JSON из AI ответа: {e}")
+                        logger.warning(f"AI текст был: {ai_text[:200]}")
+                else:
+                    logger.warning(f"⚠️ Vertex AI вернул ошибку или пустой ответ")
+                    if hasattr(response, 'error'):
+                        logger.error(f"Ошибка Vertex AI: {response.error}")
+            else:
+                logger.warning("⚠️ Vertex AI не включен в конфигурации")
 
             # Fallback: возвращаем базовые рекомендации
             logger.warning("⚠️ AI не доступен, возвращаем базовые рекомендации")
