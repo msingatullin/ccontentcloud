@@ -643,11 +643,31 @@ class DraftingAgent(BaseAgent):
             
             # Подготавливаем данные для промпта
             # ВАЖНО: используем title как основную тему, description только как fallback
-            topic = brief_data.get("title", "")
-            if not topic or len(topic.strip()) < 3:
-                topic = brief_data.get("description", "контент")
+            topic = brief_data.get("title", "").strip()
             
-            logger.info(f"🎯 Генерируем контент по теме: '{topic}' (title='{brief_data.get('title', '')}', description='{brief_data.get('description', '')[:50]}...')")
+            # Если title пустой или слишком короткий, пытаемся извлечь тему из description
+            if not topic or len(topic) < 3:
+                description = brief_data.get("description", "").strip()
+                if description:
+                    # Очищаем description от инструкций типа "Напиши пост на тему..."
+                    description_clean = description
+                    # Удаляем инструкции
+                    description_clean = re.sub(r'Напиши пост на тему\s*["\']?([^"\']+)["\']?', r'\1', description_clean, flags=re.IGNORECASE)
+                    description_clean = re.sub(r'Создай пост про\s*', '', description_clean, flags=re.IGNORECASE)
+                    description_clean = re.sub(r'Цель:\s*[^.]*\.?', '', description_clean, flags=re.IGNORECASE)
+                    description_clean = re.sub(r'Напиши пост\s*', '', description_clean, flags=re.IGNORECASE)
+                    # Берем первую часть до точки или запятой
+                    topic = description_clean.split('.')[0].split(',')[0].strip()
+                    # Если слишком длинное, берем первые слова
+                    if len(topic) > 100:
+                        topic = ' '.join(topic.split()[:10])
+            
+            # Если все еще пусто - используем дефолт
+            if not topic or len(topic.strip()) < 3:
+                topic = "контент"
+            
+            logger.info(f"🎯 Генерируем контент по теме: '{topic}'")
+            logger.info(f"📋 Исходные данные: title='{brief_data.get('title', '')}', description='{brief_data.get('description', '')[:100]}...'")
             
             target_audience = brief_data.get("target_audience", "пользователи")
             tone = brief_data.get("tone", "professional")
@@ -670,6 +690,9 @@ class DraftingAgent(BaseAgent):
                 tone=tone,
                 keywords=keywords
             ) + variant_instruction
+            
+            # ВАЖНО: Логируем финальный промпт для отладки
+            logger.info(f"📝 Финальный промпт для AI (первые 500 символов): {final_prompt[:500]}...")
             
             # Увеличиваем temperature для большей вариативности при генерации нескольких вариантов
             adjusted_temperature = prompt.temperature + (variant_num - 1) * 0.1
@@ -719,9 +742,13 @@ class DraftingAgent(BaseAgent):
                 if result.success and result.data:
                     generated_text = result.data.get('content', '')
                     if generated_text:
+                        logger.info(f"✅ OpenAI сгенерировал текст (первые 200 символов): {generated_text[:200]}...")
                         # Очищаем текст от мусора и markdown
                         generated_text = self._clean_generated_text(generated_text)
+                        logger.info(f"✅ После очистки (первые 200 символов): {generated_text[:200]}...")
                         return generated_text if generated_text else None
+                    else:
+                        logger.warning(f"⚠️ OpenAI вернул пустой content")
             
             return None
             

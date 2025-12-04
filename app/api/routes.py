@@ -3242,23 +3242,56 @@ class RecommendTone(Resource):
             
             data = request.json or {}
             
+            # ВАЖНО: Логируем входящие данные для отладки
+            logger.info(f"📋 Recommend-tone запрос от пользователя {current_user.get('user_id')}:")
+            logger.info(f"  - businessType: {data.get('businessType')} (type: {type(data.get('businessType'))})")
+            logger.info(f"  - niche: {data.get('niche')} (type: {type(data.get('niche'))})")
+            logger.info(f"  - answers: {len(data.get('answers', []))} элементов (type: {type(data.get('answers'))})")
+            logger.info(f"  - websiteUrl: {data.get('websiteUrl')}")
+            logger.info(f"  - telegramLinks: {data.get('telegramLinks')}")
+            logger.info(f"  - selectedPostStyle: {data.get('selectedPostStyle')}")
+            
             # Валидация обязательных полей
-            if not data.get('businessType') or not isinstance(data.get('businessType'), list):
+            if not data.get('businessType'):
+                logger.error(f"❌ Валидация failed: businessType отсутствует или пустой")
                 return {
                     'success': False,
                     'error': 'businessType обязателен и должен быть массивом'
                 }, 400
             
-            if not data.get('niche') or not isinstance(data.get('niche'), str):
+            if not isinstance(data.get('businessType'), list):
+                logger.error(f"❌ Валидация failed: businessType не массив, тип: {type(data.get('businessType'))}, значение: {data.get('businessType')}")
+                return {
+                    'success': False,
+                    'error': f'businessType должен быть массивом, получен: {type(data.get("businessType")).__name__}'
+                }, 400
+            
+            if not data.get('niche'):
+                logger.error(f"❌ Валидация failed: niche отсутствует или пустой")
                 return {
                     'success': False,
                     'error': 'niche обязателен и должен быть строкой'
                 }, 400
             
-            if not data.get('answers') or not isinstance(data.get('answers'), list):
+            if not isinstance(data.get('niche'), str):
+                logger.error(f"❌ Валидация failed: niche не строка, тип: {type(data.get('niche'))}, значение: {data.get('niche')}")
+                return {
+                    'success': False,
+                    'error': f'niche должен быть строкой, получен: {type(data.get("niche")).__name__}'
+                }, 400
+            
+            if not data.get('answers'):
+                logger.error(f"❌ Валидация failed: answers отсутствует или пустой")
                 return {
                     'success': False,
                     'error': 'answers обязателен и должен быть массивом'
+                }, 400
+            
+            if not isinstance(data.get('answers'), list):
+                logger.error(f"❌ Валидация failed: answers не массив, тип: {type(data.get('answers'))}, значение: {data.get('answers')}")
+                return {
+                    'success': False,
+                    'error': f'answers должен быть массивом, получен: {type(data.get("answers")).__name__}'
                 }, 400
             
             # Извлекаем данные
