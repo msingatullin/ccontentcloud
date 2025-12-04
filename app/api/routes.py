@@ -7,6 +7,7 @@ RESTful endpoints для работы с контентом и агентами
 import asyncio
 import logging
 import jwt
+import os
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import request, current_app, g
@@ -470,6 +471,31 @@ class ContentCreate(Resource):
                         }, 400
                 data['platforms'] = converted_platforms
             
+            # ВАЖНО: Сохраняем оригинальные title и description до объединения с проектом
+            original_title = data.get('title', '')
+            original_description = data.get('description', '')
+            
+            # Нормализуем title и description (trim, очистка от лишних пробелов)
+            if 'title' in data:
+                data['title'] = data['title'].strip() if isinstance(data['title'], str) else str(data['title']).strip()
+                # Если title пустой после trim, используем первые слова из description
+                if not data['title'] and data.get('description'):
+                    desc_words = data['description'].strip().split()[:10]
+                    data['title'] = ' '.join(desc_words) if desc_words else 'Новый пост'
+                    logger.info(f"⚠️ Title был пустой, сгенерирован из description: '{data['title']}'")
+            
+            if 'description' in data:
+                data['description'] = data['description'].strip() if isinstance(data['description'], str) else str(data['description']).strip()
+                # Минимальная длина description
+                if len(data['description']) < 10:
+                    logger.warning(f"⚠️ Description слишком короткий: '{data['description']}' (длина: {len(data['description'])})")
+            
+            # Обновляем оригинальные значения после нормализации
+            original_title = data.get('title', '')
+            original_description = data.get('description', '')
+            
+            logger.info(f"📋 Оригинальные данные запроса (после нормализации): title='{original_title}', description='{original_description[:100]}...', image_source={data.get('image_source', 'не указан')}")
+            
             # Объединяем данные из проекта (если указан project_id)
             project_id = data.get('project_id')
             if project_id:
@@ -484,8 +510,8 @@ class ContentCreate(Resource):
                         project_settings = project.settings or {}
                         project_ai_settings = project.ai_settings or {}
                         
-                        # Объединяем настройки проекта с данными запроса
-                        # Приоритет у данных запроса (если указаны)
+                        # ВАЖНО: НЕ перезаписываем title и description из запроса!
+                        # Они должны оставаться такими, какие указал пользователь
                         
                         # Целевая аудитория
                         if not data.get('target_audience') and project_settings.get('target_audience'):
@@ -527,12 +553,60 @@ class ContentCreate(Resource):
                             'emoji_usage': project_ai_settings.get('emoji_usage', 'minimal')
                         }
                         
-                        logger.info(f"Объединены данные проекта {project_id} с запросом на создание контента")
+                        logger.info(f"✅ Объединены данные проекта {project_id} с запросом (title и description НЕ перезаписаны)")
                     
                     db.close()
                 except Exception as e:
                     logger.warning(f"Ошибка загрузки данных проекта {project_id}: {e}. Продолжаем без данных проекта.")
                     # Продолжаем без данных проекта - не ломаем существующий функционал
+            
+            # ВАЖНО: Восстанавливаем оригинальные title и description (на случай если они были перезаписаны)
+            if original_title:
+                data['title'] = original_title
+            if original_description:
+                data['description'] = original_description
+            
+            # Обработка image_source: если generate_image=True, но image_source не указан, устанавливаем дефолт
+            generate_image = data.get('generate_image', False)
+            image_source = data.get('image_source')
+            
+            if generate_image and not image_source:
+                logger.warning("⚠️ generate_image=True, но image_source не указан. Устанавливаем дефолт 'ai'")
+                data['image_source'] = 'ai'
+                image_source = 'ai'
+            elif generate_image and image_source not in ['ai', 'stock']:
+                logger.warning(f"⚠️ Некорректный image_source: '{image_source}'. Устанавливаем 'ai'")
+                data['image_source'] = 'ai'
+                image_source = 'ai'
+            
+            # Проверка критичных полей перед валидацией
+            if not data.get('title') or len(data.get('title', '').strip()) < 3:
+                return {
+                    "error": "Validation Error",
+                    "message": "title обязателен и должен содержать минимум 3 символа",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            if not data.get('description') or len(data.get('description', '').strip()) < 10:
+                return {
+                    "error": "Validation Error",
+                    "message": "description обязателен и должен содержать минимум 10 символов",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            # Детальное логирование полного payload
+            logger.info("📤 Полный payload для /api/v1/content/create:")
+            logger.info(f"  - title: '{data.get('title', '')}' (длина: {len(data.get('title', ''))})")
+            logger.info(f"  - description: '{data.get('description', '')[:200]}...' (длина: {len(data.get('description', ''))})")
+            logger.info(f"  - generate_image: {data.get('generate_image', False)}")
+            logger.info(f"  - image_source: {data.get('image_source', 'не указан')}")
+            logger.info(f"  - project_id: {data.get('project_id')}")
+            logger.info(f"  - platforms: {data.get('platforms', [])}")
+            logger.info(f"  - tone: {data.get('tone', 'не указан')}")
+            logger.info(f"  - keywords: {data.get('keywords', [])}")
+            logger.info(f"  - variants_count: {data.get('variants_count', 1)}")
             
             # Валидируем входные данные
             logger.info(f"Validating content request data: {list(data.keys())}")
@@ -542,14 +616,17 @@ class ContentCreate(Resource):
             except ValidationError as e:
                 return handle_validation_error(e)
             
-            logger.info(f"Получен запрос на создание контента: {content_request.title}")
+            logger.info(f"✅ Получен запрос на создание контента: title='{content_request.title}', description='{content_request.description[:100]}...', image_source={content_request.image_source}")
 
             # Преобразуем Pydantic модель в словарь
             request_data = content_request.dict()
 
             # Добавляем user_id из JWT токена для публикации
             request_data['user_id'] = user_id
-            logger.info(f"Added user_id={user_id} to request_data for publication")
+            logger.info(f"👤 Added user_id={user_id} to request_data for publication")
+            
+            # ВАЖНО: Логируем финальные данные перед отправкой в orchestrator
+            logger.info(f"🚀 Отправка в orchestrator: title='{request_data.get('title', '')}', image_source={request_data.get('image_source', 'не указан')}")
 
             # Запускаем обработку через оркестратор
             result = run_async(orchestrator.process_content_request(request_data))

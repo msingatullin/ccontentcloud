@@ -588,6 +588,47 @@ class DraftingAgent(BaseAgent):
         logger.warning(f"⚠️ Используем FALLBACK генерацию вместо AI")
         return await self._generate_main_content_fallback(brief_data, strategy_data, platform, variant_num=variant_num)
     
+    def _clean_generated_text(self, text: str) -> str:
+        """Очищает сгенерированный текст от мусора, markdown и лишних символов"""
+        if not text:
+            return ""
+        
+        # Удаляем markdown разметку
+        text = re.sub(r'#+\s*', '', text)  # Заголовки
+        text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)  # Жирный текст
+        text = re.sub(r'\*(.*?)\*', r'\1', text)  # Курсив
+        text = re.sub(r'`(.*?)`', r'\1', text)  # Код
+        text = re.sub(r'\[(.*?)\]\(.*?\)', r'\1', text)  # Ссылки
+        text = re.sub(r'!\[.*?\]\(.*?\)', '', text)  # Изображения
+        
+        # Удаляем мусор (строки с непонятными символами)
+        lines = text.split('\n')
+        cleaned_lines = []
+        for line in lines:
+            line = line.strip()
+            # Пропускаем пустые строки
+            if not line:
+                continue
+            # Пропускаем строки с мусором (много повторяющихся символов)
+            if len(line) > 5 and len(set(line)) < 3:
+                continue
+            # Пропускаем строки только с символами без букв (кроме эмодзи)
+            if not re.search(r'[а-яА-Яa-zA-Z]', line) and not re.search(r'[\U0001F300-\U0001F9FF]', line):
+                continue
+            # Пропускаем строки с техническими метаданными
+            if any(meta in line.lower() for meta in ['subscription', 'подписк', 'business_goals', 'creating_posts']):
+                continue
+            cleaned_lines.append(line)
+        
+        # Объединяем обратно
+        text = '\n'.join(cleaned_lines).strip()
+        
+        # Удаляем множественные пробелы
+        text = re.sub(r'\s+', ' ', text)
+        text = re.sub(r'\n\s*\n+', '\n\n', text)  # Множественные переносы
+        
+        return text.strip()
+    
     async def _generate_content_with_ai(self, brief_data: Dict[str, Any], 
                                       strategy_data: Dict[str, Any], platform: str, variant_num: int = 1) -> Optional[str]:
         """Генерирует контент через AI модели"""
@@ -601,7 +642,33 @@ class DraftingAgent(BaseAgent):
                 return None
             
             # Подготавливаем данные для промпта
-            topic = brief_data.get("title", brief_data.get("description", "контент"))
+            # ВАЖНО: используем title как основную тему, description только как fallback
+            topic = brief_data.get("title", "").strip()
+            
+            # Если title пустой или слишком короткий, пытаемся извлечь тему из description
+            if not topic or len(topic) < 3:
+                description = brief_data.get("description", "").strip()
+                if description:
+                    # Очищаем description от инструкций типа "Напиши пост на тему..."
+                    description_clean = description
+                    # Удаляем инструкции
+                    description_clean = re.sub(r'Напиши пост на тему\s*["\']?([^"\']+)["\']?', r'\1', description_clean, flags=re.IGNORECASE)
+                    description_clean = re.sub(r'Создай пост про\s*', '', description_clean, flags=re.IGNORECASE)
+                    description_clean = re.sub(r'Цель:\s*[^.]*\.?', '', description_clean, flags=re.IGNORECASE)
+                    description_clean = re.sub(r'Напиши пост\s*', '', description_clean, flags=re.IGNORECASE)
+                    # Берем первую часть до точки или запятой
+                    topic = description_clean.split('.')[0].split(',')[0].strip()
+                    # Если слишком длинное, берем первые слова
+                    if len(topic) > 100:
+                        topic = ' '.join(topic.split()[:10])
+            
+            # Если все еще пусто - используем дефолт
+            if not topic or len(topic.strip()) < 3:
+                topic = "контент"
+            
+            logger.info(f"🎯 Генерируем контент по теме: '{topic}'")
+            logger.info(f"📋 Исходные данные: title='{brief_data.get('title', '')}', description='{brief_data.get('description', '')[:100]}...'")
+            
             target_audience = brief_data.get("target_audience", "пользователи")
             tone = brief_data.get("tone", "professional")
             keywords = ", ".join(brief_data.get("keywords", []))
@@ -624,6 +691,9 @@ class DraftingAgent(BaseAgent):
                 keywords=keywords
             ) + variant_instruction
             
+            # ВАЖНО: Логируем финальный промпт для отладки
+            logger.info(f"📝 Финальный промпт для AI (первые 500 символов): {final_prompt[:500]}...")
+            
             # Увеличиваем temperature для большей вариативности при генерации нескольких вариантов
             adjusted_temperature = prompt.temperature + (variant_num - 1) * 0.1
             adjusted_temperature = min(adjusted_temperature, 1.0)  # Максимум 1.0
@@ -638,7 +708,11 @@ class DraftingAgent(BaseAgent):
                 )
                 
                 if result.success and result.data:
-                    return result.data.get('generated_text', '')
+                    generated_text = result.data.get('generated_text', '')
+                    if generated_text:
+                        # Очищаем текст от мусора и markdown
+                        generated_text = self._clean_generated_text(generated_text)
+                        return generated_text if generated_text else None
             
             # Приоритет 2: HuggingFace
             if self.huggingface_mcp is not None:
@@ -650,7 +724,11 @@ class DraftingAgent(BaseAgent):
                 )
                 
                 if result.success and result.data:
-                    return result.data.get('generated_text', '')
+                    generated_text = result.data.get('generated_text', '')
+                    if generated_text:
+                        # Очищаем текст от мусора и markdown
+                        generated_text = self._clean_generated_text(generated_text)
+                        return generated_text if generated_text else None
             
             # Fallback на OpenAI если доступен
             if self.openai_mcp is not None:
@@ -662,7 +740,15 @@ class DraftingAgent(BaseAgent):
                 )
                 
                 if result.success and result.data:
-                    return result.data.get('content', '')
+                    generated_text = result.data.get('content', '')
+                    if generated_text:
+                        logger.info(f"✅ OpenAI сгенерировал текст (первые 200 символов): {generated_text[:200]}...")
+                        # Очищаем текст от мусора и markdown
+                        generated_text = self._clean_generated_text(generated_text)
+                        logger.info(f"✅ После очистки (первые 200 символов): {generated_text[:200]}...")
+                        return generated_text if generated_text else None
+                    else:
+                        logger.warning(f"⚠️ OpenAI вернул пустой content")
             
             return None
             
@@ -750,21 +836,44 @@ class DraftingAgent(BaseAgent):
                 "подписаться на канал": "👉 Подписывайтесь на канал",
                 "подписаться": "👉 Подписывайтесь на канал",
                 "subscribe": "👉 Подписывайтесь на канал",
+                "subscription": "👉 Подписывайтесь на канал",
+                "подписка": "👉 Подписывайтесь на канал",
                 "purchase": "🛒 Заказать",
                 "купить": "🛒 Купить",
                 "узнать больше": "ℹ️ Узнать больше",
                 "learn more": "ℹ️ Узнать больше",
                 "читать": "📖 Читать полностью",
-                "регистрация": "✍️ Зарегистрироваться"
+                "регистрация": "✍️ Зарегистрироваться",
+                "заявка на консультацию": "📞 Заявка на консультацию",
+                "консультация": "📞 Заявка на консультацию"
             }
 
             # Ищем совпадение (case-insensitive)
             primary_cta_lower = primary_cta.lower().strip()
-            cta_text = cta_mapping.get(primary_cta_lower, f"👉 {primary_cta}")
+            
+            # Специальная обработка для "subscription" и похожих
+            if 'subscription' in primary_cta_lower or 'подписк' in primary_cta_lower:
+                cta_text = "👉 Подписывайтесь на канал"
+            elif primary_cta_lower in cta_mapping:
+                cta_text = cta_mapping[primary_cta_lower]
+            else:
+                # Проверяем частичное совпадение
+                for key, value in cta_mapping.items():
+                    if key in primary_cta_lower:
+                        cta_text = value
+                        break
+                if not cta_text:
+                    cta_text = f"👉 {primary_cta}"
 
         elif isinstance(cta_data, str) and cta_data:
-            # Если строка - используем её напрямую
-            cta_text = cta_data if cta_data.startswith("👉") or cta_data.startswith("🛒") else f"👉 {cta_data}"
+            cta_data_lower = cta_data.lower().strip()
+            # Специальная обработка для "subscription"
+            if 'subscription' in cta_data_lower or 'подписк' in cta_data_lower:
+                cta_text = "👉 Подписывайтесь на канал"
+            elif cta_data.startswith("👉") or cta_data.startswith("🛒"):
+                cta_text = cta_data
+            else:
+                cta_text = f"👉 {cta_data}"
 
         if not cta_text:
             # Генерируем CTA по умолчанию в зависимости от платформы
