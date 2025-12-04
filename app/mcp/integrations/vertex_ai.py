@@ -131,7 +131,26 @@ class VertexAIMCP(BaseMCPIntegration):
                 generation_config=generation_config
             )
             
-            generated_text = response.text if hasattr(response, 'text') else str(response)
+            # Улучшенная обработка ответа от Vertex AI
+            generated_text = ""
+            if hasattr(response, 'text') and response.text:
+                generated_text = response.text.strip()
+            elif hasattr(response, 'candidates') and response.candidates:
+                # Пытаемся извлечь текст из кандидатов
+                try:
+                    if response.candidates[0].content and response.candidates[0].content.parts:
+                        generated_text = response.candidates[0].content.parts[0].text.strip()
+                except (AttributeError, IndexError) as e:
+                    logger.warning(f"Не удалось извлечь текст из кандидатов: {e}")
+            else:
+                logger.warning(f"Неожиданный формат ответа от Vertex AI: {type(response)}")
+                # Последняя попытка - преобразовать в строку
+                generated_text = str(response).strip()
+            
+            # Очищаем от пустых ответов
+            if not generated_text or len(generated_text) < 10:
+                logger.warning(f"Vertex AI вернул слишком короткий или пустой текст: '{generated_text}'")
+                generated_text = ""
             
             return MCPResponse.success_response(
                 data={
