@@ -7,6 +7,7 @@ RESTful endpoints для работы с контентом и агентами
 import asyncio
 import logging
 import jwt
+import os
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import request, current_app, g
@@ -3161,3 +3162,152 @@ class HealthCheck(Resource):
                     "error": str(e)
                 }
             }, 503
+
+
+# ==================== AI ENDPOINTS ====================
+
+# Модели для рекомендации тональности
+answer_model = ai_ns.model('Answer', {
+    'questionId': fields.String(required=True, description='ID вопроса'),
+    'answer': fields.String(required=True, description='Ответ пользователя'),
+    'timestamp': fields.String(description='Временная метка ответа')
+})
+
+recommend_tone_request = ai_ns.model('RecommendToneRequest', {
+    'businessType': fields.List(fields.String, required=True, description='Массив типов бизнеса (product, service, personal_brand, company_brand)'),
+    'niche': fields.String(required=True, description='Ниша бизнеса'),
+    'answers': fields.List(fields.Nested(answer_model), required=True, description='Массив ответов на вопросы опросника'),
+    'websiteUrl': fields.String(description='URL сайта (опционально)'),
+    'telegramLinks': fields.List(fields.String, description='Массив ссылок на Telegram каналы (опционально)'),
+    'selectedPostStyle': fields.String(description='ID выбранного стиля поста (опционально)')
+})
+
+tone_recommendation_model = ai_ns.model('ToneRecommendation', {
+    'suggestedTone': fields.String(description='Рекомендуемая тональность'),
+    'reasoning': fields.String(description='Объяснение рекомендации'),
+    'alternatives': fields.List(fields.String, description='Альтернативные варианты тональности')
+})
+
+recommend_tone_data_model = ai_ns.model('RecommendToneData', {
+    'recommendation': fields.Nested(tone_recommendation_model)
+})
+
+recommend_tone_response = ai_ns.model('RecommendToneResponse', {
+    'success': fields.Boolean(description='Успешность операции'),
+    'data': fields.Nested(recommend_tone_data_model)
+})
+
+recommend_tone_error = ai_ns.model('RecommendToneError', {
+    'success': fields.Boolean,
+    'error': fields.String
+})
+
+
+@ai_ns.route('/recommend-tone')
+class RecommendTone(Resource):
+    """AI-рекомендация тональности для опросника"""
+    
+    @jwt_required
+    @ai_ns.doc('recommend_tone', security='BearerAuth', description='Генерирует рекомендацию тональности на основе анализа данных пользователя')
+    @ai_ns.expect(recommend_tone_request, validate=True)
+    @ai_ns.marshal_with(recommend_tone_response, code=200, description='Рекомендация успешно сгенерирована')
+    @ai_ns.marshal_with(recommend_tone_error, code=400, description='Ошибка валидации')
+    @ai_ns.marshal_with(recommend_tone_error, code=500, description='Внутренняя ошибка сервера')
+    def post(self, current_user):
+        """
+        Генерирует рекомендацию тональности на основе:
+        - Ответов пользователя на вопросы опросника
+        - Анализа контента с сайта пользователя (если указан)
+        - Анализа постов из Telegram каналов пользователя (если указаны)
+        - Типа бизнеса и выбранного стиля постов
+        """
+        try:
+            from app.services.ai_assistant_service import AIAssistantService
+            
+            data = request.json or {}
+            
+            # Валидация обязательных полей
+            if not data.get('businessType') or not isinstance(data.get('businessType'), list):
+                return {
+                    'success': False,
+                    'error': 'businessType обязателен и должен быть массивом'
+                }, 400
+            
+            if not data.get('niche') or not isinstance(data.get('niche'), str):
+                return {
+                    'success': False,
+                    'error': 'niche обязателен и должен быть строкой'
+                }, 400
+            
+            if not data.get('answers') or not isinstance(data.get('answers'), list):
+                return {
+                    'success': False,
+                    'error': 'answers обязателен и должен быть массивом'
+                }, 400
+            
+            # Извлекаем данные
+            business_type = data.get('businessType', [])
+            niche = data.get('niche', '').strip()
+            answers = data.get('answers', [])
+            website_url = data.get('websiteUrl', '').strip() or None
+            telegram_links = data.get('telegramLinks', []) or None
+            selected_post_style = data.get('selectedPostStyle', '').strip() or None
+            
+            # Валидация URL (защита от SSRF)
+            if website_url:
+                if not website_url.startswith(('http://', 'https://')):
+                    return {
+                        'success': False,
+                        'error': 'websiteUrl должен начинаться с http:// или https://'
+                    }, 400
+                # Проверяем что это не внутренний адрес
+                forbidden_hosts = ['localhost', '127.0.0.1', '0.0.0.0', '::1']
+                from urllib.parse import urlparse
+                parsed = urlparse(website_url)
+                if parsed.hostname in forbidden_hosts:
+                    return {
+                        'success': False,
+                        'error': 'Недопустимый URL'
+                    }, 400
+            
+            # Инициализируем сервис
+            api_key = os.environ.get('OPENAI_API_KEY')
+            if not api_key:
+                logger.warning("OPENAI_API_KEY not set, using fallback recommendation")
+                # Используем fallback без AI
+                service = AIAssistantService(None)
+            else:
+                from openai import AsyncOpenAI
+                openai_client = AsyncOpenAI(api_key=api_key)
+                service = AIAssistantService(openai_client)
+            
+            # Генерируем рекомендацию
+            logger.info(f"Генерация рекомендации тональности для пользователя {current_user.get('user_id')}")
+            result = asyncio.run(
+                service.recommend_tone(
+                    business_type=business_type,
+                    niche=niche,
+                    answers=answers,
+                    website_url=website_url,
+                    telegram_links=telegram_links,
+                    selected_post_style=selected_post_style
+                )
+            )
+            
+            if not result or 'recommendation' not in result:
+                return {
+                    'success': False,
+                    'error': 'Не удалось сгенерировать рекомендацию'
+                }, 500
+            
+            return {
+                'success': True,
+                'data': result
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Ошибка генерации рекомендации тональности: {e}", exc_info=True)
+            return {
+                'success': False,
+                'error': f'Внутренняя ошибка сервера: {str(e)}'
+            }, 500
