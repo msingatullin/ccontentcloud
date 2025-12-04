@@ -556,14 +556,17 @@ class ContentCreate(Resource):
             except ValidationError as e:
                 return handle_validation_error(e)
             
-            logger.info(f"Получен запрос на создание контента: {content_request.title}")
+            logger.info(f"✅ Получен запрос на создание контента: title='{content_request.title}', description='{content_request.description[:100]}...', image_source={content_request.image_source}")
 
             # Преобразуем Pydantic модель в словарь
             request_data = content_request.dict()
 
             # Добавляем user_id из JWT токена для публикации
             request_data['user_id'] = user_id
-            logger.info(f"Added user_id={user_id} to request_data for publication")
+            logger.info(f"👤 Added user_id={user_id} to request_data for publication")
+            
+            # ВАЖНО: Логируем финальные данные перед отправкой в orchestrator
+            logger.info(f"🚀 Отправка в orchestrator: title='{request_data.get('title', '')}', image_source={request_data.get('image_source', 'не указан')}")
 
             # Запускаем обработку через оркестратор
             result = run_async(orchestrator.process_content_request(request_data))
