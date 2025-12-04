@@ -589,5 +589,182 @@ URL: {url}
                 'alternatives': ['expert', 'friendly'] if suggested_tone == 'professional' else ['professional', 'expert']
             }
         }
+    
+    async def generate_adaptive_questions(
+        self,
+        business_type: list,
+        niche: str,
+        previous_answers: list,
+        parsed_resources: Optional[Dict[str, Any]] = None
+    ) -> list:
+        """
+        Генерирует адаптивные вопросы на основе предыдущих ответов и проанализированных ресурсов
+        
+        Args:
+            business_type: Массив типов бизнеса
+            niche: Ниша бизнеса
+            previous_answers: Массив предыдущих ответов
+            parsed_resources: Результаты парсинга ресурсов (сайт, каналы)
+        
+        Returns:
+            Массив вопросов с id, text, type, options
+        """
+        if not self.openai_client:
+            # Fallback вопросы
+            return [
+                {'id': 'audience', 'text': 'Кто ваша целевая аудитория?', 'type': 'text', 'options': []},
+                {'id': 'goals', 'text': 'Какие у вас бизнес-цели?', 'type': 'text', 'options': []},
+                {'id': 'cta', 'text': 'Какой призыв к действию?', 'type': 'text', 'options': []}
+            ]
+        
+        try:
+            # Формируем контекст из предыдущих ответов
+            context = f"Тип бизнеса: {', '.join(business_type)}\nНиша: {niche}\n"
+            
+            if previous_answers:
+                context += "Предыдущие ответы:\n"
+                for answer in previous_answers:
+                    context += f"- {answer.get('questionId', '')}: {answer.get('answer', '')}\n"
+            
+            if parsed_resources:
+                context += "\nПроанализированные ресурсы:\n"
+                if parsed_resources.get('website'):
+                    context += f"Сайт: {parsed_resources['website'].get('summary', '')[:200]}\n"
+                if parsed_resources.get('telegram'):
+                    context += f"Telegram: {parsed_resources['telegram'].get('summary', '')[:200]}\n"
+            
+            prompt = f"""
+На основе следующей информации сгенерируй 1-2 следующих вопроса для опросника по созданию контента.
+
+{context}
+
+Сгенерируй вопросы, которые:
+1. Логически следуют из предыдущих ответов
+2. Помогают лучше понять бизнес и аудиторию
+3. Не повторяют уже заданные вопросы
+
+Верни JSON массив с вопросами в формате:
+[
+  {{"id": "question_id", "text": "Текст вопроса", "type": "text|select", "options": []}}
+]
+
+Если это select вопрос, укажи варианты в options.
+"""
+            
+            response = await self.openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "Ты помощник для создания опросника по контент-маркетингу. Генерируй только валидный JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7,
+                max_tokens=500
+            )
+            
+            content = response.choices[0].message.content.strip()
+            # Извлекаем JSON из ответа
+            if content.startswith('```json'):
+                content = content[7:]
+            if content.startswith('```'):
+                content = content[3:]
+            if content.endswith('```'):
+                content = content[:-3]
+            content = content.strip()
+            
+            questions = json.loads(content)
+            return questions if isinstance(questions, list) else [questions]
+            
+        except Exception as e:
+            logger.error(f"Ошибка генерации адаптивных вопросов: {e}")
+            # Fallback
+            return [
+                {'id': 'audience', 'text': 'Кто ваша целевая аудитория?', 'type': 'text', 'options': []},
+                {'id': 'goals', 'text': 'Какие у вас бизнес-цели?', 'type': 'text', 'options': []}
+            ]
+    
+    async def generate_sample_posts(
+        self,
+        business_type: list,
+        niche: str,
+        count: int = 3
+    ) -> list:
+        """
+        Генерирует примеры постов на основе ниши и типа бизнеса
+        
+        Args:
+            business_type: Массив типов бизнеса
+            niche: Ниша бизнеса
+            count: Количество примеров (по умолчанию 3)
+        
+        Returns:
+            Массив примеров постов с id, text, style, hashtags
+        """
+        if not self.openai_client:
+            # Fallback примеры
+            return [
+                {
+                    'id': '1',
+                    'text': f'Информационный пост про {niche}',
+                    'style': 'informative',
+                    'hashtags': [niche.replace(' ', '_')]
+                }
+            ]
+        
+        try:
+            prompt = f"""
+Сгенерируй {count} примеров постов для бизнеса в нише "{niche}".
+
+Тип бизнеса: {', '.join(business_type)}
+
+Создай посты в разных стилях:
+- Информационный
+- Продающий
+- Вовлекающий
+
+Верни JSON массив в формате:
+[
+  {{
+    "id": "1",
+    "text": "Текст поста (2-3 предложения)",
+    "style": "informative|selling|engaging",
+    "hashtags": ["хештег1", "хештег2"]
+  }}
+]
+"""
+            
+            response = await self.openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "Ты эксперт по контент-маркетингу. Генерируй только валидный JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.8,
+                max_tokens=1000
+            )
+            
+            content = response.choices[0].message.content.strip()
+            # Извлекаем JSON из ответа
+            if content.startswith('```json'):
+                content = content[7:]
+            if content.startswith('```'):
+                content = content[3:]
+            if content.endswith('```'):
+                content = content[:-3]
+            content = content.strip()
+            
+            posts = json.loads(content)
+            return posts if isinstance(posts, list) else [posts]
+            
+        except Exception as e:
+            logger.error(f"Ошибка генерации примеров постов: {e}")
+            # Fallback
+            return [
+                {
+                    'id': '1',
+                    'text': f'Информационный пост про {niche}',
+                    'style': 'informative',
+                    'hashtags': [niche.replace(' ', '_')]
+                }
+            ]
 
 

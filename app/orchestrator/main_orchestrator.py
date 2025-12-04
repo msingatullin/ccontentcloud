@@ -68,7 +68,8 @@ class ContentOrchestrator:
     async def create_content_workflow(self, brief: ContentBrief, 
                                     platforms: List[Platform] = None,
                                     content_types: List[ContentType] = None,
-                                    variants_count: int = 1) -> str:
+                                    variants_count: int = 1,
+                                    image_source: str = None) -> str:
         """Создает workflow для создания контента"""
         platforms = platforms or [Platform.TELEGRAM, Platform.VK]
         content_types = content_types or [ContentType.POST]
@@ -80,7 +81,8 @@ class ContentOrchestrator:
             context={
                 "brief_id": brief.id,
                 "platforms": [p.value for p in platforms],
-                "content_types": [ct.value for ct in content_types]
+                "content_types": [ct.value for ct in content_types],
+                "image_source": image_source  # Сохраняем image_source в контексте workflow
             }
         )
         
@@ -112,8 +114,8 @@ class ContentOrchestrator:
                     }
                 )
                 
-                # Для постов добавляем задачу генерации изображения
-                if content_type == ContentType.POST:
+                # Для постов добавляем задачу генерации изображения (если указан image_source)
+                if content_type == ContentType.POST and image_source:
                     image_task_name = f"Generate image for {content_type.value} on {platform.value}"
                     image_task = self.workflow_engine.add_task(
                         workflow_id=workflow.id,
@@ -124,6 +126,7 @@ class ContentOrchestrator:
                             "brief_id": brief.id,
                             "platform": platform.value,
                             "content_type": "image",
+                            "image_source": image_source,  # Передаем image_source в контекст задачи
                             "format": "square",  # По умолчанию квадратный формат
                             "style": brief.tone or "professional",
                             "prompt": f"{brief.title}. {brief.description[:200]}",
@@ -131,7 +134,7 @@ class ContentOrchestrator:
                         },
                         dependencies=[content_task.id]  # Изображение генерируется после создания текста
                     )
-                    logger.info(f"Добавлена задача генерации изображения {image_task.id} для поста на {platform.value}")
+                    logger.info(f"🖼️ Добавлена задача генерации изображения {image_task.id} для поста на {platform.value} (image_source={image_source})")
         
         logger.info(f"Создан workflow {workflow.id} для бриф {brief.id}")
         return workflow.id
@@ -234,10 +237,13 @@ class ContentOrchestrator:
     async def process_content_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
         """Обрабатывает запрос на создание контента"""
         try:
-            # Создаем бриф из запроса
+            # ВАЖНО: Логируем входящие данные для отладки
+            logger.info(f"📝 Создание контента: title='{request.get('title', '')}', description='{request.get('description', '')[:100]}...', image_source={request.get('image_source', 'не указан')}")
+            
+            # Создаем бриф из запроса (НЕ перезаписываем title и description!)
             brief = ContentBrief(
-                title=request.get("title", ""),
-                description=request.get("description", ""),
+                title=request.get("title", ""),  # Используем title из запроса
+                description=request.get("description", ""),  # Используем description из запроса
                 target_audience=request.get("target_audience", ""),
                 business_goals=request.get("business_goals", []),
                 call_to_action=request.get("call_to_action", ""),
@@ -245,14 +251,23 @@ class ContentOrchestrator:
                 keywords=request.get("keywords", []),
                 constraints=request.get("constraints", {})
             )
+            
+            logger.info(f"✅ Бриф создан: title='{brief.title}', description='{brief.description[:100]}...'")
 
             # Определяем платформы и типы контента
             platforms = [Platform(p) for p in request.get("platforms", ["telegram", "vk"])]
             content_types = [ContentType(ct) for ct in request.get("content_types", ["post"])]
             variants_count = request.get("variants_count", 1)  # Количество вариантов (по умолчанию 1)
+            image_source = request.get("image_source")  # Источник изображения (ai, stock, или None)
 
-            # Создаем workflow
-            workflow_id = await self.create_content_workflow(brief, platforms, content_types, variants_count=variants_count)
+            # Создаем workflow с передачей image_source
+            workflow_id = await self.create_content_workflow(
+                brief, 
+                platforms, 
+                content_types, 
+                variants_count=variants_count,
+                image_source=image_source
+            )
 
             # Получаем workflow для добавления дополнительных задач
             workflow = self.workflow_engine.workflows[workflow_id]

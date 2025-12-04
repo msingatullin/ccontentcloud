@@ -642,7 +642,13 @@ class DraftingAgent(BaseAgent):
                 return None
             
             # Подготавливаем данные для промпта
-            topic = brief_data.get("title", brief_data.get("description", "контент"))
+            # ВАЖНО: используем title как основную тему, description только как fallback
+            topic = brief_data.get("title", "")
+            if not topic or len(topic.strip()) < 3:
+                topic = brief_data.get("description", "контент")
+            
+            logger.info(f"🎯 Генерируем контент по теме: '{topic}' (title='{brief_data.get('title', '')}', description='{brief_data.get('description', '')[:50]}...')")
+            
             target_audience = brief_data.get("target_audience", "пользователи")
             tone = brief_data.get("tone", "professional")
             keywords = ", ".join(brief_data.get("keywords", []))
