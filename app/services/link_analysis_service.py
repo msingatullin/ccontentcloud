@@ -296,6 +296,7 @@ class LinkAnalysisService:
                         if json_match:
                             ai_data = json.loads(json_match.group(0))
 
+                            logger.info(f"✅ AI рекомендации успешно получены: {ai_data.get('niche')}")
                             return {
                                 'suggestedNiche': ai_data.get('niche'),
                                 'suggestedAudience': ai_data.get('audience'),
@@ -305,6 +306,8 @@ class LinkAnalysisService:
                                 'tone': ai_data.get('tone'),
                                 'reasoning': ai_data.get('reasoning')
                             }
+                        else:
+                            logger.warning(f"⚠️ JSON не найден в ответе AI. Ответ: {ai_text[:200]}")
                     except json.JSONDecodeError as e:
                         logger.warning(f"⚠️ Не удалось распарсить JSON из AI ответа: {e}")
                         logger.warning(f"AI текст был: {ai_text[:200]}")
