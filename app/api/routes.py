@@ -3304,63 +3304,101 @@ class RecommendTone(Resource):
             
             # ВАЖНО: Логируем входящие данные для отладки
             logger.info(f"📋 Recommend-tone запрос от пользователя {current_user.get('user_id')}:")
-            logger.info(f"  - businessType: {data.get('businessType')} (type: {type(data.get('businessType'))})")
-            logger.info(f"  - niche: {data.get('niche')} (type: {type(data.get('niche'))})")
-            logger.info(f"  - answers: {len(data.get('answers', []))} элементов (type: {type(data.get('answers'))})")
+            logger.info(f"  - businessType (raw): {data.get('businessType')} (type: {type(data.get('businessType'))})")
+            logger.info(f"  - niche (raw): {data.get('niche')} (type: {type(data.get('niche'))})")
+            logger.info(f"  - answers (raw): {len(data.get('answers', []))} элементов (type: {type(data.get('answers'))})")
             logger.info(f"  - websiteUrl: {data.get('websiteUrl')}")
             logger.info(f"  - telegramLinks: {data.get('telegramLinks')}")
             logger.info(f"  - selectedPostStyle: {data.get('selectedPostStyle')}")
             
-            # Валидация обязательных полей
-            if not data.get('businessType'):
-                logger.error(f"❌ Валидация failed: businessType отсутствует или пустой")
-                return {
-                    'success': False,
-                    'error': 'businessType обязателен и должен быть массивом'
-                }, 400
+            # Нормализация businessType - принимаем как массив, так и одиночное значение
+            business_type = data.get('businessType')
+            if business_type:
+                if isinstance(business_type, str):
+                    # Если пришла строка, преобразуем в массив
+                    business_type = [business_type]
+                    logger.info(f"✅ businessType преобразован из строки в массив: {business_type}")
+                elif not isinstance(business_type, list):
+                    # Если другой тип, пытаемся преобразовать
+                    business_type = [str(business_type)]
+                    logger.info(f"✅ businessType преобразован в массив: {business_type}")
+            else:
+                business_type = []
+                logger.warning("⚠️ businessType пустой, используем пустой массив")
             
-            if not isinstance(data.get('businessType'), list):
-                logger.error(f"❌ Валидация failed: businessType не массив, тип: {type(data.get('businessType'))}, значение: {data.get('businessType')}")
-                return {
-                    'success': False,
-                    'error': f'businessType должен быть массивом, получен: {type(data.get("businessType")).__name__}'
-                }, 400
+            # Нормализация niche - принимаем любую строку
+            niche = data.get('niche')
+            if niche:
+                niche = str(niche).strip()
+                if not niche:
+                    logger.warning("⚠️ niche пустой после trim, используем дефолт")
+                    niche = "общий бизнес"
+            else:
+                logger.warning("⚠️ niche отсутствует, используем дефолт")
+                niche = "общий бизнес"
             
-            if not data.get('niche'):
-                logger.error(f"❌ Валидация failed: niche отсутствует или пустой")
-                return {
-                    'success': False,
-                    'error': 'niche обязателен и должен быть строкой'
-                }, 400
-            
-            if not isinstance(data.get('niche'), str):
-                logger.error(f"❌ Валидация failed: niche не строка, тип: {type(data.get('niche'))}, значение: {data.get('niche')}")
-                return {
-                    'success': False,
-                    'error': f'niche должен быть строкой, получен: {type(data.get("niche")).__name__}'
-                }, 400
-            
-            if not data.get('answers'):
-                logger.error(f"❌ Валидация failed: answers отсутствует или пустой")
-                return {
-                    'success': False,
-                    'error': 'answers обязателен и должен быть массивом'
-                }, 400
-            
-            if not isinstance(data.get('answers'), list):
-                logger.error(f"❌ Валидация failed: answers не массив, тип: {type(data.get('answers'))}, значение: {data.get('answers')}")
-                return {
-                    'success': False,
-                    'error': f'answers должен быть массивом, получен: {type(data.get("answers")).__name__}'
-                }, 400
-            
-            # Извлекаем данные
-            business_type = data.get('businessType', [])
-            niche = data.get('niche', '').strip()
+            # Нормализация answers - принимаем массив объектов или массив строк
             answers = data.get('answers', [])
+            if not isinstance(answers, list):
+                logger.warning(f"⚠️ answers не массив, тип: {type(answers)}, преобразуем")
+                if answers:
+                    # Если не пустое значение, создаем массив
+                    answers = [{'questionId': 'custom', 'answer': str(answers), 'timestamp': datetime.now().isoformat()}]
+                else:
+                    answers = []
+            else:
+                # Нормализуем каждый ответ
+                normalized_answers = []
+                for i, answer in enumerate(answers):
+                    if isinstance(answer, dict):
+                        # Проверяем наличие обязательных полей
+                        if 'answer' not in answer:
+                            logger.warning(f"⚠️ Ответ [{i}] не содержит поле 'answer', пропускаем")
+                            continue
+                        normalized_answers.append({
+                            'questionId': answer.get('questionId', 'custom'),
+                            'answer': str(answer.get('answer', '')),
+                            'isCustom': answer.get('isCustom', False),
+                            'timestamp': answer.get('timestamp', datetime.now().isoformat())
+                        })
+                    elif isinstance(answer, str):
+                        # Если пришла строка, создаем объект
+                        normalized_answers.append({
+                            'questionId': 'custom',
+                            'answer': answer,
+                            'isCustom': False,
+                            'timestamp': datetime.now().isoformat()
+                        })
+                    else:
+                        logger.warning(f"⚠️ Ответ [{i}] имеет неожиданный тип: {type(answer)}, пропускаем")
+                answers = normalized_answers
+            
+            # Извлекаем опциональные данные
             website_url = data.get('websiteUrl', '').strip() or None
-            telegram_links = data.get('telegramLinks', []) or None
+            telegram_links = data.get('telegramLinks')
+            if telegram_links:
+                if isinstance(telegram_links, list):
+                    telegram_links = [str(link).strip() for link in telegram_links if link]
+                    telegram_links = telegram_links if telegram_links else None
+                elif isinstance(telegram_links, str):
+                    telegram_links = [telegram_links.strip()] if telegram_links.strip() else None
+                else:
+                    telegram_links = None
+            else:
+                telegram_links = None
+            
             selected_post_style = data.get('selectedPostStyle', '').strip() or None
+            
+            # Логируем нормализованные данные перед отправкой в AI
+            logger.info(f"📤 Нормализованные данные для AI:")
+            logger.info(f"  - businessType: {business_type} (тип: {type(business_type)}, длина: {len(business_type)})")
+            logger.info(f"  - niche: '{niche}' (длина: {len(niche)})")
+            logger.info(f"  - answers: {len(answers)} элементов")
+            for i, answer in enumerate(answers[:3]):  # Первые 3 ответа
+                logger.info(f"    [{i}] questionId: {answer.get('questionId', 'N/A')}, answer: {answer.get('answer', '')[:50]}...")
+            logger.info(f"  - websiteUrl: {website_url}")
+            logger.info(f"  - telegramLinks: {telegram_links}")
+            logger.info(f"  - selectedPostStyle: {selected_post_style}")
             
             # Валидация URL (защита от SSRF)
             if website_url:
