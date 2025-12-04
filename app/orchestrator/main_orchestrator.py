@@ -238,7 +238,8 @@ class ContentOrchestrator:
         """Обрабатывает запрос на создание контента"""
         try:
             # ВАЖНО: Логируем входящие данные для отладки
-            logger.info(f"📝 Создание контента: title='{request.get('title', '')}', description='{request.get('description', '')[:100]}...', image_source={request.get('image_source', 'не указан')}")
+            logger.info(f"📝 Создание контента: title='{request.get('title', '')}', description='{request.get('description', '')[:100]}...'")
+            logger.info(f"📝 Параметры изображения: generate_image={request.get('generate_image', False)}, image_source={request.get('image_source', 'не указан')}")
             
             # Создаем бриф из запроса (НЕ перезаписываем title и description!)
             brief = ContentBrief(
@@ -258,7 +259,22 @@ class ContentOrchestrator:
             platforms = [Platform(p) for p in request.get("platforms", ["telegram", "vk"])]
             content_types = [ContentType(ct) for ct in request.get("content_types", ["post"])]
             variants_count = request.get("variants_count", 1)  # Количество вариантов (по умолчанию 1)
+            
+            # ВАЖНО: Проверяем оба поля для генерации изображений
+            generate_image = request.get("generate_image", False)  # Флаг генерации изображения
             image_source = request.get("image_source")  # Источник изображения (ai, stock, или None)
+            
+            # Если generate_image=True и image_source='ai', то генерируем изображение через AI
+            # Если generate_image=True и image_source='stock', то используем стоковые изображения
+            # Если generate_image=False или image_source не указан, то изображение не генерируется
+            final_image_source = None
+            if generate_image and image_source:
+                final_image_source = image_source
+                logger.info(f"🖼️ Генерация изображения включена: generate_image={generate_image}, image_source={image_source}")
+            elif generate_image and not image_source:
+                logger.warning(f"⚠️ generate_image=True, но image_source не указан. Изображение не будет сгенерировано.")
+            else:
+                logger.info(f"📝 Генерация изображения отключена: generate_image={generate_image}")
 
             # Создаем workflow с передачей image_source
             workflow_id = await self.create_content_workflow(
@@ -266,7 +282,7 @@ class ContentOrchestrator:
                 platforms, 
                 content_types, 
                 variants_count=variants_count,
-                image_source=image_source
+                image_source=final_image_source  # Передаем только если generate_image=True и image_source указан
             )
 
             # Получаем workflow для добавления дополнительных задач
