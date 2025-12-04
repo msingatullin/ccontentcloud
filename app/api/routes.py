@@ -474,7 +474,27 @@ class ContentCreate(Resource):
             # ВАЖНО: Сохраняем оригинальные title и description до объединения с проектом
             original_title = data.get('title', '')
             original_description = data.get('description', '')
-            logger.info(f"📋 Оригинальные данные запроса: title='{original_title}', description='{original_description[:100]}...', image_source={data.get('image_source', 'не указан')}")
+            
+            # Нормализуем title и description (trim, очистка от лишних пробелов)
+            if 'title' in data:
+                data['title'] = data['title'].strip() if isinstance(data['title'], str) else str(data['title']).strip()
+                # Если title пустой после trim, используем первые слова из description
+                if not data['title'] and data.get('description'):
+                    desc_words = data['description'].strip().split()[:10]
+                    data['title'] = ' '.join(desc_words) if desc_words else 'Новый пост'
+                    logger.info(f"⚠️ Title был пустой, сгенерирован из description: '{data['title']}'")
+            
+            if 'description' in data:
+                data['description'] = data['description'].strip() if isinstance(data['description'], str) else str(data['description']).strip()
+                # Минимальная длина description
+                if len(data['description']) < 10:
+                    logger.warning(f"⚠️ Description слишком короткий: '{data['description']}' (длина: {len(data['description'])})")
+            
+            # Обновляем оригинальные значения после нормализации
+            original_title = data.get('title', '')
+            original_description = data.get('description', '')
+            
+            logger.info(f"📋 Оригинальные данные запроса (после нормализации): title='{original_title}', description='{original_description[:100]}...', image_source={data.get('image_source', 'не указан')}")
             
             # Объединяем данные из проекта (если указан project_id)
             project_id = data.get('project_id')
@@ -546,7 +566,47 @@ class ContentCreate(Resource):
             if original_description:
                 data['description'] = original_description
             
-            logger.info(f"📝 Финальные данные перед валидацией: title='{data.get('title', '')}', description='{data.get('description', '')[:100]}...', image_source={data.get('image_source', 'не указан')}")
+            # Обработка image_source: если generate_image=True, но image_source не указан, устанавливаем дефолт
+            generate_image = data.get('generate_image', False)
+            image_source = data.get('image_source')
+            
+            if generate_image and not image_source:
+                logger.warning("⚠️ generate_image=True, но image_source не указан. Устанавливаем дефолт 'ai'")
+                data['image_source'] = 'ai'
+                image_source = 'ai'
+            elif generate_image and image_source not in ['ai', 'stock']:
+                logger.warning(f"⚠️ Некорректный image_source: '{image_source}'. Устанавливаем 'ai'")
+                data['image_source'] = 'ai'
+                image_source = 'ai'
+            
+            # Проверка критичных полей перед валидацией
+            if not data.get('title') or len(data.get('title', '').strip()) < 3:
+                return {
+                    "error": "Validation Error",
+                    "message": "title обязателен и должен содержать минимум 3 символа",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            if not data.get('description') or len(data.get('description', '').strip()) < 10:
+                return {
+                    "error": "Validation Error",
+                    "message": "description обязателен и должен содержать минимум 10 символов",
+                    "status_code": 400,
+                    "timestamp": datetime.now().isoformat()
+                }, 400
+            
+            # Детальное логирование полного payload
+            logger.info("📤 Полный payload для /api/v1/content/create:")
+            logger.info(f"  - title: '{data.get('title', '')}' (длина: {len(data.get('title', ''))})")
+            logger.info(f"  - description: '{data.get('description', '')[:200]}...' (длина: {len(data.get('description', ''))})")
+            logger.info(f"  - generate_image: {data.get('generate_image', False)}")
+            logger.info(f"  - image_source: {data.get('image_source', 'не указан')}")
+            logger.info(f"  - project_id: {data.get('project_id')}")
+            logger.info(f"  - platforms: {data.get('platforms', [])}")
+            logger.info(f"  - tone: {data.get('tone', 'не указан')}")
+            logger.info(f"  - keywords: {data.get('keywords', [])}")
+            logger.info(f"  - variants_count: {data.get('variants_count', 1)}")
             
             # Валидируем входные данные
             logger.info(f"Validating content request data: {list(data.keys())}")
