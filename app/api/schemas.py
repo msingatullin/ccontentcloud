@@ -527,3 +527,44 @@ class AutoPostingRuleResponseSchema(BaseModel):
     next_execution_at: Optional[str]
     created_at: str
     updated_at: str
+
+
+# ==================== AI ANALYZE LINKS SCHEMAS ====================
+
+class AnalyzeLinksRequestSchema(BaseModel):
+    """Схема запроса на AI-анализ ссылок (сайт + Telegram каналы)"""
+    websiteUrl: Optional[str] = Field(None, description="URL сайта для анализа")
+    telegramLinks: List[str] = Field(default=[], max_items=10, description="Список ссылок на Telegram каналы")
+
+    @validator('websiteUrl')
+    def validate_website_url(cls, v):
+        if v is not None and v.strip():
+            v = v.strip()
+            if not v.startswith(('http://', 'https://')):
+                v = 'https://' + v
+        return v if v else None
+
+    @validator('telegramLinks', each_item=True)
+    def validate_telegram_links(cls, v):
+        if v and not v.startswith(('http://', 'https://', 't.me/', '@')):
+            raise ValueError(f"Некорректная ссылка на Telegram: {v}")
+        return v
+
+
+class AnalysisResultSchema(BaseModel):
+    """Схема результата AI-анализа"""
+    suggestedNiche: Optional[str] = Field(None, description="Рекомендуемая ниша")
+    suggestedAudience: Optional[str] = Field(None, description="Рекомендуемая целевая аудитория")
+    suggestedBusinessTypes: List[str] = Field(default=[], description="Рекомендуемые типы бизнеса")
+    suggestedGoals: List[str] = Field(default=[], description="Рекомендуемые бизнес-цели")
+    suggestedCta: List[str] = Field(default=[], description="Рекомендуемые призывы к действию")
+    tone: Optional[str] = Field(None, description="Рекомендуемая тональность")
+    reasoning: Optional[str] = Field(None, description="Обоснование рекомендаций")
+
+
+class AnalyzeLinksResponseSchema(BaseModel):
+    """Схема ответа endpoint analyze-links"""
+    success: bool
+    data: Optional[Dict[str, AnalysisResultSchema]] = None
+    error: Optional[str] = None
+    timestamp: str = Field(default_factory=lambda: datetime.now().isoformat())

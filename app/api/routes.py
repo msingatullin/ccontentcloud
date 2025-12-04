@@ -3161,3 +3161,523 @@ class HealthCheck(Resource):
                     "error": str(e)
                 }
             }, 503
+
+
+# ==================== AI ENDPOINTS ====================
+
+# Модели для рекомендации тональности
+answer_model = ai_ns.model('Answer', {
+    'questionId': fields.String(required=True, description='ID вопроса'),
+    'answer': fields.String(required=True, description='Ответ пользователя'),
+    'timestamp': fields.String(description='Временная метка ответа')
+})
+
+recommend_tone_request = ai_ns.model('RecommendToneRequest', {
+    'businessType': fields.List(fields.String, required=True, description='Массив типов бизнеса (product, service, personal_brand, company_brand)'),
+    'niche': fields.String(required=True, description='Ниша бизнеса'),
+    'answers': fields.List(fields.Nested(answer_model), required=True, description='Массив ответов на вопросы опросника'),
+    'websiteUrl': fields.String(description='URL сайта (опционально)'),
+    'telegramLinks': fields.List(fields.String, description='Массив ссылок на Telegram каналы (опционально)'),
+    'selectedPostStyle': fields.String(description='ID выбранного стиля поста (опционально)')
+})
+
+tone_recommendation_model = ai_ns.model('ToneRecommendation', {
+    'suggestedTone': fields.String(description='Рекомендуемая тональность'),
+    'reasoning': fields.String(description='Объяснение рекомендации'),
+    'alternatives': fields.List(fields.String, description='Альтернативные варианты тональности')
+})
+
+recommend_tone_data_model = ai_ns.model('RecommendToneData', {
+    'recommendation': fields.Nested(tone_recommendation_model)
+})
+
+recommend_tone_response = ai_ns.model('RecommendToneResponse', {
+    'success': fields.Boolean(description='Успешность операции'),
+    'data': fields.Nested(recommend_tone_data_model)
+})
+
+recommend_tone_error = ai_ns.model('RecommendToneError', {
+    'success': fields.Boolean,
+    'error': fields.String
+})
+
+
+@ai_ns.route('/recommend-tone')
+class RecommendTone(Resource):
+    """AI-рекомендация тональности для опросника"""
+    
+    @jwt_required
+    @ai_ns.doc('recommend_tone', security='BearerAuth', description='Генерирует рекомендацию тональности на основе анализа данных пользователя')
+    @ai_ns.expect(recommend_tone_request, validate=True)
+    @ai_ns.marshal_with(recommend_tone_response, code=200, description='Рекомендация успешно сгенерирована')
+    @ai_ns.marshal_with(recommend_tone_error, code=400, description='Ошибка валидации')
+    @ai_ns.marshal_with(recommend_tone_error, code=500, description='Внутренняя ошибка сервера')
+    def post(self, current_user):
+        """
+        Генерирует рекомендацию тональности на основе:
+        - Ответов пользователя на вопросы опросника
+        - Анализа контента с сайта пользователя (если указан)
+        - Анализа постов из Telegram каналов пользователя (если указаны)
+        - Типа бизнеса и выбранного стиля постов
+        """
+        try:
+            from app.services.ai_assistant_service import AIAssistantService
+            
+            data = request.json or {}
+            
+            # ВАЖНО: Логируем входящие данные для отладки
+            logger.info(f"📋 Recommend-tone запрос от пользователя {current_user.get('user_id')}:")
+            logger.info(f"  - businessType (raw): {data.get('businessType')} (type: {type(data.get('businessType'))})")
+            logger.info(f"  - niche (raw): {data.get('niche')} (type: {type(data.get('niche'))})")
+            logger.info(f"  - answers (raw): {len(data.get('answers', []))} элементов (type: {type(data.get('answers'))})")
+            logger.info(f"  - websiteUrl: {data.get('websiteUrl')}")
+            logger.info(f"  - telegramLinks: {data.get('telegramLinks')}")
+            logger.info(f"  - selectedPostStyle: {data.get('selectedPostStyle')}")
+            
+            # Нормализация businessType - принимаем как массив, так и одиночное значение
+            business_type = data.get('businessType')
+            if business_type:
+                if isinstance(business_type, str):
+                    # Если пришла строка, преобразуем в массив
+                    business_type = [business_type]
+                    logger.info(f"✅ businessType преобразован из строки в массив: {business_type}")
+                elif not isinstance(business_type, list):
+                    # Если другой тип, пытаемся преобразовать
+                    business_type = [str(business_type)]
+                    logger.info(f"✅ businessType преобразован в массив: {business_type}")
+            else:
+                business_type = []
+                logger.warning("⚠️ businessType пустой, используем пустой массив")
+            
+            # Нормализация niche - принимаем любую строку
+            niche = data.get('niche')
+            if niche:
+                niche = str(niche).strip()
+                if not niche:
+                    logger.warning("⚠️ niche пустой после trim, используем дефолт")
+                    niche = "общий бизнес"
+            else:
+                logger.warning("⚠️ niche отсутствует, используем дефолт")
+                niche = "общий бизнес"
+            
+            # Нормализация answers - принимаем массив объектов или массив строк
+            answers = data.get('answers', [])
+            if not isinstance(answers, list):
+                logger.warning(f"⚠️ answers не массив, тип: {type(answers)}, преобразуем")
+                if answers:
+                    # Если не пустое значение, создаем массив
+                    answers = [{'questionId': 'custom', 'answer': str(answers), 'timestamp': datetime.now().isoformat()}]
+                else:
+                    answers = []
+            else:
+                # Нормализуем каждый ответ
+                normalized_answers = []
+                for i, answer in enumerate(answers):
+                    if isinstance(answer, dict):
+                        # Проверяем наличие обязательных полей
+                        if 'answer' not in answer:
+                            logger.warning(f"⚠️ Ответ [{i}] не содержит поле 'answer', пропускаем")
+                            continue
+                        normalized_answers.append({
+                            'questionId': answer.get('questionId', 'custom'),
+                            'answer': str(answer.get('answer', '')),
+                            'isCustom': answer.get('isCustom', False),
+                            'timestamp': answer.get('timestamp', datetime.now().isoformat())
+                        })
+                    elif isinstance(answer, str):
+                        # Если пришла строка, создаем объект
+                        normalized_answers.append({
+                            'questionId': 'custom',
+                            'answer': answer,
+                            'isCustom': False,
+                            'timestamp': datetime.now().isoformat()
+                        })
+                    else:
+                        logger.warning(f"⚠️ Ответ [{i}] имеет неожиданный тип: {type(answer)}, пропускаем")
+                answers = normalized_answers
+            
+            # Извлекаем опциональные данные
+            website_url = data.get('websiteUrl', '').strip() or None
+            telegram_links = data.get('telegramLinks')
+            if telegram_links:
+                if isinstance(telegram_links, list):
+                    telegram_links = [str(link).strip() for link in telegram_links if link]
+                    telegram_links = telegram_links if telegram_links else None
+                elif isinstance(telegram_links, str):
+                    telegram_links = [telegram_links.strip()] if telegram_links.strip() else None
+                else:
+                    telegram_links = None
+            else:
+                telegram_links = None
+            
+            selected_post_style = data.get('selectedPostStyle', '').strip() or None
+            
+            # Логируем нормализованные данные перед отправкой в AI
+            logger.info(f"📤 Нормализованные данные для AI:")
+            logger.info(f"  - businessType: {business_type} (тип: {type(business_type)}, длина: {len(business_type)})")
+            logger.info(f"  - niche: '{niche}' (длина: {len(niche)})")
+            logger.info(f"  - answers: {len(answers)} элементов")
+            for i, answer in enumerate(answers[:3]):  # Первые 3 ответа
+                logger.info(f"    [{i}] questionId: {answer.get('questionId', 'N/A')}, answer: {answer.get('answer', '')[:50]}...")
+            logger.info(f"  - websiteUrl: {website_url}")
+            logger.info(f"  - telegramLinks: {telegram_links}")
+            logger.info(f"  - selectedPostStyle: {selected_post_style}")
+            
+            # Валидация URL (защита от SSRF)
+            if website_url:
+                if not website_url.startswith(('http://', 'https://')):
+                    return {
+                        'success': False,
+                        'error': 'websiteUrl должен начинаться с http:// или https://'
+                    }, 400
+                # Проверяем что это не внутренний адрес
+                forbidden_hosts = ['localhost', '127.0.0.1', '0.0.0.0', '::1']
+                from urllib.parse import urlparse
+                parsed = urlparse(website_url)
+                if parsed.hostname in forbidden_hosts:
+                    return {
+                        'success': False,
+                        'error': 'Недопустимый URL'
+                    }, 400
+            
+            # Инициализируем сервис
+            api_key = os.environ.get('OPENAI_API_KEY')
+            if not api_key:
+                logger.warning("OPENAI_API_KEY not set, using fallback recommendation")
+                # Используем fallback без AI
+                service = AIAssistantService(None)
+            else:
+                from openai import AsyncOpenAI
+                openai_client = AsyncOpenAI(api_key=api_key)
+                service = AIAssistantService(openai_client)
+            
+            # Генерируем рекомендацию
+            logger.info(f"Генерация рекомендации тональности для пользователя {current_user.get('user_id')}")
+            result = asyncio.run(
+                service.recommend_tone(
+                    business_type=business_type,
+                    niche=niche,
+                    answers=answers,
+                    website_url=website_url,
+                    telegram_links=telegram_links,
+                    selected_post_style=selected_post_style
+                )
+            )
+            
+            if not result or 'recommendation' not in result:
+                return {
+                    'success': False,
+                    'error': 'Не удалось сгенерировать рекомендацию'
+                }, 500
+            
+            return {
+                'success': True,
+                'data': result
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Ошибка генерации рекомендации тональности: {e}", exc_info=True)
+            logger.error(f"Данные запроса: {data}")
+            return {
+                'success': False,
+                'error': f'Внутренняя ошибка сервера: {str(e)}'
+            }, 500
+
+
+# ==================== AI GENERATE QUESTIONS ENDPOINT ====================
+
+generate_questions_request = ai_ns.model('GenerateQuestionsRequest', {
+    'businessType': fields.List(fields.String, required=True, description='Массив типов бизнеса'),
+    'niche': fields.String(required=True, description='Ниша бизнеса'),
+    'previousAnswers': fields.List(fields.Nested(answer_model), description='Предыдущие ответы пользователя'),
+    'parsedResources': fields.Raw(description='Результаты парсинга ресурсов (сайт, каналы)')
+})
+
+question_model = ai_ns.model('Question', {
+    'id': fields.String(description='ID вопроса'),
+    'text': fields.String(description='Текст вопроса'),
+    'type': fields.String(description='Тип вопроса (text, select, url_list)'),
+    'options': fields.List(fields.String, description='Варианты ответов (для select)')
+})
+
+generate_questions_response = ai_ns.model('GenerateQuestionsResponse', {
+    'success': fields.Boolean,
+    'data': fields.Raw(description='Массив вопросов')
+})
+
+generate_questions_error = ai_ns.model('GenerateQuestionsError', {
+    'success': fields.Boolean,
+    'error': fields.String
+})
+
+
+@ai_ns.route('/generate-questions')
+class GenerateQuestions(Resource):
+    """Генерация адаптивных вопросов для опросника"""
+    
+    @jwt_required
+    @ai_ns.doc('generate_questions', security='BearerAuth', description='Генерирует адаптивные вопросы на основе предыдущих ответов и проанализированных ресурсов')
+    @ai_ns.expect(generate_questions_request, validate=False)
+    @ai_ns.marshal_with(generate_questions_response, code=200, description='Вопросы успешно сгенерированы')
+    @ai_ns.marshal_with(generate_questions_error, code=400, description='Ошибка валидации')
+    @ai_ns.marshal_with(generate_questions_error, code=500, description='Внутренняя ошибка сервера')
+    def post(self, current_user):
+        """
+        Генерирует адаптивные вопросы для опросника:
+        - Первый вопрос: про ссылки на ресурсы
+        - Следующие вопросы: на основе предыдущих ответов и проанализированных ресурсов
+        """
+        try:
+            from app.services.ai_assistant_service import AIAssistantService
+            
+            data = request.json or {}
+            logger.info(f"Генерация вопросов для пользователя {current_user.get('user_id')}, данные: {data}")
+            
+            # Валидация обязательных полей
+            if not data.get('businessType') or not isinstance(data.get('businessType'), list):
+                return {
+                    'success': False,
+                    'error': 'businessType обязателен и должен быть массивом'
+                }, 400
+            
+            if not data.get('niche') or not isinstance(data.get('niche'), str):
+                return {
+                    'success': False,
+                    'error': 'niche обязателен и должен быть строкой'
+                }, 400
+            
+            business_type = data.get('businessType', [])
+            niche = data.get('niche', '').strip()
+            previous_answers = data.get('previousAnswers', [])
+            parsed_resources = data.get('parsedResources', {})
+            
+            # Если это первый вопрос - возвращаем вопрос про ресурсы
+            if not previous_answers:
+                return {
+                    'success': True,
+                    'data': {
+                        'questions': [{
+                            'id': 'resources',
+                            'text': 'Укажите ссылки на ваш сайт или Telegram каналы (опционально)',
+                            'type': 'url_list',
+                            'options': []
+                        }]
+                    }
+                }, 200
+            
+            # Инициализируем сервис
+            api_key = os.environ.get('OPENAI_API_KEY')
+            if not api_key:
+                logger.warning("OPENAI_API_KEY not set, using fallback questions")
+                # Fallback вопросы
+                fallback_questions = [
+                    {'id': 'audience', 'text': 'Кто ваша целевая аудитория?', 'type': 'text'},
+                    {'id': 'goals', 'text': 'Какие у вас бизнес-цели?', 'type': 'text'},
+                    {'id': 'cta', 'text': 'Какой призыв к действию?', 'type': 'text'}
+                ]
+                return {
+                    'success': True,
+                    'data': {'questions': fallback_questions}
+                }, 200
+            
+            from openai import AsyncOpenAI
+            openai_client = AsyncOpenAI(api_key=api_key)
+            service = AIAssistantService(openai_client)
+            
+            # Генерируем вопросы через AI
+            questions = asyncio.run(
+                service.generate_adaptive_questions(
+                    business_type=business_type,
+                    niche=niche,
+                    previous_answers=previous_answers,
+                    parsed_resources=parsed_resources
+                )
+            )
+            
+            return {
+                'success': True,
+                'data': {'questions': questions}
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Ошибка генерации вопросов: {e}", exc_info=True)
+            logger.error(f"Данные запроса: {data}")
+            return {
+                'success': False,
+                'error': f'Внутренняя ошибка сервера: {str(e)}'
+            }, 500
+
+
+# ==================== AI GENERATE SAMPLE POSTS ENDPOINT ====================
+
+generate_sample_posts_request = ai_ns.model('GenerateSamplePostsRequest', {
+    'businessType': fields.List(fields.String, required=True, description='Массив типов бизнеса'),
+    'niche': fields.String(required=True, description='Ниша бизнеса'),
+    'count': fields.Integer(description='Количество примеров (по умолчанию 3)', default=3)
+})
+
+sample_post_model = ai_ns.model('SamplePost', {
+    'id': fields.String(description='ID примера'),
+    'text': fields.String(description='Текст поста'),
+    'style': fields.String(description='Стиль поста'),
+    'hashtags': fields.List(fields.String, description='Хештеги')
+})
+
+generate_sample_posts_response = ai_ns.model('GenerateSamplePostsResponse', {
+    'success': fields.Boolean,
+    'data': fields.Raw(description='Массив примеров постов')
+})
+
+generate_sample_posts_error = ai_ns.model('GenerateSamplePostsError', {
+    'success': fields.Boolean,
+    'error': fields.String
+})
+
+
+@ai_ns.route('/generate-sample-posts')
+class GenerateSamplePosts(Resource):
+    """Генерация примеров постов"""
+    
+    @jwt_required
+    @ai_ns.doc('generate_sample_posts', security='BearerAuth', description='Генерирует примеры постов на основе ниши и типа бизнеса')
+    @ai_ns.expect(generate_sample_posts_request, validate=False)
+    @ai_ns.marshal_with(generate_sample_posts_response, code=200, description='Примеры постов успешно сгенерированы')
+    @ai_ns.marshal_with(generate_sample_posts_error, code=400, description='Ошибка валидации')
+    @ai_ns.marshal_with(generate_sample_posts_error, code=500, description='Внутренняя ошибка сервера')
+    def post(self, current_user):
+        """Генерирует 3-5 примеров постов на основе ниши и типа бизнеса"""
+        try:
+            from app.services.ai_assistant_service import AIAssistantService
+            
+            data = request.json or {}
+            logger.info(f"Генерация примеров постов для пользователя {current_user.get('user_id')}, данные: {data}")
+            
+            # Валидация обязательных полей
+            if not data.get('businessType') or not isinstance(data.get('businessType'), list):
+                return {
+                    'success': False,
+                    'error': 'businessType обязателен и должен быть массивом'
+                }, 400
+            
+            if not data.get('niche') or not isinstance(data.get('niche'), str):
+                return {
+                    'success': False,
+                    'error': 'niche обязателен и должен быть строкой'
+                }, 400
+            
+            business_type = data.get('businessType', [])
+            niche = data.get('niche', '').strip()
+            count = data.get('count', 3)
+            
+            # Инициализируем сервис
+            api_key = os.environ.get('OPENAI_API_KEY')
+            if not api_key:
+                logger.warning("OPENAI_API_KEY not set, using fallback sample posts")
+                # Fallback примеры
+                fallback_posts = [
+                    {
+                        'id': '1',
+                        'text': f'Информационный пост про {niche}',
+                        'style': 'informative',
+                        'hashtags': [niche.replace(' ', '_')]
+                    }
+                ]
+                return {
+                    'success': True,
+                    'data': {'posts': fallback_posts}
+                }, 200
+            
+            from openai import AsyncOpenAI
+            openai_client = AsyncOpenAI(api_key=api_key)
+            service = AIAssistantService(openai_client)
+            
+            # Генерируем примеры постов через AI
+            posts = asyncio.run(
+                service.generate_sample_posts(
+                    business_type=business_type,
+                    niche=niche,
+                    count=count
+                )
+            )
+            
+            return {
+                'success': True,
+                'data': {'posts': posts}
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Ошибка генерации примеров постов: {e}", exc_info=True)
+            logger.error(f"Данные запроса: {data}")
+            return {
+                'success': False,
+                'error': f'Внутренняя ошибка сервера: {str(e)}'
+            }, 500
+
+
+# ==================== AI ANALYZE LINKS ENDPOINT ====================
+
+@api.route('/ai/analyze-links')
+class AnalyzeLinks(Resource):
+    @api.doc('analyze_links', description='AI-анализ ссылок (сайт + Telegram каналы)')
+    @api.response(200, 'Success')
+    @api.response(400, 'Bad Request')
+    @api.response(500, 'Internal Server Error')
+    def post(self):
+        """
+        AI-анализ ссылок для получения рекомендаций
+
+        Анализирует сайт и Telegram каналы, возвращает рекомендации:
+        - Нишу бизнеса
+        - Целевую аудиторию
+        - Типы бизнеса
+        - Бизнес-цели
+        - Призывы к действию
+        - Тональность контента
+        """
+        try:
+            from app.api.schemas import AnalyzeLinksRequestSchema, AnalysisResultSchema
+            from app.services.link_analysis_service import LinkAnalysisService
+            from pydantic import ValidationError
+
+            # Получаем данные запроса
+            data = request.json or {}
+            logger.info(f"📥 Получен запрос на анализ ссылок: {list(data.keys())}")
+
+            # Валидируем входные данные
+            try:
+                request_data = AnalyzeLinksRequestSchema(**data)
+            except ValidationError as e:
+                logger.error(f"❌ Ошибка валидации: {e}")
+                return {
+                    'success': False,
+                    'error': 'Validation Error',
+                    'details': e.errors(),
+                    'timestamp': datetime.now().isoformat()
+                }, 400
+
+            # Создаем сервис и запускаем анализ
+            service = LinkAnalysisService()
+
+            # Запускаем асинхронный анализ
+            result = asyncio.run(
+                service.analyze_links(
+                    website_url=request_data.websiteUrl,
+                    telegram_links=request_data.telegramLinks
+                )
+            )
+
+            logger.info(f"✅ Анализ завершен успешно")
+
+            return {
+                'success': True,
+                'data': result,
+                'timestamp': datetime.now().isoformat()
+            }, 200
+
+        except Exception as e:
+            logger.error(f"❌ Ошибка анализа ссылок: {e}", exc_info=True)
+            return {
+                'success': False,
+                'error': f'Внутренняя ошибка сервера: {str(e)}',
+                'timestamp': datetime.now().isoformat()
+            }, 500
