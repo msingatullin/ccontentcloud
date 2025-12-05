@@ -415,6 +415,14 @@ def start_workers():
     try:
         logger.info("Запуск background workers...")
         
+        # Импортируем workers внутри функции, чтобы избежать проблем с областью видимости
+        try:
+            from app.workers import ScheduledPostsWorker, AutoPostingWorker
+            from app.workers.web_crawler_worker import WebCrawlerWorker
+        except ImportError as e:
+            logger.warning(f"⚠️ Workers не импортированы: {e}. Пропускаем запуск workers.")
+            return
+        
         # Scheduled Posts Worker - проверяет каждую минуту
         scheduled_posts_worker = ScheduledPostsWorker(check_interval=60)
         scheduled_posts_worker.start()
@@ -433,6 +441,8 @@ def start_workers():
         
         logger.info("🚀 Все background workers успешно запущены")
         
+    except NameError as e:
+        logger.warning(f"⚠️ Workers не доступны: {e}. Пропускаем запуск workers.")
     except Exception as e:
         logger.error(f"❌ Ошибка запуска workers: {e}", exc_info=True)
 
