@@ -3896,6 +3896,13 @@ class AnalyzeLinks(Resource):
             
             logger.info(f"📤 Финальный response_data: success={response_data['success']}, data keys={list(response_data['data'].keys()) if response_data['data'] else 'None'}")
             
+            # Проверяем, что data не пустой
+            if not response_data['data'] or (isinstance(response_data['data'], dict) and not any(response_data['data'].values())):
+                logger.warning("⚠️ WARNING: merged_result пустой или все поля пустые!")
+                logger.warning(f"merged_result content: {merged_result}")
+            else:
+                logger.info(f"✅ Данные валидны: product_service={bool(merged_result.get('product_service'))}, target_audience={bool(merged_result.get('target_audience'))}")
+            
             return response_data, 200
             
         except Exception as e:
