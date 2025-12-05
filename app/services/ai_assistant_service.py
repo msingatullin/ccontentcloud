@@ -602,25 +602,6 @@ URL: {url}
                     profile['rhythm'] = 'short'
                 if profile.get('energy') not in valid_energies:
                     profile['energy'] = 'medium'
-                # Создаем tone_profile на основе suggestedTone
-                base_tone = result.get('suggestedTone', 'professional')
-                result['tone_profile'] = {
-                    'base': base_tone,
-                    'flavor': 'friendly' if base_tone in ['professional', 'expert'] else base_tone,
-                    'rhythm': 'short',
-                    'energy': 'medium'
-                }
-            else:
-                # Валидируем tone_profile
-                profile = result['tone_profile']
-                if profile.get('base') not in valid_tones:
-                    profile['base'] = result.get('suggestedTone', 'professional')
-                if profile.get('flavor') not in valid_tones:
-                    profile['flavor'] = 'friendly'
-                if profile.get('rhythm') not in ['short', 'medium', 'long']:
-                    profile['rhythm'] = 'short'
-                if profile.get('energy') not in ['low', 'medium', 'high']:
-                    profile['energy'] = 'medium'
             
             # Ограничиваем reasoning до 300 символов
             if result.get('reasoning'):
