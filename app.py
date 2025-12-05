@@ -173,9 +173,9 @@ def create_app():
         """Обработка CORS preflight (OPTIONS) запросов"""
         if request.method == "OPTIONS":
             # Получаем Origin из запроса
-            origin = request.headers.get('Origin', '*')
+            origin = request.headers.get('Origin', '')
             
-            # Проверяем, разрешен ли этот origin
+            # Список разрешенных origins
             allowed_origins = [
                 "http://localhost:3000",
                 "http://127.0.0.1:3000",
@@ -191,17 +191,20 @@ def create_app():
                 "https://content-curator-web-dt3n7kzpwq-ew.a.run.app"
             ]
             
-            # Используем origin из запроса, если он разрешен, иначе используем первый разрешенный
+            # Проверяем, разрешен ли этот origin
             if origin in allowed_origins:
                 response_origin = origin
+            elif origin.startswith('http://localhost') or origin.startswith('http://127.0.0.1'):
+                # Для локальной разработки разрешаем localhost
+                response_origin = origin
             else:
-                # Для локальной разработки разрешаем любой origin
-                response_origin = origin if origin.startswith('http://localhost') or origin.startswith('http://127.0.0.1') else allowed_origins[0]
+                # Если origin не разрешен, используем первый разрешенный (или пустой)
+                response_origin = allowed_origins[0] if allowed_origins else '*'
             
-            response = jsonify({})
+            response = jsonify({'status': 'ok'})
             response.headers.add("Access-Control-Allow-Origin", response_origin)
-            response.headers.add('Access-Control-Allow-Headers', request.headers.get('Access-Control-Request-Headers', 'Content-Type, Authorization'))
             response.headers.add('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH')
+            response.headers.add('Access-Control-Allow-Headers', request.headers.get('Access-Control-Request-Headers', 'Content-Type, Authorization'))
             response.headers.add('Access-Control-Allow-Credentials', 'true')
             response.headers.add('Access-Control-Max-Age', '3600')
             return response
@@ -411,7 +414,7 @@ except Exception as e:
     logger.warning("⚠️ Continuing without database - app will fail on first request")
     print(f"❌ Database initialization failed: {e}", file=sys.stderr, flush=True)
 
-# Создаем приложение
+# Создаем приложение - ВСЕГДА, даже при ошибках
 print("🔵 Creating Flask app...", file=sys.stderr, flush=True)
 try:
     app = create_app()
@@ -421,7 +424,29 @@ except Exception as e:
     print(f"❌ Failed to create app: {e}", file=sys.stderr, flush=True)
     import traceback
     traceback.print_exc(file=sys.stderr)
-    raise
+    # Создаем минимальный app для gunicorn, чтобы он мог запуститься
+    print("⚠️ Creating fallback app for gunicorn...", file=sys.stderr, flush=True)
+    app = Flask(__name__)
+    app.config['SECRET_KEY'] = os.getenv('APP_SECRET_KEY', 'dev-secret-key')
+    
+    # Минимальный CORS для fallback app
+    CORS(app, resources={r"/*": {"origins": "*"}})
+    
+    @app.route('/health')
+    def health():
+        return {'status': 'error', 'message': f'App creation failed: {str(e)}'}, 500
+    
+    @app.route('/api/v1/auth/login', methods=['OPTIONS', 'POST'])
+    def login_fallback():
+        if request.method == 'OPTIONS':
+            response = jsonify({})
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            response.headers.add('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+            response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+            return response, 200
+        return {'error': 'App initialization failed', 'message': str(e)}, 500
+    
+    print("⚠️ Fallback app created - app will not work properly", file=sys.stderr, flush=True)
 
 # Инициализируем оркестратор при запуске
 if __name__ == '__main__':
