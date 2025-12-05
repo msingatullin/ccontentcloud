@@ -255,15 +255,15 @@ class LinkAnalysisService:
                 "5. Призывы к действию (выбери из: consultation, purchase, subscribe, read_more)\n"
                 "6. Тональность (выбери из: professional, friendly, casual, expert)\n"
                 "7. Обоснование (2-3 предложения, почему именно такие рекомендации)\n\n"
-                "Отвечай в формате JSON:\n"
+                "ВАЖНО: Отвечай ТОЛЬКО валидным JSON, без markdown блоков, без ```json. Просто JSON объект:\n"
                 "{\n"
-                '  "niche": "...",\n'
-                '  "audience": "...",\n'
-                '  "businessTypes": ["..."],\n'
-                '  "goals": ["..."],\n'
-                '  "cta": ["..."],\n'
-                '  "tone": "...",\n'
-                '  "reasoning": "..."\n'
+                '  "niche": "краткое описание ниши",\n'
+                '  "audience": "краткое описание аудитории",\n'
+                '  "businessTypes": ["service"],\n'
+                '  "goals": ["creating_posts", "lead_processing"],\n'
+                '  "cta": ["consultation"],\n'
+                '  "tone": "professional",\n'
+                '  "reasoning": "краткое обоснование"\n'
                 "}"
             )
 
@@ -274,12 +274,12 @@ class LinkAnalysisService:
             from app.mcp.config import is_mcp_enabled
 
             if is_mcp_enabled('vertex_ai'):
-                logger.info("🤖 Vertex AI доступен, вызываем generate_content")
+                logger.info(f"🤖 Vertex AI доступен, вызываем generate_content")
                 vertex_ai = VertexAIMCP()
                 response = await vertex_ai.generate_content(
                     prompt=prompt,
                     temperature=0.7,
-                    max_tokens=1000
+                    max_tokens=2048  # Увеличено для полного ответа
                 )
 
                 logger.info(f"🔍 Vertex AI ответ: success={response.success}, data={bool(response.data)}")
@@ -288,6 +288,18 @@ class LinkAnalysisService:
                     import json
                     ai_text = response.data.get('generated_text', '{}')
                     logger.info(f"📝 AI текст получен: {len(ai_text)} символов")
+
+                    # Убираем markdown блоки кода если есть
+                    ai_text = ai_text.strip()
+                    if ai_text.startswith('```json'):
+                        ai_text = ai_text[7:]  # Убираем ```json
+                    if ai_text.startswith('```'):
+                        ai_text = ai_text[3:]  # Убираем ```
+                    if ai_text.endswith('```'):
+                        ai_text = ai_text[:-3]  # Убираем закрывающий ```
+                    ai_text = ai_text.strip()
+
+                    logger.info(f"🧹 Очищенный текст: {ai_text[:200]}...")
 
                     # Пытаемся извлечь JSON из ответа
                     try:
