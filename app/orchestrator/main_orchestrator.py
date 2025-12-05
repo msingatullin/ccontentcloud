@@ -106,7 +106,10 @@ class ContentOrchestrator:
                             "business_goals": brief.business_goals,
                             "call_to_action": brief.call_to_action,
                             "tone": brief.tone,
-                            "keywords": brief.keywords
+                            "keywords": brief.keywords,
+                            # Добавляем tone_profile и insights из project_context если есть
+                            "tone_profile": request.get("tone_profile"),
+                            "insights": request.get("insights", [])
                         },
                         "platform": platform.value,
                         "content_type": content_type.value,

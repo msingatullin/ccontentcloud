@@ -171,8 +171,21 @@ URL: {url}
   "keywords": ["ключевое слово 1", "ключевое слово 2", "ключевое слово 3"],
   "hashtags": ["#хештег1", "#хештег2"],
   "brand_name": "Название бренда/компании",
-  "brand_description": "Краткое описание бренда (1-2 предложения)"
+  "brand_description": "Краткое описание бренда (1-2 предложения)",
+  "insights": [
+    "О чём аудитория говорит чаще всего (темы, вопросы, обсуждения)",
+    "Какие темы вызывают эмоции (страх, радость, интерес, беспокойство)",
+    "Какие формулировки аудитория использует сама (язык, термины, выражения)",
+    "Что они хотят, но прямо не говорят (скрытые потребности, невысказанные желания)"
+  ]
 }}
+
+ВАЖНО для insights:
+- Пиши конкретно, как живой человек, а не как отчёт
+- Используй формулировки, которые аудитория использует сама
+- Фокусируйся на эмоциях и смыслах, а не на сухих фактах
+- Пример хорошего инсайта: "Аудитория боится потерять деньги, но не говорит об этом прямо"
+- Пример плохого инсайта: "Целевая аудитория имеет финансовые риски"
 
 Отвечай ТОЛЬКО валидным JSON, без дополнительных комментариев.
 """
@@ -368,6 +381,8 @@ URL: {url}
 5. Специфическая терминология (простая/экспертная)
 6. Общий тон общения (professional/casual/friendly/expert)
 
+ВАЖНО: Это анализ для сайта. Для Telegram постов нужен другой стиль - более живой и человеческий.
+
 Ответь в формате JSON:
 {{
   "formality": "formal/informal",
@@ -376,7 +391,8 @@ URL: {url}
   "sentence_length": "short/medium/long",
   "terminology": "simple/expert",
   "detected_tone": "professional/casual/friendly/expert/motivational/humorous",
-  "reasoning": "Краткое объяснение (1-2 предложения)"
+  "reasoning": "Краткое объяснение (1-2 предложения)",
+  "telegram_translation": "Рекомендация для Telegram: как адаптировать этот стиль для живых постов (1 предложение)"
 }}
 """
             
@@ -431,6 +447,7 @@ URL: {url}
 2. Использование эмодзи
 3. Длина постов (короткие/средние/длинные)
 4. Стиль общения с аудиторией
+5. Что делает посты живыми (конкретные приёмы, формулировки, структура)
 
 Ответь в формате JSON:
 {{
@@ -438,7 +455,8 @@ URL: {url}
   "uses_emojis": true/false,
   "post_length": "short/medium/long",
   "communication_style": "formal/informal/personal",
-  "reasoning": "Краткое объяснение (1-2 предложения)"
+  "reasoning": "Краткое объяснение (1-2 предложения)",
+  "what_makes_it_alive": "Конкретные приёмы, которые делают посты живыми (2-3 пункта)"
 }}
 """
             
@@ -499,8 +517,15 @@ URL: {url}
             target_audience = answers.get('target_audience', '')
             cta = answers.get('cta', '')
             
+            # Извлекаем информацию о переводе тональности для Telegram
+            website_tone_translation = ""
+            if analysis_data.get('website_analysis'):
+                website_analysis = analysis_data['website_analysis']
+                if website_analysis.get('telegram_translation'):
+                    website_tone_translation = f"\nВАЖНО: {website_analysis['telegram_translation']}"
+            
             prompt = f"""
-Ты - эксперт по контент-маркетингу. Проанализируй данные и порекомендуй оптимальную тональность для контента.
+Ты - эксперт по контент-маркетингу. Проанализируй данные и порекомендуй оптимальную тональность для Telegram постов.
 
 Тип бизнеса: {', '.join(business_type) if business_type else 'не указан'}
 Ниша: {niche}
@@ -509,27 +534,31 @@ URL: {url}
 Призыв к действию: {cta if cta else 'не указан'}
 {website_info}
 {telegram_info}
+{website_tone_translation}
 Выбранный стиль поста: {selected_post_style if selected_post_style else 'не выбран'}
 
-Доступные варианты тональности:
-- professional: Профессиональный (для B2B, серьезных ниш, деловой аудитории)
-- friendly: Дружелюбный (для широкой аудитории, личного бренда)
-- casual: Неформальный (для молодой аудитории, развлекательного контента)
-- expert: Экспертный (для образовательного контента, консалтинга)
-- motivational: Мотивирующий (для коучинга, личностного роста)
-- humorous: С юмором (для развлекательного контента, молодой аудитории)
+ВАЖНО: Telegram посты должны быть живыми и человеческими, даже если сайт формальный.
+Если сайт формальный → для Telegram рекомендовать "informal professional" (умный, но без канцелярита)
+Если сайт экспертный → для Telegram рекомендовать "легкий экспертный тон" (знания без занудства)
+Если сайт эмоциональный → для Telegram оставить эмоции, но убрать воду
 
-Проанализируй все факторы и порекомендуй:
-1. Основную тональность (suggestedTone)
-2. Краткое объяснение (reasoning) - максимум 200-300 символов, конкретные факты
-3. 1-2 альтернативных варианта (alternatives)
+Создай гибридный tone_profile вместо одного слова:
 
 Ответь в формате JSON:
 {{
   "suggestedTone": "professional/friendly/casual/expert/motivational/humorous",
+  "tone_profile": {{
+    "base": "expert/professional/friendly/casual/motivational/humorous",
+    "flavor": "friendly/casual/professional/expert (дополнительный оттенок)",
+    "rhythm": "short/medium/long (длина предложений)",
+    "energy": "low/medium/high (энергетика текста)"
+  }},
   "reasoning": "Краткое объяснение с конкретными фактами (максимум 200-300 символов)",
   "alternatives": ["expert", "friendly"]
 }}
+
+Пример tone_profile:
+- base: "expert", flavor: "friendly", rhythm: "short", energy: "medium" → умный, ёмкий, без канцелярита, но и без TikTok-стиля
 """
             
             response = await self.openai_client.chat.completions.create(
@@ -546,6 +575,52 @@ URL: {url}
             valid_tones = ['professional', 'friendly', 'casual', 'expert', 'motivational', 'humorous']
             if result.get('suggestedTone') not in valid_tones:
                 result['suggestedTone'] = 'professional'
+            
+            # Валидируем и создаем tone_profile если его нет
+            if not result.get('tone_profile') or not isinstance(result.get('tone_profile'), dict):
+                # Создаем tone_profile на основе suggestedTone
+                base_tone = result.get('suggestedTone', 'professional')
+                result['tone_profile'] = {
+                    'base': base_tone,
+                    'flavor': 'friendly' if base_tone in ['professional', 'expert'] else base_tone,
+                    'rhythm': 'short',  # Для Telegram рекомендуется short
+                    'energy': 'medium'
+                }
+            else:
+                # Валидируем поля tone_profile
+                profile = result['tone_profile']
+                valid_bases = ['professional', 'friendly', 'casual', 'expert', 'motivational', 'humorous']
+                valid_flavors = ['friendly', 'casual', 'expert', 'professional']
+                valid_rhythms = ['short', 'medium', 'long']
+                valid_energies = ['low', 'medium', 'high']
+                
+                if profile.get('base') not in valid_bases:
+                    profile['base'] = result.get('suggestedTone', 'professional')
+                if profile.get('flavor') not in valid_flavors:
+                    profile['flavor'] = 'friendly'
+                if profile.get('rhythm') not in valid_rhythms:
+                    profile['rhythm'] = 'short'
+                if profile.get('energy') not in valid_energies:
+                    profile['energy'] = 'medium'
+                # Создаем tone_profile на основе suggestedTone
+                base_tone = result.get('suggestedTone', 'professional')
+                result['tone_profile'] = {
+                    'base': base_tone,
+                    'flavor': 'friendly' if base_tone in ['professional', 'expert'] else base_tone,
+                    'rhythm': 'short',
+                    'energy': 'medium'
+                }
+            else:
+                # Валидируем tone_profile
+                profile = result['tone_profile']
+                if profile.get('base') not in valid_tones:
+                    profile['base'] = result.get('suggestedTone', 'professional')
+                if profile.get('flavor') not in valid_tones:
+                    profile['flavor'] = 'friendly'
+                if profile.get('rhythm') not in ['short', 'medium', 'long']:
+                    profile['rhythm'] = 'short'
+                if profile.get('energy') not in ['low', 'medium', 'high']:
+                    profile['energy'] = 'medium'
             
             # Ограничиваем reasoning до 300 символов
             if result.get('reasoning'):
@@ -582,9 +657,18 @@ URL: {url}
                 suggested_tone = 'friendly'
                 reasoning = "Для сервисного бизнеса в B2C нише рекомендуем дружелюбный тон для лучшего взаимодействия с клиентами."
         
+        # Создаем tone_profile для fallback
+        tone_profile = {
+            'base': suggested_tone,
+            'flavor': 'friendly' if suggested_tone in ['professional', 'expert'] else suggested_tone,
+            'rhythm': 'short',
+            'energy': 'medium'
+        }
+        
         return {
             'recommendation': {
                 'suggestedTone': suggested_tone,
+                'tone_profile': tone_profile,
                 'reasoning': reasoning,
                 'alternatives': ['expert', 'friendly'] if suggested_tone == 'professional' else ['professional', 'expert']
             }
@@ -716,20 +800,31 @@ URL: {url}
 
 Тип бизнеса: {', '.join(business_type)}
 
+ВАЖНО: Пиши как живой автор, который видит проблему изнутри. Без официоза, без штампов. Только живая мысль, настоящая польза и ощущение опыта.
+
 Создай посты в разных стилях:
-- Информационный
-- Продающий
-- Вовлекающий
+- Информационный (конкретная польза, без воды)
+- Продающий (мягко, через ценность)
+- Вовлекающий (вопрос, интрига, инсайт)
+
+Каждый пост должен:
+- Читаться как текст от реального человека
+- Нести конкретную пользу в каждом предложении
+- Быть плотным (250-450 символов)
+- Иметь 1-2 эмодзи максимум
 
 Верни JSON массив в формате:
 [
   {{
     "id": "1",
-    "text": "Текст поста (2-3 предложения)",
+    "text": "Живой текст поста, как от автора со своим характером. Плотный, понятный, человеческий. 2-3 предложения с конкретной пользой.",
     "style": "informative|selling|engaging",
     "hashtags": ["хештег1", "хештег2"]
   }}
 ]
+
+Пример хорошего поста:
+"Когда цена падает — новички паникуют, а опытные докупают. Почему? Потому что работают с вероятностями, а не эмоциями. Разбираем логику на примерах."
 """
             
             response = await self.openai_client.chat.completions.create(

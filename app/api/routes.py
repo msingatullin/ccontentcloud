@@ -553,6 +553,12 @@ class ContentCreate(Resource):
                             'emoji_usage': project_ai_settings.get('emoji_usage', 'minimal')
                         }
                         
+                        # Добавляем tone_profile и insights из AI настроек проекта
+                        if project_ai_settings.get('tone_profile'):
+                            data['tone_profile'] = project_ai_settings.get('tone_profile')
+                        if project_ai_settings.get('insights'):
+                            data['insights'] = project_ai_settings.get('insights')
+                        
                         logger.info(f"✅ Объединены данные проекта {project_id} с запросом (title и description НЕ перезаписаны)")
                     
                     db.close()
