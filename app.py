@@ -5,6 +5,13 @@ AI Content Orchestrator - Flask Application
 """
 
 import os
+import sys
+
+# Ранний вывод для отладки - должен быть виден в логах gunicorn
+print("=" * 80, file=sys.stderr, flush=True)
+print("🔵 Starting app.py module import...", file=sys.stderr, flush=True)
+print("=" * 80, file=sys.stderr, flush=True)
+
 import asyncio
 import logging
 import threading
@@ -14,8 +21,12 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from dotenv import load_dotenv
 
+print("✅ Basic imports successful", file=sys.stderr, flush=True)
+
 # Загружаем переменные окружения
 load_dotenv()
+
+print("🔵 Loading app modules...", file=sys.stderr, flush=True)
 
 # Импортируем наши модули
 from app.orchestrator.main_orchestrator import orchestrator  # Singleton для старых эндпоинтов
@@ -66,6 +77,8 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+print("✅ All app modules imported successfully", file=sys.stderr, flush=True)
 
 def create_app():
     """Создает и настраивает Flask приложение"""
@@ -385,13 +398,30 @@ def start_workers():
         logger.error(f"❌ Ошибка запуска workers: {e}", exc_info=True)
 
 # Инициализируем базу данных перед созданием приложения
+# Оборачиваем в try/except чтобы app создавался даже если БД недоступна
+print("🔵 Initializing database...", file=sys.stderr, flush=True)
 logger.info("🔧 Initializing database...")
-from app.database.connection import init_database
-init_database()
-logger.info("✅ Database initialized")
+try:
+    from app.database.connection import init_database
+    init_database()
+    logger.info("✅ Database initialized")
+    print("✅ Database initialized", file=sys.stderr, flush=True)
+except Exception as e:
+    logger.error(f"❌ Database initialization failed: {e}", exc_info=True)
+    logger.warning("⚠️ Continuing without database - app will fail on first request")
+    print(f"❌ Database initialization failed: {e}", file=sys.stderr, flush=True)
 
 # Создаем приложение
-app = create_app()
+print("🔵 Creating Flask app...", file=sys.stderr, flush=True)
+try:
+    app = create_app()
+    print("✅ Flask app created successfully!", file=sys.stderr, flush=True)
+    print(f"✅ app variable type: {type(app)}", file=sys.stderr, flush=True)
+except Exception as e:
+    print(f"❌ Failed to create app: {e}", file=sys.stderr, flush=True)
+    import traceback
+    traceback.print_exc(file=sys.stderr)
+    raise
 
 # Инициализируем оркестратор при запуске
 if __name__ == '__main__':
