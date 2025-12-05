@@ -98,8 +98,7 @@ try:
     from app.api.content_sources_ns import content_sources_ns
     from app.api.ai_assistant_ns import ai_assistant_ns
     from app.api.swagger_config import create_swagger_api
-    from app.workers import ScheduledPostsWorker, AutoPostingWorker
-    from app.workers.web_crawler_worker import WebCrawlerWorker
+    # Workers импортируются внутри start_workers() чтобы избежать проблем с областью видимости
     
     _modules_imported = True
     print("✅ All app modules imported successfully", file=sys.stderr, flush=True)
