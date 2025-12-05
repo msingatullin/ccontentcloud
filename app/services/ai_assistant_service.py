@@ -983,7 +983,9 @@ URL: {url}
         self,
         business_type: list,
         niche: str,
-        count: int = 3
+        count: int = 3,
+        link_analysis_result: Optional[Dict[str, Any]] = None,
+        answers: Optional[List[Dict[str, Any]]] = None
     ) -> list:
         """
         Генерирует примеры постов на основе ниши и типа бизнеса
@@ -992,9 +994,11 @@ URL: {url}
             business_type: Массив типов бизнеса
             niche: Ниша бизнеса
             count: Количество примеров (по умолчанию 3)
+            link_analysis_result: Результаты анализа ссылок (опционально)
+            answers: Ответы пользователя из онбординга (опционально)
         
         Returns:
-            Массив примеров постов с id, text, style, hashtags
+            Массив примеров постов с id, text, style, hashtags, image_prompt
         """
         if not self.openai_client:
             # Fallback примеры
@@ -1003,41 +1007,78 @@ URL: {url}
                     'id': '1',
                     'text': f'Информационный пост про {niche}',
                     'style': 'informative',
-                    'hashtags': [niche.replace(' ', '_')]
+                    'hashtags': [niche.replace(' ', '_')],
+                    'image_prompt': f'Профессиональное изображение для поста про {niche}'
                 }
             ]
         
         try:
+            # Собираем контекст из linkAnalysisResult
+            context_parts = []
+            if link_analysis_result:
+                if link_analysis_result.get('target_audience'):
+                    context_parts.append(f"Целевая аудитория: {link_analysis_result['target_audience']}")
+                if link_analysis_result.get('pain_points'):
+                    pain_points_text = ", ".join(link_analysis_result['pain_points'][:3])
+                    context_parts.append(f"Болевые точки: {pain_points_text}")
+                if link_analysis_result.get('insights'):
+                    insights_text = " | ".join(link_analysis_result['insights'][:2])
+                    context_parts.append(f"Инсайты: {insights_text}")
+                if link_analysis_result.get('tone'):
+                    context_parts.append(f"Тональность: {link_analysis_result['tone']}")
+                if link_analysis_result.get('tone_profile') and isinstance(link_analysis_result['tone_profile'], dict):
+                    tone_profile = link_analysis_result['tone_profile']
+                    if tone_profile.get('base'):
+                        context_parts.append(f"Базовый тон: {tone_profile['base']}")
+            
+            context_text = "\n".join(context_parts) if context_parts else "Контекст не указан"
+            
             prompt = f"""
-Сгенерируй {count} примеров постов для бизнеса в нише "{niche}".
+Сгенерируй {count} примеров постов для бизнеса в нише «{niche}».
 
 Тип бизнеса: {', '.join(business_type)}
 
-ВАЖНО: Пиши как живой автор, который видит проблему изнутри. Без официоза, без штампов. Только живая мысль, настоящая польза и ощущение опыта.
+Контекст для создания постов:
+{context_text}
 
-Создай посты в разных стилях:
-- Информационный (конкретная польза, без воды)
-- Продающий (мягко, через ценность)
-- Вовлекающий (вопрос, интрига, инсайт)
+Требования к постам:
 
-Каждый пост должен:
-- Читаться как текст от реального человека
-- Нести конкретную пользу в каждом предложении
-- Быть плотным (250-450 символов)
-- Иметь 1-2 эмодзи максимум
+— Пиши на русском, как живой автор: минимум канцелярита, активный голос и простые слова.
 
-Верни JSON массив в формате:
+— Начинай каждый пост с яркой зацепки: вопрос, смелое утверждение или неожиданный факт — чтобы сразу привлечь внимание.
+
+— В основной части дай 1–2 конкретных факта, вывод или мини‑пример, который показывает пользу.
+
+— Заверши одним призывом к действию: приглашай обсудить, поделиться мнением, сохранить пост или перейти по ссылке. Вариируй формулировки — не всегда «оставьте +».
+
+— Длина поста 250–500 символов (допустимы небольшие отклонения, если это усиливает историю).
+
+— Используй 1–2 эмодзи, только по делу.
+
+— Избегай клише и повторов темы/ниши в начале.
+
+Сгенерируй посты в трёх стилях:
+
+1. Информационный — конкретная польза без воды.
+
+2. Продающий — мягко через ценность.
+
+3. Вовлекающий — вопрос или интрига, которая побуждает к диалогу.
+
+Для каждого поста также создай промпт для генерации изображения (image_prompt) — короткое описание визуала, который подходит к тексту поста.
+
+Верни JSON массив:
+
 [
   {{
     "id": "1",
-    "text": "Живой текст поста, как от автора со своим характером. Плотный, понятный, человеческий. 2-3 предложения с конкретной пользой.",
+    "text": "Текст поста. Сильная зацепка, затем 2–3 предложения пользы и мягкий призыв к действию.",
     "style": "informative|selling|engaging",
-    "hashtags": ["хештег1", "хештег2"]
-  }}
+    "hashtags": ["#хештег1", "#хештег2"],
+    "image_prompt": "Краткое описание изображения для этого поста (на русском, 10-15 слов)"
+  }},
+  ...
 ]
-
-Пример хорошего поста:
-"Когда цена падает — новички паникуют, а опытные докупают. Почему? Потому что работают с вероятностями, а не эмоциями. Разбираем логику на примерах."
 """
             
             response = await self.openai_client.chat.completions.create(
@@ -1047,7 +1088,7 @@ URL: {url}
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.8,
-                max_tokens=1000
+                max_tokens=1500
             )
             
             content = response.choices[0].message.content.strip()
@@ -1061,17 +1102,26 @@ URL: {url}
             content = content.strip()
             
             posts = json.loads(content)
-            return posts if isinstance(posts, list) else [posts]
+            if not isinstance(posts, list):
+                posts = [posts]
+            
+            # Убеждаемся, что у каждого поста есть image_prompt
+            for post in posts:
+                if 'image_prompt' not in post or not post.get('image_prompt'):
+                    post['image_prompt'] = f"Профессиональное изображение для поста: {post.get('text', '')[:50]}..."
+            
+            return posts
             
         except Exception as e:
-            logger.error(f"Ошибка генерации примеров постов: {e}")
+            logger.error(f"Ошибка генерации примеров постов: {e}", exc_info=True)
             # Fallback
             return [
                 {
                     'id': '1',
                     'text': f'Информационный пост про {niche}',
                     'style': 'informative',
-                    'hashtags': [niche.replace(' ', '_')]
+                    'hashtags': [niche.replace(' ', '_')],
+                    'image_prompt': f'Профессиональное изображение для поста про {niche}'
                 }
             ]
 

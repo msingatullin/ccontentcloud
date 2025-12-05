@@ -3604,7 +3604,10 @@ sample_post_model = ai_ns.model('SamplePost', {
     'id': fields.String(description='ID примера'),
     'text': fields.String(description='Текст поста'),
     'style': fields.String(description='Стиль поста'),
-    'hashtags': fields.List(fields.String, description='Хештеги')
+    'hashtags': fields.List(fields.String, description='Хештеги'),
+    'image_prompt': fields.String(description='Промпт для генерации изображения'),
+    'image_url': fields.String(description='URL сгенерированного изображения (может быть null)'),
+    'image_id': fields.String(description='ID изображения (может быть null)')
 })
 
 generate_sample_posts_response = ai_ns.model('GenerateSamplePostsResponse', {
@@ -3652,6 +3655,8 @@ class GenerateSamplePosts(Resource):
             business_type = data.get('businessType', [])
             niche = data.get('niche', '').strip()
             count = data.get('count', 3)
+            link_analysis_result = data.get('linkAnalysisResult')  # Данные из анализа ссылок
+            answers = data.get('answers', [])  # Ответы пользователя
             
             # Инициализируем сервис
             api_key = os.environ.get('OPENAI_API_KEY')
@@ -3663,7 +3668,9 @@ class GenerateSamplePosts(Resource):
                         'id': '1',
                         'text': f'Информационный пост про {niche}',
                         'style': 'informative',
-                        'hashtags': [niche.replace(' ', '_')]
+                        'hashtags': [niche.replace(' ', '_')],
+                        'image_prompt': f'Профессиональное изображение для поста про {niche}',
+                        'image_url': None
                     }
                 ]
                 return {
@@ -3680,9 +3687,62 @@ class GenerateSamplePosts(Resource):
                 service.generate_sample_posts(
                     business_type=business_type,
                     niche=niche,
-                    count=count
+                    count=count,
+                    link_analysis_result=link_analysis_result,
+                    answers=answers
                 )
             )
+            
+            # Генерируем изображения для каждого поста
+            try:
+                from app.agents.multimedia_producer_agent import MultimediaProducerAgent
+                
+                multimedia_agent = MultimediaProducerAgent()
+                
+                # Определяем стиль из linkAnalysisResult
+                image_style = 'professional'
+                if link_analysis_result:
+                    tone_profile = link_analysis_result.get('tone_profile', {})
+                    if isinstance(tone_profile, dict) and tone_profile.get('base'):
+                        image_style = tone_profile.get('base', 'professional')
+                    elif link_analysis_result.get('tone'):
+                        image_style = link_analysis_result.get('tone', 'professional')
+                
+                for post in posts:
+                    image_prompt = post.get('image_prompt', f'Профессиональное изображение для поста: {post.get("text", "")[:100]}')
+                    
+                    try:
+                        # Генерируем изображение через приватный метод (он уже есть и работает)
+                        image_task_data = {
+                            'prompt': image_prompt,
+                            'format': 'square',
+                            'style': image_style
+                        }
+                        
+                        generated_image = await multimedia_agent._generate_image(image_task_data)
+                        
+                        if generated_image and generated_image.image_path:
+                            # Сохраняем путь к изображению
+                            # В продакшене нужно будет загрузить в CDN и вернуть URL
+                            post['image_url'] = generated_image.image_path
+                            post['image_id'] = generated_image.image_id
+                            logger.info(f"✅ Изображение сгенерировано для поста {post.get('id')}: {generated_image.image_path}")
+                        else:
+                            post['image_url'] = None
+                            post['image_id'] = None
+                            logger.warning(f"⚠️ Не удалось сгенерировать изображение для поста {post.get('id')}")
+                            
+                    except Exception as e:
+                        logger.error(f"Ошибка генерации изображения для поста {post.get('id')}: {e}", exc_info=True)
+                        post['image_url'] = None
+                        post['image_id'] = None
+                        
+            except Exception as e:
+                logger.error(f"Ошибка инициализации MultimediaProducerAgent: {e}", exc_info=True)
+                # Продолжаем без изображений
+                for post in posts:
+                    post['image_url'] = None
+                    post['image_id'] = None
             
             return {
                 'success': True,
