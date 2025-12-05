@@ -3719,7 +3719,8 @@ class GenerateSamplePosts(Resource):
                             'style': image_style
                         }
                         
-                        generated_image = await multimedia_agent._generate_image(image_task_data)
+                        # ИСПРАВЛЕНИЕ: используем asyncio.run() вместо await, т.к. это синхронный Flask endpoint
+                        generated_image = asyncio.run(multimedia_agent._generate_image(image_task_data))
                         
                         if generated_image and generated_image.image_path:
                             # Сохраняем путь к изображению
