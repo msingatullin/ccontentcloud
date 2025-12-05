@@ -45,8 +45,8 @@ ENV API_HOST=0.0.0.0
 ENV API_PORT=8080
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:${PORT:-8080}/health || exit 1
 
-# Запускаем приложение
-CMD ["python", "app.py"]
+# Запускаем приложение через gunicorn
+CMD ["gunicorn", "--config", "gunicorn.conf.py", "app:app"]
