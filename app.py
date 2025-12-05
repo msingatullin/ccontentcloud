@@ -12,31 +12,24 @@ print("=" * 80, file=sys.stderr, flush=True)
 print("🔵 Starting app.py module import...", file=sys.stderr, flush=True)
 print("=" * 80, file=sys.stderr, flush=True)
 
-import asyncio
-import logging
-import threading
-from datetime import datetime
+# КРИТИЧЕСКИ ВАЖНО: импортируем только Flask и CORS сначала
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from flask_jwt_extended import JWTManager
-from dotenv import load_dotenv
 
-print("✅ Basic imports successful", file=sys.stderr, flush=True)
+print("✅ Basic Flask imports successful", file=sys.stderr, flush=True)
 
-# Загружаем переменные окружения
-load_dotenv()
+# Создаем минимальный app СРАЗУ - ДО любых других импортов
+# Это гарантирует, что gunicorn всегда найдет переменную app
+print("🔵 Creating minimal app IMMEDIATELY...", file=sys.stderr, flush=True)
+app = Flask(__name__)
+app.config['SECRET_KEY'] = os.getenv('APP_SECRET_KEY', 'dev-secret-key')
+CORS(app, resources={r"/*": {"origins": "*"}})
 
-# Создаем минимальный app СРАЗУ, чтобы gunicorn мог его найти даже при ошибках импорта
-print("🔵 Creating minimal app for gunicorn...", file=sys.stderr, flush=True)
-_minimal_app = Flask(__name__)
-_minimal_app.config['SECRET_KEY'] = os.getenv('APP_SECRET_KEY', 'dev-secret-key')
-CORS(_minimal_app, resources={r"/*": {"origins": "*"}})
-
-@_minimal_app.route('/health')
+@app.route('/health')
 def health_minimal():
     return {'status': 'loading', 'message': 'App is initializing...'}, 200
 
-@_minimal_app.route('/api/v1/auth/login', methods=['OPTIONS', 'POST'])
+@app.route('/api/v1/auth/login', methods=['OPTIONS', 'POST'])
 def login_minimal():
     if request.method == 'OPTIONS':
         response = jsonify({})
@@ -46,7 +39,20 @@ def login_minimal():
         return response, 200
     return {'error': 'App is still initializing', 'message': 'Please wait and try again'}, 503
 
-print("✅ Minimal app created", file=sys.stderr, flush=True)
+print("✅ Minimal app created - gunicorn can find it now", file=sys.stderr, flush=True)
+
+# Теперь импортируем остальное
+import asyncio
+import logging
+import threading
+from datetime import datetime
+from flask_jwt_extended import JWTManager
+from dotenv import load_dotenv
+
+print("✅ Additional imports successful", file=sys.stderr, flush=True)
+
+# Загружаем переменные окружения
+load_dotenv()
 
 print("🔵 Loading app modules...", file=sys.stderr, flush=True)
 
@@ -444,26 +450,27 @@ except Exception as e:
     logger.warning("⚠️ Continuing without database - app will fail on first request")
     print(f"❌ Database initialization failed: {e}", file=sys.stderr, flush=True)
 
-# Создаем приложение - ВСЕГДА, даже при ошибках
-print("🔵 Creating Flask app...", file=sys.stderr, flush=True)
+# Создаем полное приложение - если импорты успешны
+print("🔵 Creating full Flask app...", file=sys.stderr, flush=True)
 
-# Если импорты не удались, используем минимальный app
+# Если импорты не удались, оставляем минимальный app (уже создан выше)
 if not _modules_imported:
     print("⚠️ Using minimal app due to import errors", file=sys.stderr, flush=True)
-    app = _minimal_app
+    print(f"✅ Final app variable type: {type(app)} (minimal)", file=sys.stderr, flush=True)
 else:
-    # Пытаемся создать полный app
+    # Пытаемся создать полный app, заменяя минимальный
     try:
-        app = create_app()
+        full_app = create_app()
+        # Заменяем минимальный app на полный
+        app = full_app
         print("✅ Flask app created successfully!", file=sys.stderr, flush=True)
-        print(f"✅ app variable type: {type(app)}", file=sys.stderr, flush=True)
+        print(f"✅ app variable type: {type(app)} (full)", file=sys.stderr, flush=True)
     except Exception as e:
-        print(f"❌ Failed to create app: {e}", file=sys.stderr, flush=True)
+        print(f"❌ Failed to create full app: {e}", file=sys.stderr, flush=True)
         import traceback
         traceback.print_exc(file=sys.stderr)
-        # Используем минимальный app
+        # Оставляем минимальный app (уже создан выше)
         print("⚠️ Using minimal app due to creation errors", file=sys.stderr, flush=True)
-        app = _minimal_app
         
         # Обновляем health endpoint с информацией об ошибке
         @app.route('/health')
@@ -479,13 +486,8 @@ else:
                 response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
                 return response, 200
             return {'error': 'App initialization failed', 'message': str(e)}, 500
-
-# Убеждаемся, что app всегда существует
-if 'app' not in globals():
-    print("⚠️ app variable not found, using minimal app", file=sys.stderr, flush=True)
-    app = _minimal_app
-
-print(f"✅ Final app variable type: {type(app)}", file=sys.stderr, flush=True)
+        
+        print(f"✅ Final app variable type: {type(app)} (minimal with error)", file=sys.stderr, flush=True)
 
 # Инициализируем оркестратор при запуске
 if __name__ == '__main__':
