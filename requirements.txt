@@ -88,3 +88,6 @@ psycopg2-binary>=2.9.0
 
 # Database migrations
 alembic>=1.12.0
+
+# Production WSGI Server
+gunicorn>=21.2.0

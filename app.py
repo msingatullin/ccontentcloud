@@ -7,6 +7,7 @@ AI Content Orchestrator - Flask Application
 import os
 import asyncio
 import logging
+import threading
 from datetime import datetime
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -422,12 +423,25 @@ else:
     from app.database.connection import init_database
     init_database()
     logger.info("✅ Database initialized")
-    
-    if not DISABLE_AGENTS:
-        logger.info("Инициализация агентов включена (production mode)")
-        run_initialization()
-    else:
-        logger.warning("⚠️ AGENTS DISABLED: Система работает БЕЗ агентов (DISABLE_AGENTS=true)")
-    
-    # Запускаем background workers
-    start_workers()
+
+    # Запускаем инициализацию агентов и workers в фоновом потоке
+    # Это позволяет Flask серверу быстро запуститься и отвечать на health checks
+    def background_init():
+        """Фоновая инициализация агентов и workers"""
+        try:
+            if not DISABLE_AGENTS:
+                logger.info("Инициализация агентов включена (production mode)")
+                run_initialization()
+            else:
+                logger.warning("⚠️ AGENTS DISABLED: Система работает БЕЗ агентов (DISABLE_AGENTS=true)")
+
+            # Запускаем background workers
+            start_workers()
+            logger.info("✅ Background initialization completed")
+        except Exception as e:
+            logger.error(f"❌ Background initialization failed: {e}", exc_info=True)
+
+    # Запускаем фоновую инициализацию в отдельном потоке
+    init_thread = threading.Thread(target=background_init, daemon=True)
+    init_thread.start()
+    logger.info("🚀 Background initialization started in separate thread")
