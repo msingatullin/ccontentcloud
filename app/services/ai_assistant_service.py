@@ -153,6 +153,13 @@ class AIAssistantService:
             
             url = resource_content.get('url', '')
             
+            # Для Telegram каналов контент может быть минимальным - добавляем специальную обработку
+            if resource_type == 'telegram' and (not content or content.startswith('Telegram канал:')):
+                # Извлекаем username из URL
+                channel_username = url.split('/')[-1].replace('@', '')
+                content = f"Telegram канал: {channel_username}. Для полного анализа необходимо получить посты из канала. Проанализируй на основе названия канала и URL."
+                logger.info(f"Telegram канал с минимальным контентом: {url}, username: {channel_username}")
+            
             prompt = f"""
 Проанализируй этот ресурс и извлеки информацию для создания контента в социальных сетях.
 

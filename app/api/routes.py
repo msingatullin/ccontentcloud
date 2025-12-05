@@ -3791,24 +3791,52 @@ class AnalyzeLinks(Resource):
                     resource_type = 'telegram'
                     resource_content = asyncio.run(service.fetch_resource_content(telegram_link, resource_type))
                     
+                    logger.info(f"📥 Получен контент для Telegram {telegram_link}: {resource_content}")
+                    
                     if not resource_content.get('error'):
                         analysis = asyncio.run(
                             service.analyze_for_project_settings(resource_content, resource_type)
                         )
+                        logger.info(f"📊 Результат анализа Telegram {telegram_link}: {analysis}")
+                        
+                        # Если анализ вернул пустой словарь или None, создаем базовую структуру
+                        if not analysis or (isinstance(analysis, dict) and not any(analysis.values())):
+                            logger.warning(f"⚠️ Анализ Telegram {telegram_link} вернул пустой результат, создаем базовую структуру")
+                            # Извлекаем username из ссылки (например, t.me/channelname -> channelname)
+                            channel_username = telegram_link.split('/')[-1].replace('@', '')
+                            analysis = {
+                                'product_service': f'Telegram канал: {channel_username}',
+                                'target_audience': 'Аудитория Telegram канала',
+                                'pain_points': [],
+                                'tone': 'friendly',
+                                'cta': 'Подписаться на канал',
+                                'keywords': [channel_username],
+                                'hashtags': [],
+                                'brand_name': channel_username,
+                                'brand_description': f'Telegram канал {channel_username}',
+                                'insights': [
+                                    'Для полного анализа необходимо получить посты из канала',
+                                    'Рекомендуется указать сайт для более точного анализа'
+                                ]
+                            }
+                        
                         if analysis:
                             all_analyses.append(analysis)
-                            logger.info(f"✅ Telegram канал {telegram_link} проанализирован")
+                            logger.info(f"✅ Telegram канал {telegram_link} проанализирован, добавлен в результаты")
                     else:
                         logger.warning(f"⚠️ Ошибка получения контента из Telegram {telegram_link}: {resource_content.get('error')}")
                 except Exception as e:
-                    logger.error(f"Ошибка анализа Telegram канала {telegram_link}: {e}")
+                    logger.error(f"Ошибка анализа Telegram канала {telegram_link}: {e}", exc_info=True)
             
             # Объединяем результаты анализа
             if not all_analyses:
+                logger.warning("⚠️ Не удалось проанализировать ни один ресурс")
                 return {
                     'success': False,
                     'error': 'Не удалось проанализировать ни один ресурс'
                 }, 400
+            
+            logger.info(f"📋 Всего анализов для объединения: {len(all_analyses)}")
             
             # Объединяем результаты: берем уникальные значения, объединяем массивы
             merged_result = {
