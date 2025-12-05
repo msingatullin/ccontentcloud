@@ -49,4 +49,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:${PORT:-8080}/health || exit 1
 
 # Запускаем приложение через gunicorn
-CMD ["gunicorn", "--config", "gunicorn.conf.py", "app:app"]
+# Используем main.py вместо app.py, чтобы избежать конфликта с директорией app/
+CMD ["gunicorn", "--config", "gunicorn.conf.py", "main:app"]
