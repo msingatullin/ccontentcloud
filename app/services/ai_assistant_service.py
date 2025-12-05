@@ -7,6 +7,7 @@ import logging
 import json
 import requests
 import re
+from html import unescape
 from typing import Dict, Optional, Any, List
 from openai import AsyncOpenAI
 import os
@@ -113,27 +114,57 @@ class AIAssistantService:
             # Метод 2: Если JSON не сработал, парсим HTML напрямую
             if not posts:
                 # Ищем div с сообщениями - Telegram использует класс tgme_widget_message_text
+                # Улучшенный паттерн: ищем полную структуру сообщения
                 post_pattern = r'<div[^>]*class="[^"]*tgme_widget_message_text[^"]*"[^>]*>(.*?)</div>'
                 post_matches = re.findall(post_pattern, html, re.DOTALL | re.IGNORECASE)
+                
+                logger.info(f"Найдено {len(post_matches)} совпадений по паттерну tgme_widget_message_text")
                 
                 for match in post_matches[:max_posts]:
                     # Очищаем от HTML тегов
                     text = re.sub(r'<[^>]+>', '', match)
-                    text = text.replace('&nbsp;', ' ').replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>')
+                    # Декодируем HTML entities
+                    text = unescape(text)
+                    # Заменяем множественные пробелы на один
                     text = re.sub(r'\s+', ' ', text).strip()
+                    # Убираем пустые строки и очень короткие тексты
                     if text and len(text) > 10:  # Минимум 10 символов
                         posts.append(text)
+                        logger.debug(f"Извлечен пост длиной {len(text)} символов: {text[:100]}...")
             
             # Метод 3: Альтернативный паттерн - ищем структуру с data-post
             if not posts:
+                logger.info("Пробуем альтернативный паттерн data-post")
                 post_pattern = r'data-post="[^"]*"[^>]*>.*?<div[^>]*class="[^"]*message[^"]*"[^>]*>(.*?)</div>'
                 post_matches = re.findall(post_pattern, html, re.DOTALL | re.IGNORECASE)
                 
+                logger.info(f"Найдено {len(post_matches)} совпадений по паттерну data-post")
+                
                 for match in post_matches[:max_posts]:
                     text = re.sub(r'<[^>]+>', '', match)
+                    text = unescape(text)
                     text = re.sub(r'\s+', ' ', text).strip()
                     if text and len(text) > 10:
                         posts.append(text)
+            
+            # Метод 4: Если ничего не нашли, пробуем более широкий поиск
+            if not posts:
+                logger.warning("Стандартные паттерны не сработали, пробуем широкий поиск")
+                # Ищем любые div с классом содержащим "message"
+                wide_pattern = r'<div[^>]*class="[^"]*message[^"]*"[^>]*>(.*?)</div>'
+                wide_matches = re.findall(wide_pattern, html, re.DOTALL | re.IGNORECASE)
+                
+                logger.info(f"Найдено {len(wide_matches)} совпадений по широкому паттерну")
+                
+                for match in wide_matches[:max_posts * 2]:  # Берем больше, потом отфильтруем
+                    text = re.sub(r'<[^>]+>', '', match)
+                    text = unescape(text)
+                    text = re.sub(r'\s+', ' ', text).strip()
+                    # Более строгая фильтрация для широкого поиска
+                    if text and len(text) > 50:  # Минимум 50 символов для широкого поиска
+                        posts.append(text)
+                        if len(posts) >= max_posts:
+                            break
             
             logger.info(f"✅ Извлечено {len(posts)} постов из канала {username}")
             return posts[:max_posts]
