@@ -26,50 +26,82 @@ print("✅ Basic imports successful", file=sys.stderr, flush=True)
 # Загружаем переменные окружения
 load_dotenv()
 
+# Создаем минимальный app СРАЗУ, чтобы gunicorn мог его найти даже при ошибках импорта
+print("🔵 Creating minimal app for gunicorn...", file=sys.stderr, flush=True)
+_minimal_app = Flask(__name__)
+_minimal_app.config['SECRET_KEY'] = os.getenv('APP_SECRET_KEY', 'dev-secret-key')
+CORS(_minimal_app, resources={r"/*": {"origins": "*"}})
+
+@_minimal_app.route('/health')
+def health_minimal():
+    return {'status': 'loading', 'message': 'App is initializing...'}, 200
+
+@_minimal_app.route('/api/v1/auth/login', methods=['OPTIONS', 'POST'])
+def login_minimal():
+    if request.method == 'OPTIONS':
+        response = jsonify({})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        return response, 200
+    return {'error': 'App is still initializing', 'message': 'Please wait and try again'}, 503
+
+print("✅ Minimal app created", file=sys.stderr, flush=True)
+
 print("🔵 Loading app modules...", file=sys.stderr, flush=True)
 
-# Импортируем наши модули
-from app.orchestrator.main_orchestrator import orchestrator  # Singleton для старых эндпоинтов
-from app.agents.chief_agent import ChiefContentAgent
-from app.agents.drafting_agent import DraftingAgent
-from app.agents.publisher_agent import PublisherAgent
-from app.agents.research_factcheck_agent import ResearchFactCheckAgent
-from app.agents.trends_scout_agent import TrendsScoutAgent
-from app.agents.multimedia_producer_agent import MultimediaProducerAgent
-from app.agents.legal_guard_agent import LegalGuardAgent
-from app.agents.repurpose_agent import RepurposeAgent
-from app.agents.community_concierge_agent import CommunityConciergeAgent
-from app.agents.paid_creative_agent import PaidCreativeAgent
-from app.billing.api.billing_routes import billing_bp
-from app.billing.webhooks.yookassa_webhook import webhook_bp
-from app.billing.middleware.usage_middleware import UsageMiddleware
-from app.routes.telegram_channels import bp as telegram_channels_bp
-from app.routes.instagram_accounts import bp as instagram_accounts_bp
-from app.routes.twitter_accounts import bp as twitter_accounts_bp
-from app.routes.social_media_accounts import bp as social_media_accounts_bp
-# from app.auth.routes.auth import init_auth_routes, auth_bp  # Не используем Flask Blueprint
-from app.auth.models.user import User, UserSession
-from app.database.connection import init_database, get_db_session
-from app.api.schemas import (
-    ContentRequestSchema, 
-    ContentResponseSchema,
-    WorkflowStatusSchema,
-    AgentStatusSchema,
-    ErrorResponseSchema
-)
-from app.api.routes import api, auth_ns, billing_ns, webhook_ns, health_ns, ai_ns
-from app.api.social_media_ns import social_media_ns
-from app.api.telegram_ns import telegram_ns
-from app.api.instagram_ns import instagram_ns
-from app.api.twitter_ns import twitter_ns
-from app.api.scheduled_posts_ns import scheduled_posts_ns
-from app.api.auto_posting_ns import auto_posting_ns
-from app.api.projects_ns import projects_ns
-from app.api.content_sources_ns import content_sources_ns
-from app.api.ai_assistant_ns import ai_assistant_ns
-from app.api.swagger_config import create_swagger_api
-from app.workers import ScheduledPostsWorker, AutoPostingWorker
-from app.workers.web_crawler_worker import WebCrawlerWorker
+# Импортируем наши модули с обработкой ошибок
+_modules_imported = False
+try:
+    from app.orchestrator.main_orchestrator import orchestrator  # Singleton для старых эндпоинтов
+    from app.agents.chief_agent import ChiefContentAgent
+    from app.agents.drafting_agent import DraftingAgent
+    from app.agents.publisher_agent import PublisherAgent
+    from app.agents.research_factcheck_agent import ResearchFactCheckAgent
+    from app.agents.trends_scout_agent import TrendsScoutAgent
+    from app.agents.multimedia_producer_agent import MultimediaProducerAgent
+    from app.agents.legal_guard_agent import LegalGuardAgent
+    from app.agents.repurpose_agent import RepurposeAgent
+    from app.agents.community_concierge_agent import CommunityConciergeAgent
+    from app.agents.paid_creative_agent import PaidCreativeAgent
+    from app.billing.api.billing_routes import billing_bp
+    from app.billing.webhooks.yookassa_webhook import webhook_bp
+    from app.billing.middleware.usage_middleware import UsageMiddleware
+    from app.routes.telegram_channels import bp as telegram_channels_bp
+    from app.routes.instagram_accounts import bp as instagram_accounts_bp
+    from app.routes.twitter_accounts import bp as twitter_accounts_bp
+    from app.routes.social_media_accounts import bp as social_media_accounts_bp
+    # from app.auth.routes.auth import init_auth_routes, auth_bp  # Не используем Flask Blueprint
+    from app.auth.models.user import User, UserSession
+    from app.database.connection import init_database, get_db_session
+    from app.api.schemas import (
+        ContentRequestSchema, 
+        ContentResponseSchema,
+        WorkflowStatusSchema,
+        AgentStatusSchema,
+        ErrorResponseSchema
+    )
+    from app.api.routes import api, auth_ns, billing_ns, webhook_ns, health_ns, ai_ns
+    from app.api.social_media_ns import social_media_ns
+    from app.api.telegram_ns import telegram_ns
+    from app.api.instagram_ns import instagram_ns
+    from app.api.twitter_ns import twitter_ns
+    from app.api.scheduled_posts_ns import scheduled_posts_ns
+    from app.api.auto_posting_ns import auto_posting_ns
+    from app.api.projects_ns import projects_ns
+    from app.api.content_sources_ns import content_sources_ns
+    from app.api.ai_assistant_ns import ai_assistant_ns
+    from app.api.swagger_config import create_swagger_api
+    from app.workers import ScheduledPostsWorker, AutoPostingWorker
+    from app.workers.web_crawler_worker import WebCrawlerWorker
+    
+    _modules_imported = True
+    print("✅ All app modules imported successfully", file=sys.stderr, flush=True)
+except Exception as e:
+    print(f"❌ Error importing app modules: {e}", file=sys.stderr, flush=True)
+    import traceback
+    traceback.print_exc(file=sys.stderr)
+    print("⚠️ Will use minimal app due to import errors", file=sys.stderr, flush=True)
 
 # Настройка логирования
 logging.basicConfig(
@@ -77,8 +109,6 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
-
-print("✅ All app modules imported successfully", file=sys.stderr, flush=True)
 
 def create_app():
     """Создает и настраивает Flask приложение"""
@@ -416,37 +446,46 @@ except Exception as e:
 
 # Создаем приложение - ВСЕГДА, даже при ошибках
 print("🔵 Creating Flask app...", file=sys.stderr, flush=True)
-try:
-    app = create_app()
-    print("✅ Flask app created successfully!", file=sys.stderr, flush=True)
-    print(f"✅ app variable type: {type(app)}", file=sys.stderr, flush=True)
-except Exception as e:
-    print(f"❌ Failed to create app: {e}", file=sys.stderr, flush=True)
-    import traceback
-    traceback.print_exc(file=sys.stderr)
-    # Создаем минимальный app для gunicorn, чтобы он мог запуститься
-    print("⚠️ Creating fallback app for gunicorn...", file=sys.stderr, flush=True)
-    app = Flask(__name__)
-    app.config['SECRET_KEY'] = os.getenv('APP_SECRET_KEY', 'dev-secret-key')
-    
-    # Минимальный CORS для fallback app
-    CORS(app, resources={r"/*": {"origins": "*"}})
-    
-    @app.route('/health')
-    def health():
-        return {'status': 'error', 'message': f'App creation failed: {str(e)}'}, 500
-    
-    @app.route('/api/v1/auth/login', methods=['OPTIONS', 'POST'])
-    def login_fallback():
-        if request.method == 'OPTIONS':
-            response = jsonify({})
-            response.headers.add('Access-Control-Allow-Origin', '*')
-            response.headers.add('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-            response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-            return response, 200
-        return {'error': 'App initialization failed', 'message': str(e)}, 500
-    
-    print("⚠️ Fallback app created - app will not work properly", file=sys.stderr, flush=True)
+
+# Если импорты не удались, используем минимальный app
+if not _modules_imported:
+    print("⚠️ Using minimal app due to import errors", file=sys.stderr, flush=True)
+    app = _minimal_app
+else:
+    # Пытаемся создать полный app
+    try:
+        app = create_app()
+        print("✅ Flask app created successfully!", file=sys.stderr, flush=True)
+        print(f"✅ app variable type: {type(app)}", file=sys.stderr, flush=True)
+    except Exception as e:
+        print(f"❌ Failed to create app: {e}", file=sys.stderr, flush=True)
+        import traceback
+        traceback.print_exc(file=sys.stderr)
+        # Используем минимальный app
+        print("⚠️ Using minimal app due to creation errors", file=sys.stderr, flush=True)
+        app = _minimal_app
+        
+        # Обновляем health endpoint с информацией об ошибке
+        @app.route('/health')
+        def health_error():
+            return {'status': 'error', 'message': f'App creation failed: {str(e)}'}, 500
+        
+        @app.route('/api/v1/auth/login', methods=['OPTIONS', 'POST'])
+        def login_error():
+            if request.method == 'OPTIONS':
+                response = jsonify({})
+                response.headers.add('Access-Control-Allow-Origin', '*')
+                response.headers.add('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+                response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+                return response, 200
+            return {'error': 'App initialization failed', 'message': str(e)}, 500
+
+# Убеждаемся, что app всегда существует
+if 'app' not in globals():
+    print("⚠️ app variable not found, using minimal app", file=sys.stderr, flush=True)
+    app = _minimal_app
+
+print(f"✅ Final app variable type: {type(app)}", file=sys.stderr, flush=True)
 
 # Инициализируем оркестратор при запуске
 if __name__ == '__main__':
