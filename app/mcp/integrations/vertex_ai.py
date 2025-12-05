@@ -43,8 +43,26 @@ class VertexAIMCP(BaseMCPIntegration):
         
         self.project_id = config.custom_params.get('project_id') or os.getenv('GOOGLE_CLOUD_PROJECT')
         self.location = config.custom_params.get('location', 'us-central1')
-        self.gemini_model = config.custom_params.get('gemini_model', 'gemini-1.5-pro')
-        self.imagen_model = config.custom_params.get('imagen_model', 'imagegeneration@006')
+        
+        # Валидация и установка Gemini модели
+        gemini_model_env = config.custom_params.get('gemini_model', 'gemini-1.5-pro')
+        # Поддерживаемые модели Gemini
+        valid_gemini_models = ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-2.0-flash-exp', 
+                              'gemini-2.0-flash-thinking-exp', 'gemini-2.0-flash']
+        if gemini_model_env in valid_gemini_models or gemini_model_env.startswith('gemini-'):
+            self.gemini_model = gemini_model_env
+        else:
+            logger.warning(f"Неизвестная модель Gemini: {gemini_model_env}. Используем gemini-1.5-pro")
+            self.gemini_model = 'gemini-1.5-pro'
+        
+        # Валидация и установка Imagen модели
+        imagen_model_env = config.custom_params.get('imagen_model', 'imagegeneration@006')
+        # Валидация: Imagen модели должны начинаться с imagegeneration@
+        if imagen_model_env.startswith('imagegeneration@'):
+            self.imagen_model = imagen_model_env
+        else:
+            logger.warning(f"Неправильная модель Imagen: {imagen_model_env}. Используем imagegeneration@006")
+            self.imagen_model = 'imagegeneration@006'
         
         if not VERTEX_AI_AVAILABLE:
             logger.warning("Vertex AI SDK недоступен. Установите: pip install google-cloud-aiplatform")
@@ -115,8 +133,16 @@ class VertexAIMCP(BaseMCPIntegration):
                 )
             )
         
-        try:
-            model = GenerativeModel(self.gemini_model)
+        # Список моделей для fallback (от новой к старой)
+        gemini_models = [self.gemini_model, 'gemini-2.0-flash-exp', 'gemini-1.5-pro', 'gemini-1.5-flash']
+        # Убираем дубликаты, сохраняя порядок
+        gemini_models = list(dict.fromkeys(gemini_models))
+        
+        last_error = None
+        for model_name in gemini_models:
+            try:
+                logger.info(f"Попытка генерации текста через Gemini модель: {model_name}")
+                model = GenerativeModel(model_name)
             
             # Параметры генерации
             generation_config = {
@@ -152,27 +178,34 @@ class VertexAIMCP(BaseMCPIntegration):
                 logger.warning(f"Vertex AI вернул слишком короткий или пустой текст: '{generated_text}'")
                 generated_text = ""
             
-            return MCPResponse.success_response(
-                data={
-                    "generated_text": generated_text,
-                    "model": self.gemini_model
-                },
-                metadata={
-                    "model": self.gemini_model,
-                    "prompt_length": len(prompt),
-                    "response_length": len(generated_text)
-                }
-            )
-            
-        except Exception as e:
-            logger.error(f"Ошибка генерации текста через Gemini: {e}")
-            return MCPResponse.error_response(
-                MCPError(
-                    service='vertex_ai',
-                    error_type='generation_error',
-                    message=f"Ошибка генерации: {str(e)}"
+                logger.info(f"✅ Текст успешно сгенерирован через модель {model_name}")
+                return MCPResponse.success_response(
+                    data={
+                        "generated_text": generated_text,
+                        "model": model_name
+                    },
+                    metadata={
+                        "model": model_name,
+                        "prompt_length": len(prompt),
+                        "response_length": len(generated_text)
+                    }
                 )
+                
+            except Exception as e:
+                last_error = e
+                logger.warning(f"Ошибка генерации через модель {model_name}: {e}")
+                # Пробуем следующую модель
+                continue
+        
+        # Если все модели не сработали
+        logger.error(f"Все модели Gemini недоступны. Последняя ошибка: {last_error}")
+        return MCPResponse.error_response(
+            MCPError(
+                service='vertex_ai',
+                error_type='generation_error',
+                message=f"Ошибка генерации: {str(last_error)}. Все модели Gemini недоступны."
             )
+        )
     
     async def generate_image(self, prompt: str, **kwargs) -> MCPResponse:
         """Генерация изображения через Imagen"""

@@ -222,7 +222,7 @@ class MCPConfigManager:
                 'project_id': os.getenv('GOOGLE_CLOUD_PROJECT'),
                 'location': os.getenv('VERTEX_AI_LOCATION', 'us-central1'),
                 'gemini_model': os.getenv('VERTEX_AI_GEMINI_MODEL', 'gemini-1.5-pro'),
-                'imagen_model': os.getenv('VERTEX_AI_IMAGEN_MODEL', 'imagegeneration@006')
+                'imagen_model': os.getenv('VERTEX_AI_IMAGEN_MODEL', 'imagegeneration@007')  # Используем @007 как дефолт (новая версия)
             }
         )
     
