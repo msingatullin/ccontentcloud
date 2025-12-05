@@ -44,12 +44,20 @@ class VertexAIMCP(BaseMCPIntegration):
         self.project_id = config.custom_params.get('project_id') or os.getenv('GOOGLE_CLOUD_PROJECT')
         self.location = config.custom_params.get('location', 'us-central1')
         
-        # Валидация и установка Gemini модели
+        # Валидация и настройка Gemini модели
         gemini_model_env = config.custom_params.get('gemini_model', 'gemini-1.5-pro')
-        # Поддерживаемые модели Gemini
-        valid_gemini_models = ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-2.0-flash-exp', 
-                              'gemini-2.0-flash-thinking-exp', 'gemini-2.0-flash']
-        if gemini_model_env in valid_gemini_models or gemini_model_env.startswith('gemini-'):
+        # Поддерживаемые модели Gemini: gemini-1.5-pro, gemini-1.5-flash, gemini-2.0-flash-exp
+        # Если указана неправильная модель, пробуем исправить или используем fallback
+        valid_gemini_models = ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-2.0-flash-exp', 'gemini-2.0-flash-thinking-exp']
+        if gemini_model_env in valid_gemini_models:
+            self.gemini_model = gemini_model_env
+        elif 'gemini-2.0-flash' in gemini_model_env.lower() and gemini_model_env != 'gemini-2.0-flash-exp':
+            # Если указано gemini-2.0-flash без -exp, пробуем с -exp (более стабильная версия)
+            logger.info(f"Модель {gemini_model_env} не найдена в списке, пробуем gemini-2.0-flash-exp")
+            self.gemini_model = 'gemini-2.0-flash-exp'
+        elif gemini_model_env.startswith('gemini-'):
+            # Если это какая-то другая модель Gemini, используем как есть (может быть экспериментальная)
+            logger.info(f"Используем модель Gemini: {gemini_model_env}")
             self.gemini_model = gemini_model_env
         else:
             logger.warning(f"Неизвестная модель Gemini: {gemini_model_env}. Используем gemini-1.5-pro")
@@ -218,66 +226,81 @@ class VertexAIMCP(BaseMCPIntegration):
                 )
             )
         
-        try:
-            model = ImageGenerationModel.from_pretrained(self.imagen_model)
-            
-            # Параметры генерации
-            number_of_images = kwargs.get('n', 1)
-            negative_prompt = kwargs.get('negative_prompt', '')
-            seed = kwargs.get('seed', None)
-            guidance_scale = kwargs.get('guidance_scale', 7.5)
-            
-            # Размер изображения
-            width = kwargs.get('width', 1024)
-            height = kwargs.get('height', 1024)
-            
-            images = model.generate_images(
-                prompt=prompt,
-                number_of_images=number_of_images,
-                negative_prompt=negative_prompt if negative_prompt else None,
-                seed=seed,
-                guidance_scale=guidance_scale,
-                aspect_ratio=f"{width}:{height}"
-            )
-            
-            # Конвертируем изображения в base64
-            image_data_list = []
-            for image in images:
-                # Сохраняем во временный файл и читаем как bytes
-                import tempfile
-                with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp_file:
-                    image.save(tmp_file.name)
-                    with open(tmp_file.name, 'rb') as f:
-                        image_bytes = f.read()
-                    os.unlink(tmp_file.name)
+        # Список моделей для fallback (от новой к старой)
+        imagen_models = [self.imagen_model, 'imagegeneration@007', 'imagegeneration@006']
+        # Убираем дубликаты, сохраняя порядок
+        imagen_models = list(dict.fromkeys(imagen_models))
+        
+        last_error = None
+        for model_name in imagen_models:
+            try:
+                logger.info(f"Попытка генерации изображения через Imagen модель: {model_name}")
+                model = ImageGenerationModel.from_pretrained(model_name)
                 
-                image_data_list.append({
-                    "image_data": base64.b64encode(image_bytes).decode('utf-8'),
-                    "format": "png"
-                })
-            
-            return MCPResponse.success_response(
-                data={
-                    "images": image_data_list,
-                    "model": self.imagen_model,
-                    "count": len(image_data_list)
-                },
-                metadata={
-                    "model": self.imagen_model,
-                    "prompt": prompt[:100],
-                    "number_of_images": number_of_images
-                }
-            )
-            
-        except Exception as e:
-            logger.error(f"Ошибка генерации изображения через Imagen: {e}")
-            return MCPResponse.error_response(
-                MCPError(
-                    service='vertex_ai',
-                    error_type='generation_error',
-                    message=f"Ошибка генерации изображения: {str(e)}"
+                # Параметры генерации
+                number_of_images = kwargs.get('n', 1)
+                negative_prompt = kwargs.get('negative_prompt', '')
+                seed = kwargs.get('seed', None)
+                guidance_scale = kwargs.get('guidance_scale', 7.5)
+                
+                # Размер изображения
+                width = kwargs.get('width', 1024)
+                height = kwargs.get('height', 1024)
+                
+                images = model.generate_images(
+                    prompt=prompt,
+                    number_of_images=number_of_images,
+                    negative_prompt=negative_prompt if negative_prompt else None,
+                    seed=seed,
+                    guidance_scale=guidance_scale,
+                    aspect_ratio=f"{width}:{height}"
                 )
+                
+                # Конвертируем изображения в base64
+                image_data_list = []
+                for image in images:
+                    # Сохраняем во временный файл и читаем как bytes
+                    import tempfile
+                    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp_file:
+                        image.save(tmp_file.name)
+                        with open(tmp_file.name, 'rb') as f:
+                            image_bytes = f.read()
+                        os.unlink(tmp_file.name)
+                    
+                    image_data_list.append({
+                        "image_data": base64.b64encode(image_bytes).decode('utf-8'),
+                        "format": "png"
+                    })
+                
+                logger.info(f"✅ Изображение успешно сгенерировано через модель {model_name}")
+                return MCPResponse.success_response(
+                    data={
+                        "images": image_data_list,
+                        "model": model_name,
+                        "count": len(image_data_list)
+                    },
+                    metadata={
+                        "model": model_name,
+                        "prompt": prompt[:100],
+                        "number_of_images": number_of_images
+                    }
+                )
+                
+            except Exception as e:
+                last_error = e
+                logger.warning(f"Ошибка генерации через модель {model_name}: {e}")
+                # Пробуем следующую модель
+                continue
+        
+        # Если все модели не сработали
+        logger.error(f"Все модели Imagen недоступны. Последняя ошибка: {last_error}")
+        return MCPResponse.error_response(
+            MCPError(
+                service='vertex_ai',
+                error_type='generation_error',
+                message=f"Ошибка генерации изображения: {str(last_error)}. Все модели Imagen недоступны."
             )
+        )
     
     async def generate_text(self, prompt: str, **kwargs) -> MCPResponse:
         """Алиас для generate_content"""
