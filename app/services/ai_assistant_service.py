@@ -273,6 +273,74 @@ class AIAssistantService:
         html = re.sub(r'\s+', ' ', html)
         return html.strip()
     
+    def _determine_business_types(self, analysis_data: Dict[str, Any]) -> List[str]:
+        """
+        Определяет типы бизнеса на основе анализа контента
+        
+        Args:
+            analysis_data: Результат анализа с полями product_service, brand_description, insights
+        
+        Returns:
+            Список ID типов бизнеса: ['product', 'service', 'personal_brand', 'company_brand']
+        """
+        business_types = []
+        
+        # Собираем весь текст для анализа
+        text_to_analyze = ""
+        if analysis_data.get('product_service'):
+            text_to_analyze += analysis_data['product_service'].lower() + " "
+        if analysis_data.get('brand_description'):
+            text_to_analyze += analysis_data['brand_description'].lower() + " "
+        if analysis_data.get('insights'):
+            insights_text = " ".join([str(insight).lower() for insight in analysis_data['insights']])
+            text_to_analyze += insights_text + " "
+        if analysis_data.get('keywords'):
+            keywords_text = " ".join([str(kw).lower() for kw in analysis_data['keywords']])
+            text_to_analyze += keywords_text + " "
+        
+        text_to_analyze = text_to_analyze.lower()
+        
+        # Ключевые слова для каждого типа
+        product_keywords = ['товар', 'продажа', 'магазин', 'купить', 'заказать товар', 'e-commerce', 
+                           'интернет-магазин', 'товары', 'продукт для продажи', 'доставка товара']
+        service_keywords = ['услуга', 'консультация', 'помощь', 'заказать услугу', 'сервис', 
+                          'услуги', 'консультирование', 'помощь в', 'оказываем услуги']
+        personal_brand_keywords = ['я', 'мой опыт', 'личный', 'эксперт', 'блогер', 'канал автора',
+                                  'мой канал', 'личный бренд', 'я рекомендую', 'мой совет',
+                                  'я считаю', 'по моему мнению', 'я думаю']
+        company_brand_keywords = ['компания', 'бренд', 'корпоратив', 'бизнес', 'аналитика', 
+                                'новости', 'корпоративный', 'компания предоставляет',
+                                'наша компания', 'бизнес-аналитика']
+        
+        # Подсчитываем совпадения
+        product_score = sum(1 for keyword in product_keywords if keyword in text_to_analyze)
+        service_score = sum(1 for keyword in service_keywords if keyword in text_to_analyze)
+        personal_score = sum(1 for keyword in personal_brand_keywords if keyword in text_to_analyze)
+        company_score = sum(1 for keyword in company_brand_keywords if keyword in text_to_analyze)
+        
+        # Определяем типы (если score > 0, добавляем тип)
+        if product_score > 0:
+            business_types.append('product')
+        if service_score > 0:
+            business_types.append('service')
+        if personal_score > 0:
+            business_types.append('personal_brand')
+        if company_score > 0:
+            business_types.append('company_brand')
+        
+        # Если ничего не определили, используем дефолт
+        if not business_types:
+            # Пытаемся определить по контексту
+            if 'канал' in text_to_analyze or 'telegram' in text_to_analyze:
+                # Для Telegram каналов чаще всего personal_brand или company_brand
+                business_types.append('personal_brand')
+            else:
+                # Дефолт для остальных случаев
+                business_types.append('company_brand')
+        
+        logger.info(f"Определены типы бизнеса: {business_types} (scores: product={product_score}, service={service_score}, personal={personal_score}, company={company_score})")
+        return business_types
+    
     async def analyze_for_project_settings(
         self,
         resource_content: Dict[str, Any],
@@ -288,6 +356,7 @@ class AIAssistantService:
         - Стиль контента
         - CTA
         - Ключевые слова
+        - Типы бизнеса
         """
         if not self.openai_client:
             logger.warning("OpenAI client not available, returning empty analysis")
@@ -357,7 +426,12 @@ URL: {url}
             )
             
             result = json.loads(response.choices[0].message.content)
-            logger.info(f"Успешно проанализирован ресурс {url}")
+            
+            # Определяем типы бизнеса на основе анализа
+            suggested_business_types = self._determine_business_types(result)
+            result['suggestedBusinessTypes'] = suggested_business_types
+            
+            logger.info(f"Успешно проанализирован ресурс {url}, определены типы бизнеса: {suggested_business_types}")
             return result
             
         except json.JSONDecodeError as e:

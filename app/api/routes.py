@@ -3848,7 +3848,8 @@ class AnalyzeLinks(Resource):
                 'brand_name': '',
                 'brand_description': '',
                 'insights': [],
-                'tone_profile': {}
+                'tone_profile': {},
+                'suggestedBusinessTypes': []
             }
             
             # Объединяем текстовые поля (берем первое непустое значение)
@@ -3879,12 +3880,17 @@ class AnalyzeLinks(Resource):
                 # Объединяем tone_profile (берем последний непустой)
                 if analysis.get('tone_profile') and isinstance(analysis.get('tone_profile'), dict):
                     merged_result['tone_profile'] = analysis.get('tone_profile', {})
+                
+                # Объединяем suggestedBusinessTypes (уникальные значения)
+                if analysis.get('suggestedBusinessTypes') and isinstance(analysis.get('suggestedBusinessTypes'), list):
+                    merged_result['suggestedBusinessTypes'].extend(analysis.get('suggestedBusinessTypes', []))
             
             # Убираем дубликаты из массивов
             merged_result['pain_points'] = list(set(merged_result['pain_points']))[:10]  # Максимум 10
             merged_result['keywords'] = list(set(merged_result['keywords']))[:15]  # Максимум 15
             merged_result['hashtags'] = list(set(merged_result['hashtags']))[:10]  # Максимум 10
             merged_result['insights'] = list(set(merged_result['insights']))[:10]  # Максимум 10
+            merged_result['suggestedBusinessTypes'] = list(set(merged_result['suggestedBusinessTypes']))  # Уникальные типы бизнеса
             
             logger.info(f"📤 Финальный merged_result перед возвратом: {json.dumps(merged_result, ensure_ascii=False, indent=2)[:500]}")
             logger.info(f"📊 Размер merged_result: {len(str(merged_result))} символов")
