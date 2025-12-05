@@ -192,16 +192,10 @@ def create_app():
             response.headers.add('Access-Control-Allow-Credentials', 'true')
             response.headers.add('Access-Control-Max-Age', '3600')
             return response
-    
-    # Инициализируем базу данных
-    logger.info("Initializing database...")
-    if not init_database():
-        logger.error("Failed to initialize database")
-        raise RuntimeError("Database initialization failed")
-    
-    # Получаем сессию базы данных
-    db_session = get_db_session()
-    
+
+    # База данных инициализируется на уровне модуля (см. конец файла)
+    # чтобы не блокировать создание Flask app при импорте
+
     # Auth система инициализируется через Flask-RESTX endpoints
 
     # Создаем и регистрируем Flask-RESTX API с Swagger
@@ -390,17 +384,19 @@ def start_workers():
     except Exception as e:
         logger.error(f"❌ Ошибка запуска workers: {e}", exc_info=True)
 
+# Инициализируем базу данных перед созданием приложения
+logger.info("🔧 Initializing database...")
+from app.database.connection import init_database
+init_database()
+logger.info("✅ Database initialized")
+
 # Создаем приложение
 app = create_app()
 
 # Инициализируем оркестратор при запуске
 if __name__ == '__main__':
-    # Инициализируем базу данных
-    logger.info("🔧 Initializing database...")
-    from app.database.connection import init_database
-    init_database()
-    logger.info("✅ Database initialized")
-    
+    # База данных уже инициализирована выше на уровне модуля
+
     # Запускаем инициализацию агентов (если не отключено)
     if not DISABLE_AGENTS:
         logger.info("Инициализация агентов включена")
@@ -419,10 +415,7 @@ if __name__ == '__main__':
     app.run(host='0.0.0.0', port=port, debug=debug)
 else:
     # Для production (gunicorn)
-    logger.info("🔧 Initializing database (production mode)...")
-    from app.database.connection import init_database
-    init_database()
-    logger.info("✅ Database initialized")
+    # База данных уже инициализирована выше на уровне модуля
 
     # Запускаем инициализацию агентов и workers в фоновом потоке
     # Это позволяет Flask серверу быстро запуститься и отвечать на health checks
