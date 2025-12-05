@@ -6,7 +6,8 @@ AI Assistant Service для помощи в заполнении опросни�
 import logging
 import json
 import requests
-from typing import Dict, Optional, Any
+import re
+from typing import Dict, Optional, Any, List
 from openai import AsyncOpenAI
 import os
 
@@ -40,6 +41,110 @@ class AIAssistantService:
         else:
             return 'website'
     
+    def _parse_telegram_channel_posts(self, url: str, max_posts: int = 20) -> List[str]:
+        """
+        Парсит последние посты из публичного Telegram канала через веб-скрапинг
+        
+        Args:
+            url: URL канала (например, https://t.me/Go_Investing)
+            max_posts: Максимальное количество постов для парсинга
+        
+        Returns:
+            Список текстов постов
+        """
+        try:
+            # Извлекаем username канала из URL
+            username_match = re.search(r't\.me/([a-zA-Z0-9_]+)', url)
+            if not username_match:
+                logger.warning(f"Не удалось извлечь username из URL: {url}")
+                return []
+            
+            username = username_match.group(1)
+            channel_url = f"https://t.me/s/{username}"
+            
+            logger.info(f"Парсинг постов из Telegram канала: {channel_url}")
+            
+            # Загружаем HTML страницы канала
+            response = requests.get(channel_url, timeout=10, headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7'
+            })
+            response.raise_for_status()
+            
+            html = response.text
+            
+            # Ищем посты в HTML - Telegram использует определенную структуру
+            # Посты обычно в div с классом tgme_widget_message или в структуре с data-post
+            posts = []
+            
+            # Метод 1: Ищем JSON данные в скриптах (Telegram загружает данные через JS)
+            json_pattern = r'window\.__initialData__\s*=\s*({.+?});'
+            json_match = re.search(json_pattern, html, re.DOTALL)
+            
+            if json_match:
+                try:
+                    data = json.loads(json_match.group(1))
+                    # Извлекаем посты из JSON структуры
+                    # Структура может быть разной, пробуем разные пути
+                    messages = []
+                    if 'messages' in data:
+                        messages = data['messages']
+                    elif 'posts' in data:
+                        messages = data['posts']
+                    elif isinstance(data, dict):
+                        # Ищем вложенные структуры
+                        for key in ['messages', 'posts', 'items']:
+                            if key in data and isinstance(data[key], list):
+                                messages = data[key]
+                                break
+                    
+                    for msg in messages[:max_posts]:
+                        if isinstance(msg, dict):
+                            # Извлекаем текст поста
+                            text = msg.get('message', '') or msg.get('text', '') or msg.get('content', '')
+                            if text and text.strip():
+                                # Очищаем от HTML тегов если есть
+                                text = re.sub(r'<[^>]+>', '', text)
+                                posts.append(text.strip())
+                except (json.JSONDecodeError, KeyError, TypeError) as e:
+                    logger.warning(f"Ошибка парсинга JSON данных: {e}")
+            
+            # Метод 2: Если JSON не сработал, парсим HTML напрямую
+            if not posts:
+                # Ищем div с сообщениями - Telegram использует класс tgme_widget_message_text
+                post_pattern = r'<div[^>]*class="[^"]*tgme_widget_message_text[^"]*"[^>]*>(.*?)</div>'
+                post_matches = re.findall(post_pattern, html, re.DOTALL | re.IGNORECASE)
+                
+                for match in post_matches[:max_posts]:
+                    # Очищаем от HTML тегов
+                    text = re.sub(r'<[^>]+>', '', match)
+                    text = text.replace('&nbsp;', ' ').replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>')
+                    text = re.sub(r'\s+', ' ', text).strip()
+                    if text and len(text) > 10:  # Минимум 10 символов
+                        posts.append(text)
+            
+            # Метод 3: Альтернативный паттерн - ищем структуру с data-post
+            if not posts:
+                post_pattern = r'data-post="[^"]*"[^>]*>.*?<div[^>]*class="[^"]*message[^"]*"[^>]*>(.*?)</div>'
+                post_matches = re.findall(post_pattern, html, re.DOTALL | re.IGNORECASE)
+                
+                for match in post_matches[:max_posts]:
+                    text = re.sub(r'<[^>]+>', '', match)
+                    text = re.sub(r'\s+', ' ', text).strip()
+                    if text and len(text) > 10:
+                        posts.append(text)
+            
+            logger.info(f"✅ Извлечено {len(posts)} постов из канала {username}")
+            return posts[:max_posts]
+            
+        except requests.exceptions.RequestException as e:
+            logger.warning(f"Ошибка при загрузке Telegram канала {url}: {e}")
+            return []
+        except Exception as e:
+            logger.error(f"Ошибка парсинга Telegram канала {url}: {e}", exc_info=True)
+            return []
+    
     async def fetch_resource_content(self, url: str, resource_type: str) -> Dict[str, Any]:
         """
         Получает контент ресурса для анализа
@@ -64,12 +169,27 @@ class AIAssistantService:
                     'url': url
                 }
             elif resource_type == 'telegram':
-                # Для Telegram пока возвращаем URL (в будущем можно парсить через API)
-                return {
-                    'type': 'telegram',
-                    'url': url,
-                    'content': f'Telegram канал: {url}'
-                }
+                # Парсим посты из Telegram канала
+                posts = self._parse_telegram_channel_posts(url, max_posts=20)
+                
+                if posts:
+                    # Объединяем посты в один текст для анализа
+                    posts_text = "\n\n---\n\n".join(posts)
+                    logger.info(f"✅ Получено {len(posts)} постов из Telegram канала {url}")
+                    return {
+                        'type': 'telegram',
+                        'url': url,
+                        'content': f'Последние посты из Telegram канала:\n\n{posts_text}',
+                        'posts_count': len(posts)
+                    }
+                else:
+                    # Если не удалось получить посты, возвращаем базовую информацию
+                    logger.warning(f"⚠️ Не удалось получить посты из Telegram канала {url}, используем базовую информацию")
+                    return {
+                        'type': 'telegram',
+                        'url': url,
+                        'content': f'Telegram канал: {url}'
+                    }
             else:
                 return {
                     'type': resource_type,
