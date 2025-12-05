@@ -3695,3 +3695,179 @@ class GenerateSamplePosts(Resource):
                 'success': False,
                 'error': f'Внутренняя ошибка сервера: {str(e)}'
             }, 500
+
+
+# ==================== ANALYZE LINKS ENDPOINT ====================
+
+analyze_links_request = ai_ns.model('AnalyzeLinksRequest', {
+    'websiteUrl': fields.String(description='URL сайта (опционально)'),
+    'telegramLinks': fields.List(fields.String, description='Массив ссылок на Telegram каналы')
+})
+
+analyze_links_response = ai_ns.model('AnalyzeLinksResponse', {
+    'success': fields.Boolean,
+    'data': fields.Raw(description='Результаты анализа'),
+    'error': fields.String(description='Ошибка (если есть)')
+})
+
+analyze_links_error = ai_ns.model('AnalyzeLinksError', {
+    'success': fields.Boolean,
+    'error': fields.String
+})
+
+
+@ai_ns.route('/analyze-links')
+class AnalyzeLinks(Resource):
+    """Анализ ссылок (сайт и Telegram каналы) для автозаполнения настроек проекта"""
+    
+    @jwt_required
+    @ai_ns.doc('analyze_links', security='BearerAuth', description='Анализирует сайт и Telegram каналы для автозаполнения настроек проекта')
+    @ai_ns.expect(analyze_links_request, validate=False)
+    @ai_ns.marshal_with(analyze_links_response, code=200, description='Анализ успешно выполнен')
+    @ai_ns.marshal_with(analyze_links_error, code=400, description='Ошибка валидации')
+    @ai_ns.marshal_with(analyze_links_error, code=500, description='Внутренняя ошибка сервера')
+    def post(self, current_user):
+        """
+        Анализирует сайт и Telegram каналы для автозаполнения настроек проекта.
+        Объединяет результаты анализа всех ресурсов.
+        """
+        try:
+            from app.services.ai_assistant_service import AIAssistantService
+            import asyncio
+            
+            data = request.json or {}
+            logger.info(f"Анализ ссылок для пользователя {current_user.get('user_id')}, данные: {data}")
+            
+            website_url = data.get('websiteUrl')
+            telegram_links = data.get('telegramLinks', [])
+            
+            # Валидация: должен быть хотя бы один ресурс
+            if not website_url and not telegram_links:
+                return {
+                    'success': False,
+                    'error': 'Укажите хотя бы один ресурс: websiteUrl или telegramLinks'
+                }, 400
+            
+            # Инициализируем сервис
+            api_key = os.environ.get('OPENAI_API_KEY')
+            if not api_key:
+                return {
+                    'success': False,
+                    'error': 'OpenAI API ключ не настроен'
+                }, 500
+            
+            from openai import AsyncOpenAI
+            openai_client = AsyncOpenAI(api_key=api_key)
+            service = AIAssistantService(openai_client)
+            
+            # Собираем все результаты анализа
+            all_analyses = []
+            
+            # Анализируем сайт, если указан
+            if website_url:
+                try:
+                    resource_type = service.detect_resource_type(website_url)
+                    resource_content = asyncio.run(service.fetch_resource_content(website_url, resource_type))
+                    
+                    if not resource_content.get('error'):
+                        analysis = asyncio.run(
+                            service.analyze_for_project_settings(resource_content, resource_type)
+                        )
+                        if analysis:
+                            all_analyses.append(analysis)
+                            logger.info(f"✅ Сайт {website_url} проанализирован")
+                    else:
+                        logger.warning(f"⚠️ Ошибка получения контента с сайта {website_url}: {resource_content.get('error')}")
+                except Exception as e:
+                    logger.error(f"Ошибка анализа сайта {website_url}: {e}")
+            
+            # Анализируем Telegram каналы
+            for telegram_link in telegram_links:
+                if not telegram_link or not telegram_link.strip():
+                    continue
+                    
+                try:
+                    telegram_link = telegram_link.strip()
+                    resource_type = 'telegram'
+                    resource_content = asyncio.run(service.fetch_resource_content(telegram_link, resource_type))
+                    
+                    if not resource_content.get('error'):
+                        analysis = asyncio.run(
+                            service.analyze_for_project_settings(resource_content, resource_type)
+                        )
+                        if analysis:
+                            all_analyses.append(analysis)
+                            logger.info(f"✅ Telegram канал {telegram_link} проанализирован")
+                    else:
+                        logger.warning(f"⚠️ Ошибка получения контента из Telegram {telegram_link}: {resource_content.get('error')}")
+                except Exception as e:
+                    logger.error(f"Ошибка анализа Telegram канала {telegram_link}: {e}")
+            
+            # Объединяем результаты анализа
+            if not all_analyses:
+                return {
+                    'success': False,
+                    'error': 'Не удалось проанализировать ни один ресурс'
+                }, 400
+            
+            # Объединяем результаты: берем уникальные значения, объединяем массивы
+            merged_result = {
+                'product_service': '',
+                'target_audience': '',
+                'pain_points': [],
+                'tone': 'professional',
+                'cta': '',
+                'keywords': [],
+                'hashtags': [],
+                'brand_name': '',
+                'brand_description': '',
+                'insights': [],
+                'tone_profile': {}
+            }
+            
+            # Объединяем текстовые поля (берем первое непустое значение)
+            for analysis in all_analyses:
+                if analysis.get('product_service') and not merged_result['product_service']:
+                    merged_result['product_service'] = analysis.get('product_service', '')
+                if analysis.get('target_audience') and not merged_result['target_audience']:
+                    merged_result['target_audience'] = analysis.get('target_audience', '')
+                if analysis.get('cta') and not merged_result['cta']:
+                    merged_result['cta'] = analysis.get('cta', '')
+                if analysis.get('brand_name') and not merged_result['brand_name']:
+                    merged_result['brand_name'] = analysis.get('brand_name', '')
+                if analysis.get('brand_description') and not merged_result['brand_description']:
+                    merged_result['brand_description'] = analysis.get('brand_description', '')
+                if analysis.get('tone'):
+                    merged_result['tone'] = analysis.get('tone', 'professional')
+                
+                # Объединяем массивы (уникальные значения)
+                if analysis.get('pain_points'):
+                    merged_result['pain_points'].extend(analysis.get('pain_points', []))
+                if analysis.get('keywords'):
+                    merged_result['keywords'].extend(analysis.get('keywords', []))
+                if analysis.get('hashtags'):
+                    merged_result['hashtags'].extend(analysis.get('hashtags', []))
+                if analysis.get('insights'):
+                    merged_result['insights'].extend(analysis.get('insights', []))
+                
+                # Объединяем tone_profile (берем последний непустой)
+                if analysis.get('tone_profile') and isinstance(analysis.get('tone_profile'), dict):
+                    merged_result['tone_profile'] = analysis.get('tone_profile', {})
+            
+            # Убираем дубликаты из массивов
+            merged_result['pain_points'] = list(set(merged_result['pain_points']))[:10]  # Максимум 10
+            merged_result['keywords'] = list(set(merged_result['keywords']))[:15]  # Максимум 15
+            merged_result['hashtags'] = list(set(merged_result['hashtags']))[:10]  # Максимум 10
+            merged_result['insights'] = list(set(merged_result['insights']))[:10]  # Максимум 10
+            
+            return {
+                'success': True,
+                'data': merged_result
+            }, 200
+            
+        except Exception as e:
+            logger.error(f"Ошибка анализа ссылок: {e}", exc_info=True)
+            return {
+                'success': False,
+                'error': f'Внутренняя ошибка сервера: {str(e)}'
+            }, 500
