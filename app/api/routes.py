@@ -6,6 +6,7 @@ RESTful endpoints для работы с контентом и агентами
 
 import asyncio
 import logging
+import json
 import jwt
 import os
 from datetime import datetime, timedelta
@@ -3723,9 +3724,6 @@ class AnalyzeLinks(Resource):
     @jwt_required
     @ai_ns.doc('analyze_links', security='BearerAuth', description='Анализирует сайт и Telegram каналы для автозаполнения настроек проекта')
     @ai_ns.expect(analyze_links_request, validate=False)
-    @ai_ns.marshal_with(analyze_links_response, code=200, description='Анализ успешно выполнен')
-    @ai_ns.marshal_with(analyze_links_error, code=400, description='Ошибка валидации')
-    @ai_ns.marshal_with(analyze_links_error, code=500, description='Внутренняя ошибка сервера')
     def post(self, current_user):
         """
         Анализирует сайт и Telegram каналы для автозаполнения настроек проекта.
@@ -3888,10 +3886,17 @@ class AnalyzeLinks(Resource):
             merged_result['hashtags'] = list(set(merged_result['hashtags']))[:10]  # Максимум 10
             merged_result['insights'] = list(set(merged_result['insights']))[:10]  # Максимум 10
             
-            return {
+            logger.info(f"📤 Финальный merged_result перед возвратом: {json.dumps(merged_result, ensure_ascii=False, indent=2)[:500]}")
+            logger.info(f"📊 Размер merged_result: {len(str(merged_result))} символов")
+            
+            response_data = {
                 'success': True,
                 'data': merged_result
-            }, 200
+            }
+            
+            logger.info(f"📤 Финальный response_data: success={response_data['success']}, data keys={list(response_data['data'].keys()) if response_data['data'] else 'None'}")
+            
+            return response_data, 200
             
         except Exception as e:
             logger.error(f"Ошибка анализа ссылок: {e}", exc_info=True)
