@@ -151,41 +151,42 @@ class VertexAIMCP(BaseMCPIntegration):
             try:
                 logger.info(f"Попытка генерации текста через Gemini модель: {model_name}")
                 model = GenerativeModel(model_name)
-            
-            # Параметры генерации
-            generation_config = {
-                "temperature": kwargs.get('temperature', 0.7),
-                "top_p": kwargs.get('top_p', 0.95),
-                "top_k": kwargs.get('top_k', 40),
-                "max_output_tokens": kwargs.get('max_tokens', 2000),
-            }
-            
-            response = model.generate_content(
-                prompt,
-                generation_config=generation_config
-            )
-            
-            # Улучшенная обработка ответа от Vertex AI
-            generated_text = ""
-            if hasattr(response, 'text') and response.text:
-                generated_text = response.text.strip()
-            elif hasattr(response, 'candidates') and response.candidates:
-                # Пытаемся извлечь текст из кандидатов
-                try:
-                    if response.candidates[0].content and response.candidates[0].content.parts:
-                        generated_text = response.candidates[0].content.parts[0].text.strip()
-                except (AttributeError, IndexError) as e:
-                    logger.warning(f"Не удалось извлечь текст из кандидатов: {e}")
-            else:
-                logger.warning(f"Неожиданный формат ответа от Vertex AI: {type(response)}")
-                # Последняя попытка - преобразовать в строку
-                generated_text = str(response).strip()
-            
-            # Очищаем от пустых ответов
-            if not generated_text or len(generated_text) < 10:
-                logger.warning(f"Vertex AI вернул слишком короткий или пустой текст: '{generated_text}'")
+                
+                # Параметры генерации
+                generation_config = {
+                    "temperature": kwargs.get('temperature', 0.7),
+                    "top_p": kwargs.get('top_p', 0.95),
+                    "top_k": kwargs.get('top_k', 40),
+                    "max_output_tokens": kwargs.get('max_tokens', 2000),
+                }
+                
+                response = model.generate_content(
+                    prompt,
+                    generation_config=generation_config
+                )
+                
+                # Улучшенная обработка ответа от Vertex AI
                 generated_text = ""
-            
+                if hasattr(response, 'text') and response.text:
+                    generated_text = response.text.strip()
+                elif hasattr(response, 'candidates') and response.candidates:
+                    # Пытаемся извлечь текст из кандидатов
+                    try:
+                        if response.candidates[0].content and response.candidates[0].content.parts:
+                            generated_text = response.candidates[0].content.parts[0].text.strip()
+                    except (AttributeError, IndexError) as e:
+                        logger.warning(f"Не удалось извлечь текст из кандидатов: {e}")
+                else:
+                    logger.warning(f"Неожиданный формат ответа от Vertex AI: {type(response)}")
+                    # Последняя попытка - преобразовать в строку
+                    generated_text = str(response).strip()
+                
+                # Очищаем от пустых ответов
+                if not generated_text or len(generated_text) < 10:
+                    logger.warning(f"Vertex AI вернул слишком короткий или пустой текст: '{generated_text}'")
+                    # Продолжаем к следующей модели
+                    continue
+                
                 logger.info(f"✅ Текст успешно сгенерирован через модель {model_name}")
                 return MCPResponse.success_response(
                     data={
