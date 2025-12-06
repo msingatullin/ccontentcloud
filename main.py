@@ -342,6 +342,26 @@ async def initialize_orchestrator():
     try:
         logger.info("Инициализация оркестратора...")
         
+        # ИСПРАВЛЕНИЕ: импортируем агентов внутри функции, если они не были импортированы ранее
+        # Это необходимо, т.к. глобальный импорт может не выполниться из-за ошибок в других модулях
+        try:
+            # Пробуем использовать уже импортированные классы
+            _ = ChiefContentAgent
+        except NameError:
+            # Если не импортированы, импортируем здесь
+            logger.info("Импорт агентов внутри initialize_orchestrator (глобальный импорт не выполнился)")
+            from app.agents.chief_agent import ChiefContentAgent
+            from app.agents.drafting_agent import DraftingAgent
+            from app.agents.publisher_agent import PublisherAgent
+            from app.agents.research_factcheck_agent import ResearchFactCheckAgent
+            from app.agents.trends_scout_agent import TrendsScoutAgent
+            from app.agents.multimedia_producer_agent import MultimediaProducerAgent
+            from app.agents.legal_guard_agent import LegalGuardAgent
+            from app.agents.repurpose_agent import RepurposeAgent
+            from app.agents.community_concierge_agent import CommunityConciergeAgent
+            from app.agents.paid_creative_agent import PaidCreativeAgent
+            from app.orchestrator.main_orchestrator import orchestrator
+        
         # Создаем агентов
         chief_agent = ChiefContentAgent("chief_001")
         drafting_agent = DraftingAgent("drafting_001")
@@ -373,7 +393,7 @@ async def initialize_orchestrator():
         logger.info(f"Зарегистрировано агентов: {len(orchestrator.agent_manager.agents)}")
         
     except Exception as e:
-        logger.error(f"Ошибка инициализации оркестратора: {e}")
+        logger.error(f"Ошибка инициализации оркестратора: {e}", exc_info=True)
         raise
 
 def run_initialization():
